@@ -20,3 +20,4 @@ number, fill it in, then add it to the index below.
 
 | # | Title | Status |
 |---|---|---|
+| 0001 | [The target mod's TOML file is the integration surface](0001-toml-file-is-the-integration-surface.md) | Accepted |

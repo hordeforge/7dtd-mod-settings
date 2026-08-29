@@ -11,13 +11,25 @@ Adds a Mod Settings screen to the in-game options menu, listing every installed 
 
 ## Design
 
-- [ ] Break the purpose above into concrete gameplay decisions in
+- [x] Break the purpose above into concrete gameplay decisions in
       `docs/design.md` (dated `Decided:` entries); raise open questions for
       the user instead of inventing answers.
 
 ## Implementation
 
-- [ ] (add tasks as the design firms up)
+- [ ] TOML document parser: extend `TomlSettings.cs` with span/comment
+      capture (each key's raw value span + preceding comment block +
+      typed kind), reusing the existing value reader; plus the in-place
+      writer that replaces only an edited key's value span. Offline
+      round-trip gate in `scripts/`.
+- [ ] Discovery: enumerate loaded mods' `Config/<Mod>.toml` files;
+      unreadable files listed but not editable.
+- [ ] XUi "Mod Settings" screen: options-menu tab (XUi_Menu patches),
+      mod list + per-key rows (toggle for bools, text fields otherwise),
+      comment block as help text, in-place write-back on edit.
+- [ ] Live-reload awareness: detect the Anvil settings component in the
+      target mod (restart-required label otherwise) and confirm a save
+      was re-read from the log line after writing.
 
 ## Testing
 
@@ -25,6 +37,9 @@ Adds a Mod Settings screen to the in-game options menu, listing every installed 
 - [ ] First in-game validation: `make build`, deploy per
       `docs/reference/environment.md`, verify the log is clean of XPath
       errors AND the change is visible in game.
+- [ ] Live check against AtomicDoomsday's TOML on this machine: edit
+      RaidMode from the UI, confirm Atomic logs the reload (shared
+      playtest lock applies).
 
 ## Open questions
 

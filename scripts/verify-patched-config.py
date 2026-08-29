@@ -28,8 +28,12 @@ import sys
 import xml.etree.ElementTree as ET
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# ModInfo Name == directory name (enforced by test_static_checks.py)
-MOD_NAME = os.path.basename(MOD_DIR)
+# The checkout is named after the repo slug; ModInfo.xml Name is the mod
+# (test_static_checks.py holds it to the build tooling).
+MOD_NAME = next(
+    p.get("value") or ""
+    for p in ET.parse(os.path.join(MOD_DIR, "ModInfo.xml")).getroot()
+    if p.tag == "Name")
 
 # Patches whose value depends on landing inside a specific parent. These are
 # the ones a wrong-but-valid XPath would silently misplace.

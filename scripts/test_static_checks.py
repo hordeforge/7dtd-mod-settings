@@ -7,8 +7,11 @@ Deterministic, offline, no game install needed:
 - every Config/*.xml patch file uses a `<configs>` root (declared
   exceptions only — a full-file override or settings file is a decision,
   recorded here, not an accident)
-- ModInfo.xml carries the required fields, and its Name matches the mod
-  directory name
+- ModInfo.xml carries the required fields, and its Name matches the name
+  the build tooling stages (build.sh MOD_NAME and, for C# mods, the
+  src/<Name>/<Name>.csproj project). The checkout directory is the repo
+  slug (7dtd-mod-settings) and deliberately not the mod name; the
+  deployable folder name comes from `make build` staging dist/<Name>/.
 - localization ships at Config/Localization.csv, never the mod root (the
   engine only loads mod localization from <mod>/Config/)
 - no pre-V3 XUi shapes: no Config/XUi/ directory, no `{binding}` syntax
@@ -79,10 +82,24 @@ def main() -> int:
                   for p in ET.parse(modinfo).getroot()}
         for field in ("Name", "DisplayName", "Description", "Author", "Version"):
             check("modinfo-field:" + field, bool(values.get(field)), "empty or missing")
-        dirname = os.path.basename(MOD_DIR)
-        check("modinfo-name-matches-directory",
-              values.get("Name", "") == dirname,
-              f"Name={values.get('Name', '')!r} but directory is {dirname!r}")
+        # The checkout is named after the repo slug, so the directory name
+        # cannot vouch for the mod name. The build tooling can: build.sh
+        # stages dist/<MOD_NAME>/ and the csproj compiles <Name>.dll, and a
+        # mismatch there ships a modlet whose folder disagrees with its
+        # ModInfo.
+        name = values.get("Name", "")
+        with open(os.path.join(MOD_DIR, "scripts", "build.sh"),
+                  encoding="utf-8") as handle:
+            build_names = re.findall(r'^MOD_NAME="([^"]+)"$', handle.read(),
+                                     re.MULTILINE)
+        check("modinfo-name-matches-build",
+              build_names == [name],
+              f"Name={name!r} but scripts/build.sh MOD_NAME={build_names!r}")
+        if os.path.isdir(os.path.join(MOD_DIR, "src")):
+            check("modinfo-name-matches-csproj",
+                  os.path.isfile(os.path.join(MOD_DIR, "src", name,
+                                              name + ".csproj")),
+                  f"src/{name}/{name}.csproj is missing")
 
     check("release-readme-exists",
           os.path.isfile(os.path.join(MOD_DIR, "README.txt")),
