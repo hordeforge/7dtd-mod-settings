@@ -14,9 +14,26 @@ namespace Wrench
 	/// file that is not this mod's settings cannot be mistaken for one.
 	/// Array values are joined with commas so <see cref="ModSettings.TrySet"/>
 	/// can keep one value grammar with the console command.
+	///
+	/// <see cref="TryReadDocument"/> is the same grammar with capture: each
+	/// entry also carries its raw value span in the text, its value kind, and
+	/// the comment block directly above the key (contiguous <c>#</c> lines;
+	/// a blank line breaks the block; a comment trailing a value on the same
+	/// line belongs to no key). The Mod Settings screen edits other mods'
+	/// TOML files through these spans so everything outside the edited value
+	/// survives byte-for-byte (<see cref="TomlEdit"/>).
 	/// </summary>
 	internal static class TomlSettings
 	{
+		internal enum ValueKind
+		{
+			Bool,
+			Int,
+			Float,
+			String,
+			Array,
+		}
+
 		internal sealed class Entry
 		{
 			public readonly string Name;
@@ -29,9 +46,43 @@ namespace Wrench
 			}
 		}
 
+		internal sealed class DocEntry
+		{
+			public readonly string Name;
+			/// <summary>Normalized value, in the TrySet grammar.</summary>
+			public readonly string Value;
+			public readonly ValueKind Kind;
+			/// <summary>Start of the raw value token in the file text.</summary>
+			public readonly int ValueStart;
+			public readonly int ValueLength;
+			/// <summary>Comment block directly above the key, '#' stripped; "" when none.</summary>
+			public readonly string Comment;
+
+			public DocEntry(string name, string value, ValueKind kind, int valueStart, int valueLength, string comment)
+			{
+				Name = name;
+				Value = value;
+				Kind = kind;
+				ValueStart = valueStart;
+				ValueLength = valueLength;
+				Comment = comment;
+			}
+		}
+
 		public static bool TryRead(string text, out List<Entry> entries, out string error)
 		{
 			entries = new List<Entry>();
+			List<DocEntry> doc;
+			if (!TryReadDocument(text, out doc, out error))
+				return false;
+			for (var i = 0; i < doc.Count; i++)
+				entries.Add(new Entry(doc[i].Name, doc[i].Value));
+			return true;
+		}
+
+		public static bool TryReadDocument(string text, out List<DocEntry> entries, out string error)
+		{
+			entries = new List<DocEntry>();
 			error = null;
 			if (text == null)
 			{
@@ -57,14 +108,21 @@ namespace Wrench
 			int index;
 			int line = 1;
 
+			// Comment-block capture. Comments consumed inside a value (a
+			// multiline array) or on the value's own closing line must not
+			// leak into the next key's help block.
+			readonly List<string> pendingComment = new List<string>();
+			bool captureComments = true;
+			bool lineHadContent;
+
 			public Reader(string text)
 			{
 				this.text = text;
 			}
 
-			public bool ReadFile(out List<Entry> entries, out string error)
+			public bool ReadFile(out List<DocEntry> entries, out string error)
 			{
-				entries = new List<Entry>();
+				entries = new List<DocEntry>();
 				error = null;
 				var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 				SkipIgnorable();
@@ -75,6 +133,9 @@ namespace Wrench
 						error = "line " + line + ": tables are not a settings key.";
 						return false;
 					}
+
+					var comment = string.Join("\n", pendingComment);
+					pendingComment.Clear();
 
 					string name;
 					if (!ReadBareKey(out name, out error))
@@ -87,15 +148,24 @@ namespace Wrench
 					}
 					index++;
 					SkipSpaces();
+					var valueStart = index;
 					string value;
-					if (!ReadValue(out value, out error))
+					ValueKind kind;
+					captureComments = false;
+					var ok = ReadValue(out value, out kind, out error);
+					if (!ok)
 						return false;
+					var valueLength = index - valueStart;
 					if (!seen.Add(name))
 					{
 						error = "line " + line + ": duplicate key '" + name + "'.";
 						return false;
 					}
-					entries.Add(new Entry(name, value));
+					entries.Add(new DocEntry(name, value, kind, valueStart, valueLength, comment));
+					// A comment trailing the value on its own line is not the
+					// next key's block; capture resumes on the next line.
+					SkipRestOfLine();
+					captureComments = true;
 					SkipIgnorable();
 				}
 				return true;
@@ -118,9 +188,10 @@ namespace Wrench
 				return true;
 			}
 
-			bool ReadValue(out string value, out string error)
+			bool ReadValue(out string value, out ValueKind kind, out string error)
 			{
 				value = null;
+				kind = ValueKind.Bool;
 				error = null;
 				if (AtEnd)
 				{
@@ -128,13 +199,22 @@ namespace Wrench
 					return false;
 				}
 				if (Peek == '"')
+				{
+					kind = ValueKind.String;
 					return ReadBasicString(out value, out error);
+				}
 				if (Peek == '[')
+				{
+					kind = ValueKind.Array;
 					return ReadArray(out value, out error);
+				}
 				if (Peek == 't' || Peek == 'f')
+				{
+					kind = ValueKind.Bool;
 					return ReadBoolean(out value, out error);
+				}
 				if (Peek == '+' || Peek == '-' || IsDigit(Peek))
-					return ReadNumber(out value, out error);
+					return ReadNumber(out value, out kind, out error);
 
 				error = "line " + line + ": unsupported value.";
 				return false;
@@ -196,7 +276,8 @@ namespace Wrench
 				while (!AtEnd && Peek != ']')
 				{
 					string item;
-					if (!ReadValue(out item, out error))
+					ValueKind itemKind;
+					if (!ReadValue(out item, out itemKind, out error))
 						return false;
 					parts.Add(item);
 					SkipIgnorable();
@@ -239,9 +320,10 @@ namespace Wrench
 				return false;
 			}
 
-			bool ReadNumber(out string value, out string error)
+			bool ReadNumber(out string value, out ValueKind kind, out string error)
 			{
 				value = null;
+				kind = ValueKind.Int;
 				error = null;
 				var start = index;
 				if (Peek == '+' || Peek == '-')
@@ -269,6 +351,7 @@ namespace Wrench
 				var token = text.Substring(start, index - start);
 				if (isFloat)
 				{
+					kind = ValueKind.Float;
 					double parsed;
 					if (!double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out parsed))
 					{
@@ -302,6 +385,18 @@ namespace Wrench
 				return true;
 			}
 
+			// Consumes spaces and an optional comment trailing a value, up to
+			// (not including) the newline, so it is never captured as the
+			// next key's comment block. Accepts exactly what SkipIgnorable
+			// would have; the grammar is unchanged.
+			void SkipRestOfLine()
+			{
+				SkipSpaces();
+				if (!AtEnd && Peek == '#')
+					while (!AtEnd && Peek != '\n')
+						index++;
+			}
+
 			void SkipIgnorable()
 			{
 				while (!AtEnd)
@@ -311,12 +406,19 @@ namespace Wrench
 						return;
 					if (Peek == '#')
 					{
+						var start = index + 1;
 						while (!AtEnd && Peek != '\n')
 							index++;
+						if (captureComments)
+							pendingComment.Add(text.Substring(start, index - start).Trim());
+						lineHadContent = true;
 						continue;
 					}
 					if (Peek == '\n')
 					{
+						if (!lineHadContent && captureComments)
+							pendingComment.Clear();
+						lineHadContent = false;
 						index++;
 						line++;
 						continue;

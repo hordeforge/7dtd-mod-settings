@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Build output stays out of scripts/: test_upstream_tooling.py scans
+         script content, and compiled hosts contain incidental matches. -->
+    <BaseOutputPath>../../.tmp/toml_gate/bin/</BaseOutputPath>
+    <BaseIntermediateOutputPath>../../.tmp/toml_gate/obj/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The classes under test, compiled as shipped: no game references. -->
+    <Compile Include="../../src/Wrench/TomlSettings.cs" />
+    <Compile Include="../../src/Wrench/TomlEdit.cs" />
+  </ItemGroup>
+</Project>
