@@ -12,6 +12,31 @@ A 7 Days to Die mod. Scaffolded from
 directory itself — `make build` stages the deployable copy under
 `dist/Wrench/`, `make package` zips it for release.
 
+## What it does
+
+- **Mod Settings tab** in the regular options menu (pause menu → Options
+  and main menu → Options), pure XUi XML + ModAPI, no Harmony patches
+  ([ADR 0002](docs/adr/0002-options-tab-via-xui-patch-no-harmony.md)).
+- **Discovery**: every loaded mod with a `Config/<Mod>.toml` appears; a
+  file the TOML-subset parser rejects is listed as unreadable and never
+  written to.
+- **Editing**: booleans toggle on click; numbers, strings, and arrays
+  are text fields saved on Enter. The comment block above a key is its
+  help text, shown in the description panel on hover.
+- **In-place write-back**: only the edited key's value span changes; the
+  file is byte-identical everywhere else, so comments and layout survive
+  ([ADR 0001](docs/adr/0001-toml-file-is-the-integration-surface.md)).
+- **Live-reload awareness**: mods built on Anvil's settings component
+  are labeled applies-live, and after a save the status reports whether
+  the mod actually re-read the file (its own reload log line); others
+  are marked restart-required. A joined client is told edits change only
+  its local copy.
+- Wrench's own `Config/Wrench.toml` shows up in its own UI.
+
+Deliberately not built in v1 (see `docs/design.md`): `# ui:` comment
+annotations for labels/ranges/enums, pushing server-side edits through
+an authenticated channel, and a WebMod panel over the same file surface.
+
 ## Build and test
 
 ```bash
@@ -24,6 +49,7 @@ make verify-patched-config  # every patch element proven applied, from a save's 
 make validate-patch-targets # every [HarmonyPatch] target against Assembly-CSharp (ilspycmd)
 make install-server         # provision the dedicated server via SteamCMD (EAC off)
 make server-smoke           # deploy + boot the server briefly, prove the mod loaded
+make playtest               # live wrench-mod-settings suite via hordeforge/7dtd-playtest
 ```
 
 Host tools: `python3`, `git`, `make`, `shellcheck`, `zip`; `dotnet` (net48

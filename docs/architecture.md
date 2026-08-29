@@ -25,6 +25,36 @@ build tooling (`scripts/build.sh` `MOD_NAME`, `src/Wrench/Wrench.csproj`)
 instead of the directory name; the deployable folder name comes from
 `make build` staging `dist/Wrench/`.
 
+## Decided 2026-08-30: options-menu integration is XUi XML plus a dialog subclass
+
+No Harmony (see [ADR 0002](adr/0002-options-tab-via-xui-patch-no-harmony.md)):
+the options paging header opens the window group named by a tab button
+(`XUiC_WindowSelector.OpenSelectedWindow`, read with ilspycmd on the
+installed V3.2.0 Assembly-CSharp), so a `pagingheader_button` inserted by
+XPath into `optionsPaging` plus an appended window group is the whole
+integration. The screen controller subclasses the game's public
+`XUiC_OptionsDialogBase` for back/ESC handling, selector selection, and
+the hovered-description panel (fed via the controller's own
+`CustomAttributes`, which `options_descriptions` falls back to).
+
+## Decided 2026-08-30: live-reload awareness
+
+A target mod is labeled hot-reloading when any of its assemblies has a
+`ModSettings` type with the `FilePollIntervalSeconds` constant (the Anvil
+settings component's debounced save watch). After a save the screen
+subscribes to `Log.LogCallbacks` and reports applied-live only once that
+mod's own `settings (reload Config/<Mod>.toml)` line appears; mods
+without the component are marked restart-required up front.
+
+## Decided 2026-08-30: pooled XUi rows
+
+Mod list and setting rows are fixed pools built by a grid with
+`repeat_content` (vanilla's keyboard-bindings-list pattern); unused rows
+hide via a binding, overflow past the pool is logged and not shown.
+Booleans toggle on press; every other kind is a text field that saves on
+Enter (strings are decoded for display and re-encoded on save; other
+kinds show the raw token).
+
 ## Open questions
 
 - (none yet)
