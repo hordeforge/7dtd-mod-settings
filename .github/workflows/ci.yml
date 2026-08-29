@@ -1,0 +1,30 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline gates
+        run: make test
+      - name: Shellcheck
+        run: make lint-shell
+      - name: Package layout (no game install -> XML-only package)
+        # The DLL build needs the proprietary game assemblies; prove the
+        # packaging path without it, exactly like the template's own CI.
+        run: |
+          rm -rf src
+          make package
+          unzip -l dist/Wrench.zip | grep -q "Wrench/ModInfo.xml"

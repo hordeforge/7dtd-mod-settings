@@ -1,4 +1,9 @@
-# Wrench (Mod Settings)
+# 🔧 Wrench (Mod Settings)
+
+> **Part of [HordeForge](https://github.com/hordeforge)**: High-Performance Systems Engineering for 7 Days to Die.
+
+![CI](https://github.com/hordeforge/7dtd-mod-settings/actions/workflows/ci.yml/badge.svg)
+![license](https://img.shields.io/github/license/hordeforge/7dtd-mod-settings)
 
 Adds a Mod Settings screen to the in-game options menu, listing every installed mod that ships a Config/<Mod>.toml settings file and letting the player view and edit those settings from the UI. Edits are written back in place to the mod's own TOML; mods built on Anvil's settings component apply them live through their existing hot-reload watch, with no coupling between this mod and theirs.
 

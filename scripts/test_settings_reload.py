@@ -15,9 +15,15 @@ from __future__ import annotations
 
 import os
 import sys
+import xml.etree.ElementTree as ET
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MOD_NAME = os.path.basename(MOD_DIR)
+# The checkout is named after the repo slug, not the mod; ModInfo.xml is
+# the authority (test_static_checks.py holds it to the build tooling).
+MOD_NAME = next(
+    p.get("value") or ""
+    for p in ET.parse(os.path.join(MOD_DIR, "ModInfo.xml")).getroot()
+    if p.tag == "Name")
 SRC = os.path.join(MOD_DIR, "src", MOD_NAME)
 
 FAILURES: list[str] = []
