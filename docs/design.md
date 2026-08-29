@@ -38,9 +38,32 @@ half-parsed, never written back to.
 
 ## Deliberately not built (v1)
 
-- `# ui:` annotations in TOML comments for labels, ranges, and enums.
+- `# ui:` annotations in TOML comments (planned; convention below).
 - Pushing server-side edits through an authenticated channel.
 - A WebMod panel reusing the same file surface.
+
+## Planned convention: `# ui:` comment annotations
+
+Decided 2026-08-30 (user: RaidMode "should be checkboxes, to select all,
+none or the specific nuke yields"), not yet implemented. A target mod may
+end a key's comment block with one structured line; Wrench stays
+decoupled because the line is data in the mod's own file, and the mod's
+own TrySet still validates every value:
+
+```toml
+# ui: flags Tactical,DavyCrockett,Test
+RaidMode = false
+```
+
+- `# ui: flags <token>[,<token>...]` — multi-select checkboxes plus an
+  "all" master. Writes `true` (all checked), `false` (none), else the
+  array of checked tokens.
+- `# ui: enum <value>[,<value>...]` — single choice.
+- `# ui: range <min>..<max>` — numeric bounds for validation.
+
+Until the renderer lands, the line is an ordinary comment: it shows in
+the help text and the raw text field already accepts every value shape.
+When it lands, `# ui:` lines are stripped from the displayed help.
 
 ## Open questions
 

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xml>
+	<Name value="WrenchPlaytest" />
+	<DisplayName value="Wrench Playtest" />
+	<Description value="Scenario provider for 7dtd-playtest. Test tooling only; requires Wrench, AtomicDoomsday and 7dtd-playtest." />
+	<Author value="ywy50" />
+	<Version value="0.1.0.0" />
+	<Website value="" />
+	<SkipWithAntiCheat value="true" />
+</xml>
