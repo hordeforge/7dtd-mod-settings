@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xml>
+	<Name value="Wrench" />
+	<DisplayName value="Wrench (Mod Settings)" />
+	<Description value="Adds a Mod Settings screen to the in-game options menu, listing every installed mod that ships a Config/&lt;Mod&gt;.toml settings file and letting the player view and edit those settings from the UI." />
+	<Author value="ywy50" />
+	<Version value="0.1.0.0" />
+	<Website value="" />
+	<SkipWithAntiCheat value="true" />
+</xml>

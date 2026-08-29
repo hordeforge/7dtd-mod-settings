@@ -1,0 +1,9 @@
+<configs>
+	<!-- XPath patches against vanilla Data/Config/items.xml go here.
+	     Conventions: docs/reference/xml-patching.md and agent-rules.md.
+	     Delete this file if the mod does not patch items.xml; add sibling
+	     Config/<file>.xml patches mirroring the vanilla file names.
+
+	<set xpath="/items/item[@name='someVanillaItem']/property[@name='SomeProp']/@value">42</set>
+	-->
+</configs>

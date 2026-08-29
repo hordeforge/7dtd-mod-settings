@@ -1,0 +1,17 @@
+# Example payload for the shared playtest exclusivity lock.
+# Live path: ~/.cache/7dtd-playtest/playtest_running — hordeforge/7dtd-playtest
+# owns the lock and this is its own default, so every stack resolves the same
+# file with no environment set. It deliberately lives outside every checkout.
+# Contract: repository root AGENTS.md — "Playtest / live-client exclusivity".
+#
+# When a session holds the shared live client (runners refresh heartbeat ~30s):
+running=yes
+session=grok-20260810-231500-a1b2c3d4e5f6
+acquired=2026-08-10T15:00:00Z
+heartbeat=2026-08-10T15:00:30Z
+#
+# Fresh heartbeat (age ≤ PLAYTEST_LOCK_STALE_SEC, default 120) ⇒ still running.
+# Stale heartbeat + no DaysToDie process ⇒ may reclaim.
+#
+# When free (omit session/timestamps):
+# running=no

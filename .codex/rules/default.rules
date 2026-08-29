@@ -1,0 +1,21 @@
+prefix_rule(
+    pattern = ["git", "add", ["-A", "--all", "."]],
+    decision = "forbidden",
+    justification = "Stage explicit paths only; do not use broad git add forms in this repository",
+    match = [
+        "git add -A",
+        "git add --all",
+        "git add .",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "commit", ["-a", "--all", "-am"]],
+    decision = "forbidden",
+    justification = "Commit only staged explicit paths; do not use git commit broad staging shortcuts",
+    match = [
+        "git commit -a",
+        "git commit --all",
+        "git commit -am update",
+    ],
+)

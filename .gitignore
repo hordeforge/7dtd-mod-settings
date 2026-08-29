@@ -1,0 +1,20 @@
+dist/
+**/bin/
+**/obj/
+**/__pycache__/
+.local.env
+.local/
+.scratch/
+.tmp/
+*.pdb
+*.log
+*.user
+
+# shamway working directory: Unity logs and unstaged build output.
+.shamway/
+
+# agent-harness state; the committed codex rules stay tracked
+.claude/
+.codex/*
+!.codex/rules/
+!.codex/rules/default.rules

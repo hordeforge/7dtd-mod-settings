@@ -1,0 +1,15 @@
+# Wrench (Mod Settings) settings. The DLL reads this file from the
+# installed mod folder (Mods/Wrench/Config/Wrench.toml) at
+# startup and again whenever you save it; no restart. It is not a game
+# XML patch. `wrench set <name> <value>` changes this process
+# until the file is re-read; `wrench reload` re-reads
+# immediately. See `help wrench`.
+#
+# Keys match the console names. Unknown keys and bad values fail loud
+# (a warning in the log) and leave the default in place. Supported values:
+# booleans, integers, floats, "strings", and arrays of those. Tables and
+# dotted keys are rejected.
+
+# Example setting; replace with this mod's real options (each one needs
+# its ModSettings.cs counterpart — see that file's header comment).
+ExampleEnabled = false

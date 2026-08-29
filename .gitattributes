@@ -1,0 +1,20 @@
+# Pin script line endings: these files break under a CRLF checkout.
+# Kept inside this mod directory so it stays self-contained when extracted.
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.cs text eol=lf
+Makefile text eol=lf
+*.mk text eol=lf
+
+# Shipped binaries must never be guessed at or converted.
+*.png binary
+*.jpg binary
+*.tga binary
+*.dds binary
+*.wav binary
+*.ogg binary
+*.ttf binary
+*.unity3d binary
+*.dll binary
+*.exe binary
