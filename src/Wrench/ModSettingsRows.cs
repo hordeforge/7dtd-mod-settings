@@ -68,9 +68,12 @@ namespace Wrench
 		public override void Init()
 		{
 			base.Init();
+			// The press wiring goes on the button view (it owns the collider),
+			// never the wrapping rect: a rect gets no click events at all.
 			var toggle = GetChildById("boolToggle");
-			if (toggle != null)
-				toggle.OnPress += OnTogglePress;
+			var clickable = toggle == null ? null : toggle.GetChildById("clickable");
+			if (clickable != null)
+				clickable.OnPress += OnTogglePress;
 			var text = GetChildById("txtValue");
 			if (text != null)
 			{

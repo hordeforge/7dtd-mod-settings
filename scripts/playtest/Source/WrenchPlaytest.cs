@@ -135,7 +135,9 @@ namespace WrenchPlaytest
 					ctx.Detail = "mod settings screen open on AtomicDoomsday";
 					return LocalPlayerUI.primaryUI.windowManager.IsWindowOpen(GroupName);
 				},
-				holdSeconds: 20f));
+				// Long enough for a human at the client to click through the
+				// screen (mod rows, toggles, text fields) during the hold.
+				holdSeconds: 90f));
 
 			queue.Add(CaseDef.Live(label, "close_screen", new[] { "ui" },
 				act: ctx => LocalPlayerUI.primaryUI.windowManager.Close(GroupName),

@@ -47,10 +47,16 @@ namespace Wrench
 			Reload();
 		}
 
-		/// <summary>The log line the Anvil component emits after re-reading a save.</summary>
+		/// <summary>
+		/// Substring of the log line the settings component emits after
+		/// re-reading a save. Component vintages phrase the line differently
+		/// ("settings (reload Config/X.toml)" vs "settings from reload
+		/// Config/X.toml:", proven live against AtomicDoomsday), so only the
+		/// shared "reload Config/&lt;Mod&gt;.toml" part is matched.
+		/// </summary>
 		public string ReloadLogMarker
 		{
-			get { return "settings (reload Config/" + Mod.Name + ".toml)"; }
+			get { return "reload Config/" + Mod.Name + ".toml"; }
 		}
 
 		public void Reload()
