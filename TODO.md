@@ -22,14 +22,23 @@ Adds a Mod Settings screen to the in-game options menu, listing every installed 
       typed kind), reusing the existing value reader; plus the in-place
       writer that replaces only an edited key's value span. Offline
       round-trip gate in `scripts/`.
-- [ ] Discovery: enumerate loaded mods' `Config/<Mod>.toml` files;
+- [x] Discovery: enumerate loaded mods' `Config/<Mod>.toml` files;
       unreadable files listed but not editable.
-- [ ] XUi "Mod Settings" screen: options-menu tab (XUi_Menu patches),
+- [-] XUi "Mod Settings" screen: options-menu tab (XUi_Menu patches),
       mod list + per-key rows (toggle for bools, text fields otherwise),
       comment block as help text, in-place write-back on edit.
-- [ ] Live-reload awareness: detect the Anvil settings component in the
+      in progress — Claude, 2026-08-30; session: claude-20260829-183855-553b7f4344e0
+      (renders and edits live; mouse interactivity being verified with a
+      human at the client)
+- [-] Live-reload awareness: detect the Anvil settings component in the
       target mod (restart-required label otherwise) and confirm a save
       was re-read from the log line after writing.
+      in progress — Claude, 2026-08-30; session: claude-20260829-183855-553b7f4344e0
+      (marker fixed after run2: Atomic phrases the line 'settings from
+      reload', template 'settings (reload'; rerun pending)
+- [ ] UI polish (user: "we can improve the ui still"): clearer toggle
+      affordance for booleans, tidy the double row/value borders, mod
+      description under the header, hover highlight on rows.
 
 ## Testing
 
