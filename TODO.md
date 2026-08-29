@@ -17,7 +17,7 @@ Adds a Mod Settings screen to the in-game options menu, listing every installed 
 
 ## Implementation
 
-- [ ] TOML document parser: extend `TomlSettings.cs` with span/comment
+- [x] TOML document parser: extend `TomlSettings.cs` with span/comment
       capture (each key's raw value span + preceding comment block +
       typed kind), reusing the existing value reader; plus the in-place
       writer that replaces only an edited key's value span. Offline
