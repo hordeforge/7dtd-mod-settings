@@ -24,31 +24,41 @@ Adds a Mod Settings screen to the in-game options menu, listing every installed 
       round-trip gate in `scripts/`.
 - [x] Discovery: enumerate loaded mods' `Config/<Mod>.toml` files;
       unreadable files listed but not editable.
-- [-] XUi "Mod Settings" screen: options-menu tab (XUi_Menu patches),
-      mod list + per-key rows (toggle for bools, text fields otherwise),
-      comment block as help text, in-place write-back on edit.
-      in progress — Claude, 2026-08-30; session: claude-20260829-183855-553b7f4344e0
-      (renders and edits live; mouse interactivity being verified with a
-      human at the client)
-- [-] Live-reload awareness: detect the Anvil settings component in the
+- [x] XUi "Mod Settings" screen: options-menu tab (XUi_Menu patches),
+      mod list + per-key rows (raw-token text fields, one-click flip for
+      booleans), comment block as help text, in-place write-back on edit.
+      Human-verified clickable 2026-08-30 after the scrollview depth fix
+      (docs/architecture.md).
+- [x] Live-reload awareness: detect the Anvil settings component in the
       target mod (restart-required label otherwise) and confirm a save
-      was re-read from the log line after writing.
-      in progress — Claude, 2026-08-30; session: claude-20260829-183855-553b7f4344e0
-      (marker fixed after run2: Atomic phrases the line 'settings from
-      reload', template 'settings (reload'; rerun pending)
-- [ ] UI polish (user: "we can improve the ui still"): clearer toggle
-      affordance for booleans, tidy the double row/value borders, mod
-      description under the header, hover highlight on rows.
+      was re-read from the log line after writing. Proven live: suite
+      run3, all six wrench-mod-settings cases PASS.
+- [ ] `# ui:` annotation renderer per the convention in docs/design.md
+      (flags → checkboxes with an "all" master, enum, range); strip
+      `# ui:` lines from displayed help. First consumer: AtomicDoomsday's
+      RaidMode (user 2026-08-30: "should be checkboxes, to select all,
+      none or the specific nuke yields").
+- [ ] UI polish: the right-hand description panel's text is very small
+      (user 2026-08-30); a dark backdrop so the 3D world does not bleed
+      through the page; tidy the double row/value borders; mod
+      description under the header; hover highlight on rows.
+- [ ] Mouse wheel over a row does not scroll the list (row collider does
+      not forward scroll; see docs/architecture.md). Lists currently fit
+      without scrolling.
 
 ## Testing
 
 - [ ] Keep `make test` and `make lint-shell` green on every change.
-- [ ] First in-game validation: `make build`, deploy per
-      `docs/reference/environment.md`, verify the log is clean of XPath
-      errors AND the change is visible in game.
-- [ ] Live check against AtomicDoomsday's TOML on this machine: edit
-      RaidMode from the UI, confirm Atomic logs the reload (shared
-      playtest lock applies).
+- [x] First in-game validation: XUi_Menu patches applied cleanly, screen
+      visible and interactive in game (2026-08-30, playtest suite +
+      manual client).
+- [x] Live check against AtomicDoomsday's TOML on this machine: edit
+      RaidMode from the UI, confirm Atomic logs the reload. PASS in
+      suite run3 (edit applied live in 673ms, restore byte-identical)
+      plus human toggle clicks confirmed in the client log.
+- [ ] Re-run `make playtest` after the raw-token row rework (cases drive
+      SaveEdit directly, so they should hold; the flip button and text
+      entry deserve one more human click-through).
 
 ## Open questions
 

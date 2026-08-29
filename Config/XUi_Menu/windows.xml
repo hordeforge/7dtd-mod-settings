@@ -26,6 +26,17 @@
 		pooled setting rows; booleans toggle on press, everything else is a
 		text field that saves on Enter. Rows past the pool are logged and
 		not shown.
+
+		depth="2" on each scrollview is load-bearing for INPUT, not looks:
+		XUi depths sum down the hierarchy, a scrollview is its own UIPanel
+		at that summed depth, and NGUI routes clicks to the collider with
+		the highest panel*1000+widget depth. Without it the sub-panel lands
+		at the window's depth (10), below the window's own panel (depth+1),
+		so the scrollarea's on_scroll collider (11010) swallowed every
+		click meant for the rows (10010) — the whole list was mouse-dead.
+		+2 lifts the rows to 12xxx. Vanilla's server-browser list uses the
+		same attribute for the same reason (measured live with a raycast
+		probe, 2026-08-30; XUiV_Panel/UIWidget.raycastDepth via ilspycmd).
 	-->
 	<append xpath="/windows">
 		<window name="wrenchModSettings" anchor="Top" pos="0,-88" width="1800" height="820" controller="Wrench.ModSettingsScreen, Wrench" cursor_area="true" depth="10">
@@ -36,7 +47,7 @@
 
 				<rect name="modsArea" pos="0,0" width="430" height="750" on_scroll="true" gamepad_selectable="false" snap="false">
 					<options_scrollbar />
-					<scrollview clippingsoftness="0,10" anchor_top="#parent,1,0" anchor_bottom="buttons,1,10">
+					<scrollview depth="2" clippingsoftness="0,10" anchor_top="#parent,1,0" anchor_bottom="buttons,1,10">
 						<grid pos="0,-4" cols="1" rows="24" cell_width="400" cell_height="66" repeat_content="true" arrangement="horizontal">
 							<rect name="modRow" controller="Wrench.WrenchModRow, Wrench" visible="{rowvisible}" width="400" height="62">
 								<sprite name="border" depth="1" width="400" height="62" sprite="menu_empty2px" type="sliced" fillcenter="false" color="{rowcolor}" />
@@ -50,18 +61,22 @@
 
 				<rect name="settingsArea" pos="450,-44" width="760" height="700" on_scroll="true" gamepad_selectable="false" snap="false">
 					<options_scrollbar />
-					<scrollview clippingsoftness="0,10" anchor_top="#parent,1,0" anchor_bottom="buttons,1,10">
+					<scrollview depth="2" clippingsoftness="0,10" anchor_top="#parent,1,0" anchor_bottom="buttons,1,10">
 						<grid pos="0,-4" cols="1" rows="48" cell_width="720" cell_height="47" repeat_content="true" arrangement="horizontal">
 							<rect name="settingRow" controller="Wrench.WrenchSettingRow, Wrench" visible="{rowvisible}" width="720" height="43" on_hover="true">
 								<sprite name="border" depth="1" width="720" height="43" sprite="menu_empty" type="sliced" fillcenter="false" color="[darkGrey]" />
 								<label name="key" depth="4" pos="10,-7" width="290" height="30" font_size="26" pivot="left" justify="left" text="{keyname}" color="[white]" on_hover="true" />
 
-								<rect name="boolToggle" depth="2" pos="310,-4" width="400" height="35" visible="{isbool}">
-									<button name="clickable" depth="2" sprite="menu_empty" defaultcolor="[black]" hoversprite="ui_game_select_row" hovercolor="[mediumGrey]" type="sliced" hoverscale="1.0" width="400" height="35" />
-									<label name="value" depth="4" pos="0,-3" width="400" height="30" font_size="26" pivot="left" justify="center" text="{boolvalue}" color="[lightGrey]" />
-								</rect>
+								<!-- Always the raw token (see XUiC_WrenchSettingRow):
+								     type-fluid keys like RaidMode need "all" or
+								     ["Tactical"] typeable in the same field. -->
+								<textfield name="txtValue" depth="5" pos="310,-4" width="352" height="35" font_size="26" bordercolor="64,64,64,255" vk_propagates_events="false" />
 
-								<textfield name="txtValue" depth="5" pos="310,-4" width="400" height="35" font_size="26" bordercolor="64,64,64,255" vk_propagates_events="false" visible="{istext}" />
+								<!-- One-click true/false flip, boolean values only. -->
+								<rect name="boolFlip" depth="2" pos="668,-4" width="45" height="35" visible="{isbool}">
+									<button name="clickable" depth="6" sprite="menu_empty" defaultcolor="[black]" hoversprite="ui_game_select_row" hovercolor="[mediumGrey]" type="sliced" hoverscale="1.0" width="45" height="35" />
+									<label name="flipLabel" depth="7" pos="0,-3" width="45" height="30" font_size="24" justify="center" text="&lt;&gt;" color="[white]" />
+								</rect>
 							</rect>
 						</grid>
 					</scrollview>

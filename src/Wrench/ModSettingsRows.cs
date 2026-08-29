@@ -52,10 +52,16 @@ namespace Wrench
 
 	/// <summary>
 	/// One editable setting (right column). A pooled grid child: the screen
-	/// assigns it a parsed entry or hides it. Booleans toggle on press;
-	/// everything else edits in the text field and saves on Enter. Every
-	/// save goes through <see cref="TargetMod.TrySave"/>, which validates
-	/// and replaces only the value span.
+	/// assigns it a parsed entry or hides it.
+	///
+	/// The text field always edits the RAW value token (quotes and all) and
+	/// saves on Enter. Raw, not decoded, because keys in this TOML subset
+	/// are type-fluid: AtomicDoomsday's RaidMode is legitimately false,
+	/// "all", or ["Tactical"], and a field that decoded strings could never
+	/// change a value's kind back. A boolean value additionally gets a
+	/// one-click flip button. Every save goes through
+	/// <see cref="TargetMod.TrySave"/>, which validates the token and
+	/// replaces only the value span.
 	/// </summary>
 	public class XUiC_WrenchSettingRow : XUiController
 	{
@@ -70,10 +76,10 @@ namespace Wrench
 			base.Init();
 			// The press wiring goes on the button view (it owns the collider),
 			// never the wrapping rect: a rect gets no click events at all.
-			var toggle = GetChildById("boolToggle");
-			var clickable = toggle == null ? null : toggle.GetChildById("clickable");
+			var flip = GetChildById("boolFlip");
+			var clickable = flip == null ? null : flip.GetChildById("clickable");
 			if (clickable != null)
-				clickable.OnPress += OnTogglePress;
+				clickable.OnPress += OnFlipPress;
 			var text = GetChildById("txtValue");
 			if (text != null)
 			{
@@ -90,17 +96,14 @@ namespace Wrench
 		{
 			Target = target;
 			Entry = entry;
-			if (textField != null && entry != null && entry.Kind != TomlSettings.ValueKind.Bool)
+			if (textField != null && entry != null)
 				textField.Text = EditableText(target, entry);
 			RefreshBindings();
 		}
 
-		/// <summary>What the text field shows: the decoded value for strings,
-		/// the raw token (collapsed to one line) for everything else.</summary>
+		/// <summary>The raw value token, collapsed to one line.</summary>
 		static string EditableText(TargetMod target, TomlSettings.DocEntry entry)
 		{
-			if (entry.Kind == TomlSettings.ValueKind.String)
-				return entry.Value;
 			var raw = target.Text.Substring(entry.ValueStart, entry.ValueLength);
 			return raw.Replace("\r", "").Replace('\n', ' ').Replace('\t', ' ');
 		}
@@ -112,7 +115,7 @@ namespace Wrench
 				Screen.ShowHelp(Entry);
 		}
 
-		void OnTogglePress(XUiController _sender, int _mouseButton)
+		void OnFlipPress(XUiController _sender, int _mouseButton)
 		{
 			if (Screen == null || Entry == null || Entry.Kind != TomlSettings.ValueKind.Bool)
 				return;
@@ -123,10 +126,7 @@ namespace Wrench
 		{
 			if (Screen == null || Entry == null)
 				return;
-			var raw = Entry.Kind == TomlSettings.ValueKind.String
-				? TomlEdit.EncodeString(_text)
-				: _text;
-			if (!Screen.SaveEdit(Entry, raw) && textField != null)
+			if (!Screen.SaveEdit(Entry, _text) && textField != null)
 				textField.Text = EditableText(Target, Entry);
 		}
 
@@ -143,14 +143,8 @@ namespace Wrench
 			case "keyname":
 				_value = Entry == null ? "" : Entry.Name;
 				return true;
-			case "boolvalue":
-				_value = Entry == null ? "" : Entry.Value;
-				return true;
 			case "isbool":
 				_value = (Entry != null && Entry.Kind == TomlSettings.ValueKind.Bool).ToString();
-				return true;
-			case "istext":
-				_value = (Entry != null && Entry.Kind != TomlSettings.ValueKind.Bool).ToString();
 				return true;
 			case "rowvisible":
 				_value = (Entry != null).ToString();

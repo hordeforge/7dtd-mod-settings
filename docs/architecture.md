@@ -55,6 +55,25 @@ Booleans toggle on press; every other kind is a text field that saves on
 Enter (strings are decoded for display and re-encoded on save; other
 kinds show the raw token).
 
+## Decided 2026-08-30: scrollview panels need an explicit depth bump
+
+XUi view depths sum down the hierarchy; a `scrollview` is its own UIPanel
+at that summed depth; NGUI raycasts pick the collider with the highest
+`panel.depth * 1000 + widget.depth`. A scrollview without a `depth`
+attribute therefore lands its panel at the window's depth, one below the
+window's own panel (`XUiV_Window` sets `depth + 1`) — and any collider
+directly in the window panel (a scrollarea's `on_scroll` collider) masks
+every control inside the scrollview. Both Mod Settings lists carry
+`depth="2"` for this reason; vanilla's server-browser list does the same.
+Measured live with a raycast probe on 2026-08-30 after the whole screen
+was mouse-dead; sources: `XUiV_Panel`, `XUiV_Window`,
+`UIWidget.raycastDepth`, `NGUITools.CalculateRaycastDepth` (ilspycmd,
+V3.2.0).
+
+Known ceiling: the mouse wheel over a row hits the row's collider, which
+does not forward scroll, so wheel-scrolling works only beside the rows
+and via the scrollbar. Lists currently fit without scrolling.
+
 ## Open questions
 
 - (none yet)
