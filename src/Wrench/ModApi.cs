@@ -1,5 +1,8 @@
 using HarmonyLib;
+using System.Runtime.CompilerServices;
 using System.Reflection;
+
+[assembly: InternalsVisibleTo("WrenchPlaytest")]
 
 namespace Wrench
 {

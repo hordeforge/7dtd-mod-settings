@@ -21,8 +21,8 @@ namespace Wrench
 	/// </summary>
 	public class XUiC_ModSettingsScreen : XUiC_OptionsDialogBase
 	{
-		List<TargetMod> targets = new List<TargetMod>();
-		TargetMod selected;
+		internal List<TargetMod> targets = new List<TargetMod>();
+		internal TargetMod selected;
 		XUiC_WrenchModRow[] modRows = new XUiC_WrenchModRow[0];
 		XUiC_WrenchSettingRow[] settingRows = new XUiC_WrenchSettingRow[0];
 

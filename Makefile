@@ -1,6 +1,6 @@
 ROOT := $(CURDIR)
 
-.PHONY: build package test lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke clean build-assets validate-assets
+.PHONY: build package test lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke playtest clean build-assets validate-assets
 
 # Offline contract/unit suite: every scripts/test_*.py must exit 0.
 # Optional substring filters: make test TF="xml layout"
@@ -51,5 +51,10 @@ server-smoke:
 	$(ROOT)/scripts/server-smoke.sh
 
 
+# Live suite via hordeforge/7dtd-playtest (shared client lock; deploys
+# Wrench + AtomicDoomsday + the WrenchPlaytest provider).
+playtest:
+	$(ROOT)/scripts/playtest-maci.sh $(if $(SUITE),--suite "$(SUITE)",)
+
 clean:
-	rm -rf $(ROOT)/dist $(ROOT)/src/Wrench/bin $(ROOT)/src/Wrench/obj
+	rm -rf $(ROOT)/dist $(ROOT)/src/Wrench/bin $(ROOT)/src/Wrench/obj $(ROOT)/scripts/playtest/dist $(ROOT)/.tmp
