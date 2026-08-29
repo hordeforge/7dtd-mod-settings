@@ -1,0 +1,81 @@
+<configs>
+
+	<!--
+		The "Mod Settings" tab button in the options paging header. The
+		selector opens the window group named by the button's ID
+		(XUiC_WindowSelector.OpenSelectedWindow, V3.2.0 by ilspycmd), so the
+		name below is the window group appended in xui.xml. Inserted before
+		the right paging arrow so the tab sits after vanilla's own.
+	-->
+	<insertBefore xpath="/windows/window[@name='optionsPaging']//table[@name='tabButtons']/gamepad_icon[@name='controllericonRight']">
+		<pagingheader_button name="wrenchModSettings" text_key="wrenchModSettingsTab" />
+	</insertBefore>
+
+	<!--
+		The Mod Settings page. Frame copied from vanilla's options windows
+		(optionsGeneral geometry, options_buttons bottom bar,
+		options_descriptions right panel); the controller subclasses
+		XUiC_OptionsDialogBase so back/ESC, the selector selection, and the
+		description panel behave exactly like the vanilla options pages.
+		Controller resolution follows XUiFromXml's GetTypeWithPrefix
+		("XUiC_" inserted after the namespace): the attribute below lands on
+		Wrench.XUiC_ModSettingsScreen in the mod DLL.
+
+		Left: pooled mod-list rows (a grid with repeat_content, unused rows
+		hidden by binding, like vanilla's keyboard-bindings list). Right:
+		pooled setting rows; booleans toggle on press, everything else is a
+		text field that saves on Enter. Rows past the pool are logged and
+		not shown.
+	-->
+	<append xpath="/windows">
+		<window name="wrenchModSettings" anchor="Top" pos="0,-88" width="1800" height="820" controller="Wrench.ModSettingsScreen, Wrench" cursor_area="true" depth="10">
+			<rect name="content" pos="-900,-70" height="661">
+
+				<label name="selName" depth="3" pos="450,0" width="500" height="36" font_size="30" pivot="left" justify="left" text="{selmodname}" color="[white]" />
+				<label name="selFile" depth="3" pos="960,-4" width="260" height="28" font_size="22" pivot="left" justify="left" text="{selmodfile}" color="[mediumGrey]" />
+
+				<rect name="modsArea" pos="0,0" width="430" height="750" on_scroll="true" gamepad_selectable="false" snap="false">
+					<options_scrollbar />
+					<scrollview clippingsoftness="0,10" anchor_top="#parent,1,0" anchor_bottom="buttons,1,10">
+						<grid pos="0,-4" cols="1" rows="24" cell_width="400" cell_height="66" repeat_content="true" arrangement="horizontal">
+							<rect name="modRow" controller="Wrench.WrenchModRow, Wrench" visible="{rowvisible}" width="400" height="62">
+								<sprite name="border" depth="1" width="400" height="62" sprite="menu_empty2px" type="sliced" fillcenter="false" color="{rowcolor}" />
+								<button name="rowButton" depth="2" width="400" height="62" sprite="menu_empty" defaultcolor="16,16,16,255" hoversprite="ui_game_select_row" hovercolor="[white]" type="sliced" hoverscale="1.0" />
+								<label name="name" depth="4" pos="12,-6" width="376" height="28" font_size="26" pivot="left" justify="left" text="{modname}" />
+								<label name="note" depth="4" pos="12,-36" width="376" height="22" font_size="18" pivot="left" justify="left" text="{modnote}" color="[mediumGrey]" />
+							</rect>
+						</grid>
+					</scrollview>
+				</rect>
+
+				<rect name="settingsArea" pos="450,-44" width="760" height="700" on_scroll="true" gamepad_selectable="false" snap="false">
+					<options_scrollbar />
+					<scrollview clippingsoftness="0,10" anchor_top="#parent,1,0" anchor_bottom="buttons,1,10">
+						<grid pos="0,-4" cols="1" rows="48" cell_width="720" cell_height="47" repeat_content="true" arrangement="horizontal">
+							<rect name="settingRow" controller="Wrench.WrenchSettingRow, Wrench" visible="{rowvisible}" width="720" height="43" on_hover="true">
+								<sprite name="border" depth="1" width="720" height="43" sprite="menu_empty" type="sliced" fillcenter="false" color="[darkGrey]" />
+								<label name="key" depth="4" pos="10,-7" width="290" height="30" font_size="26" pivot="left" justify="left" text="{keyname}" color="[white]" on_hover="true" />
+
+								<rect name="boolToggle" depth="2" pos="310,-4" width="400" height="35" visible="{isbool}">
+									<button name="clickable" depth="2" sprite="menu_empty" defaultcolor="[black]" hoversprite="ui_game_select_row" hovercolor="[mediumGrey]" type="sliced" hoverscale="1.0" width="400" height="35" />
+									<label name="value" depth="4" pos="0,-3" width="400" height="30" font_size="26" pivot="left" justify="center" text="{boolvalue}" color="[lightGrey]" />
+								</rect>
+
+								<textfield name="txtValue" depth="5" pos="310,-4" width="400" height="35" font_size="26" bordercolor="64,64,64,255" vk_propagates_events="false" visible="{istext}" />
+							</rect>
+						</grid>
+					</scrollview>
+				</rect>
+
+				<sprite name="separator" pos="1225,0" width="2" height="750" depth="0" sprite="menu_empty" type="sliced" color="[darkGrey]" fillcenter="false" />
+				<options_descriptions />
+
+				<label name="serverNote" depth="3" pos="0,-712" width="1200" height="26" font_size="22" pivot="left" justify="left" text_key="wrenchServerNote" color="228,18,21,255" visible="{servernote}" />
+				<label name="selStatus" depth="3" pos="0,-742" width="1200" height="30" font_size="24" pivot="left" justify="left" text="{selmodstatus}" color="[lightGrey]" />
+			</rect>
+
+			<options_buttons />
+		</window>
+	</append>
+
+</configs>

@@ -1,0 +1,16 @@
+<configs>
+
+	<!--
+		The window group the "Mod Settings" paging tab opens: the selector
+		opens the group named after the pressed button
+		(XUiC_WindowSelector.OpenSelectedWindow), exactly how vanilla's
+		optionsGeneral/optionsAudio pages are reached. Its own group, so it
+		cannot collide with another mod's edits; an append of one sibling.
+	-->
+	<append xpath="/xui">
+		<window_group name="wrenchModSettings">
+			<window name="wrenchModSettings" />
+		</window_group>
+	</append>
+
+</configs>

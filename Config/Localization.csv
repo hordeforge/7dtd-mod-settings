@@ -1,0 +1,3 @@
+Key,File,Type,UsedInMainMenu,NoTranslate,KeepLoaded,english,Context / Alternate Text,german,spanish,french,italian,japanese,koreana,polish,brazilian,russian,turkish,schinese,tchinese
+wrenchModSettingsTab,UI,XUi OptionsMenu,x,,,Mod Settings,,,,,,,,,,,,,
+wrenchServerNote,UI,XUi OptionsMenu,x,,,"Joined to a server: edits change only your local copy. Server-owned values must be changed on the server (console/telnet).",,,,,,,,,,,,,
