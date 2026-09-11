@@ -796,7 +796,7 @@ Must edit IL mid-method?
 | Resource | URL |
 |---|---|
 | V3.0 release notes (modding section) | https://7daystodie.com/v3-0-dead-hot-summer-release-notes/ |
-| V3.2.0 (b9) | Steam 2026-08-28; exact-diff: `7dtd-engine-research/docs/changelog-3.2.0.md` |
+| V3.2.0 (b9) | Steam 2026-08-28; exact-diff: `7dtd-engine-research/docs/releases/changelog-3.2.0.md` |
 | V3.1.0 Henpocalypse | https://7daystodie.com/v3-1-0-henpocalypse-release-notes/ |
 | V3.0.1 Stable | https://7daystodie.com/v3-0-1-stable-release/ |
 | Mod Interface | https://7daystodie.wiki.gg/wiki/Mod_Interface |
