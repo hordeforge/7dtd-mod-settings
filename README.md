@@ -71,5 +71,6 @@ command `wrench` lists, changes, and reloads them.
 - [`TODO.md`](TODO.md) — what's next
 - [`docs/design.md`](docs/design.md) — gameplay decisions
 - [`docs/architecture.md`](docs/architecture.md) — technical decisions ([`docs/adr/`](docs/adr/) for formal records)
+- [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) — attack surface, trust boundaries, risks, and the controls that back them
 - [`docs/reference/`](docs/reference/) — general 7DTD modding reference and best practices (binding)
 - [`AGENTS.md`](AGENTS.md) — working instructions for agent sessions
