@@ -231,7 +231,12 @@ the writer re-derive it.
 `TargetModDiscovery.HasSettingsComponent` walks every type every assembly
 of a mod declares, and an installed mod's assemblies do not change while the
 game runs, so its answer is memoized per mod path and paid once per mod
-rather than on every opening of the screen. Enforced by
+rather than on every opening of the screen. Only a conclusive probe is kept:
+an assembly the runtime cannot enumerate, or enumerates only in part, may
+hold the component, so its "no" is reported for that opening and left out
+of the table rather than cached as the mod's answer; a component that was
+found is conclusive whatever else went unread. The table is read and filled
+under one lock, `hotReloadsGate`. Enforced by
 `scripts/test_target_save_coherence.py`.
 
 The settings watch in `ModSettings` keeps the applied file's write time,

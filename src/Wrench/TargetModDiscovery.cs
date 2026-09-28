@@ -26,6 +26,11 @@ namespace Wrench
 		// probe and then both write the same dictionary, which is what
 		// corrupts it. One lock around the whole sequence, with the probe
 		// inside it, so a miss is filled before the next lookup sees it.
+		//
+		// Only a conclusive probe is kept: an assembly the runtime could not
+		// enumerate may hide the component, so its "no" is an absence of
+		// evidence and memoizing it would fix a wrong live-reload label for
+		// the rest of the session.
 		static readonly Dictionary<string, bool> hotReloadsByModPath =
 			new Dictionary<string, bool>(StringComparer.Ordinal);
 		static readonly object hotReloadsGate = new object();
@@ -102,9 +107,12 @@ namespace Wrench
 		/// screen down: it only decides this mod's status line, and the other
 		/// mods in the list still have settings to edit.
 		/// <paramref name="definitive"/> says whether every assembly was fully
-		/// inspected. A partial pass can only answer "not hot-reloading", and
-		/// caching that would label a live-reloading mod as restart-only for
-		/// the rest of the session over a type that would not load once.
+		/// inspected. It is not when one of them could not be enumerated, or
+		/// enumerated only in part: an unread type may be the component, so
+		/// that "no" is reported for this opening and left unmemoized rather
+		/// than cached as the mod's answer, which would label a hot-reloading
+		/// mod restart-only for the rest of the session over a type that would
+		/// not load once.
 		/// </summary>
 		public static bool HasSettingsComponent(Mod mod, out bool definitive)
 		{
@@ -131,9 +139,13 @@ namespace Wrench
 				catch (ReflectionTypeLoadException ex)
 				{
 					// Null entries are the types whose dependencies could not
-					// be loaded; the rest still answer the question.
+					// be loaded; the rest still answer the question, and a type
+					// that is missing may be the one that was being asked
+					// about, so the answer stops here.
 					types = ex.Types;
 					complete = false;
+					if (types == null)
+						continue;
 				}
 				catch (Exception)
 				{

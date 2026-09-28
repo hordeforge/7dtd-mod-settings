@@ -80,6 +80,36 @@ def body(source: str, signature: str) -> str:
     return ""
 
 
+def guarded(source: str, statement: str) -> bool:
+    """True when *statement* sits inside a `lock (...)` block in *source*.
+
+    Both the lookup and the fill of a shared table have to hold the same
+    lock, and "the body mentions a lock somewhere" says neither, so the
+    braces are walked and the statement is held guarded only while the
+    innermost block enclosing it is one a `lock (` opened.
+    """
+    at = source.find(statement)
+    if at < 0:
+        return False
+    depth = 0
+    lock_depth: int | None = None
+    index = 0
+    while index < at:
+        char = source[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if lock_depth is not None and lock_depth > depth:
+                lock_depth = None
+        elif source.startswith("lock (", index):
+            brace = source.find("{", index)
+            if 0 <= brace < at:
+                lock_depth = depth + 1
+        index += 1
+    return lock_depth is not None and lock_depth == depth
+
+
 def code_of(source: str) -> str:
     """The file without its comment-only lines, so a check reads the code."""
     return "\n".join(line for line in source.splitlines()
@@ -127,28 +157,36 @@ def main() -> int:
           in probe
           and "return known;" in probe
           and "hotReloadsByModPath[mod.Path] = found;" in probe
+          and "HasSettingsComponent(mod, out definitive)" in probe
           and probe.count("HasSettingsComponent(") == 1)
     check("the memo is a private cache of this class, not shared state",
           "static readonly Dictionary<string, bool> hotReloadsByModPath" in discovery
           and "hotReloadsByModPath" not in code_of(screen))
+    check("the memoized answers are looked up and filled under one lock",
+          guarded(probe, "hotReloadsByModPath.TryGetValue(mod.Path")
+          and guarded(probe, "hotReloadsByModPath[mod.Path] = found;"))
+    check("an inconclusive probe is not memoized as this mod's answer",
+          "if (definitive)" in probe)
 
     # The memoization rules above, proven able to fail against mutated
     # copies of the real source rather than asserted by their own passing.
-    # The probe lives in TargetModDiscovery.cs, so that is the copy that is
-    # mutated: a control that mutated a file the method is not in would pass
-    # on any source at all, and prove nothing.
+    # The probe and its memo table live in TargetModDiscovery.cs, so that is
+    # the copy that is mutated: a control that mutated a file the method is
+    # not in would pass on any source at all, and prove nothing.
     ungated = discovery.replace("if (definitive)", "if (true)", 1)
     check("negative control: a probe cached whatever it found fails the gate",
           "if (definitive)" in discovery
           and "if (definitive)"
           not in body(ungated, "static bool CachedHasSettingsComponent("))
     # Every occurrence, not the first: the lookup and the fill are two
-    # blocks, and a copy with only one of them taken is still unlocked.
+    # blocks, and a copy with only one of them taken is still unlocked, so
+    # the control asks whether the fill is guarded rather than whether the
+    # word "lock" is still anywhere in the method.
     unlocked = discovery.replace("lock (hotReloadsGate)", "")
     check("negative control: an unlocked memo table fails the gate",
           "lock (hotReloadsGate)" in discovery
-          and "lock (hotReloadsGate)"
-          not in body(unlocked, "static bool CachedHasSettingsComponent("))
+          and not guarded(body(unlocked, "static bool CachedHasSettingsComponent("),
+                         "hotReloadsByModPath[mod.Path] = found;"))
     guard = "if (hotReloadsByModPath.TryGetValue(mod.Path, out known))"
     unguarded = discovery.replace(guard, "if (hotReloadsByModPath.Count == 0)", 1)
     check("negative control: a probe answered only after probing again fails "
@@ -177,7 +215,7 @@ def main() -> int:
           "catch (Exception)" in probe and "continue;" in probe)
     check("an assembly that could not be inspected leaves the answer "
           "incomplete",
-          "static bool HasSettingsComponent(Mod mod, out bool definitive)"
+          "public static bool HasSettingsComponent(Mod mod, out bool definitive)"
           in discovery
           and "definitive = false;" in probe
           and "definitive = true;" in probe)
