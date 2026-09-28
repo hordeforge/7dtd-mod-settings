@@ -102,9 +102,10 @@ namespace Wrench
 			// A reload line seen while the screen was closed belongs to the
 			// previous opening: targets are re-discovered below, so carrying
 			// the latch over would stamp a fresh TargetMod "applied live" for
-			// a save that never happened.
-			DisarmReloadWatch();
-			watchedReloadTarget = null;
+			// a save that never happened. A watch still open at this point was
+			// ended by the close above, so this only settles one that outlived
+			// the screen; it never arms a new one.
+			StopReloadWatch();
 			// A mod is identified by its installed folder, which its settings
 			// file is resolved from, not by the name its ModInfo carries: two
 			// installed mods can ship the same name, and reopening on the name
@@ -130,8 +131,7 @@ namespace Wrench
 				Log.LogCallbacks -= OnLogLine;
 				watchingLog = false;
 			}
-			DisarmReloadWatch();
-			watchedReloadTarget = null;
+			StopReloadWatch();
 			base.OnClose();
 		}
 
@@ -145,10 +145,7 @@ namespace Wrench
 			else if (IsWatchingReload())
 			{
 				if (ModClock.Current.NowSeconds - reloadStartedAt >= RELOAD_CONFIRM_SECONDS)
-				{
-					DisarmReloadWatch();
-					SetWatchedSaveState(TargetMod.ESaveState.SaveUnconfirmed);
-				}
+					StopReloadWatch();
 			}
 			base.Update(_dt);
 		}
@@ -170,9 +167,9 @@ namespace Wrench
 				Log.Out(ModApi.LogPrefix + " " + target.Name + " re-read " + target.TomlPath
 					+ " after the save; the change is live.");
 			else
-				Log.Warning(ModApi.LogPrefix + " " + target.Name + " did not re-read "
-					+ target.TomlPath + " within " + (int)RELOAD_CONFIRM_SECONDS
-					+ "s of the save; the change takes effect on the next restart.");
+				Log.Warning(ModApi.LogPrefix + " " + target.Name + " was not seen re-reading "
+					+ target.TomlPath + " after the save; the change takes effect on the "
+					+ "next restart.");
 			if (target == selected)
 				IsDirty = true;
 		}
@@ -182,8 +179,9 @@ namespace Wrench
 			selected = (index >= 0 && index < targets.Count) ? targets[index] : null;
 			// A reload line still in flight belongs to the mod selected until
 			// now; attributing it to the new selection would mark the wrong
-			// mod as applied live.
-			DisarmReloadWatch();
+			// mod as applied live. It is settled as unconfirmed rather than
+			// dropped, for the reason <see cref="StopReloadWatch"/> gives.
+			StopReloadWatch();
 			for (var i = 0; i < modRows.Length; i++)
 			{
 				modRows[i].IsSelectedMod = modRows[i].Target != null && modRows[i].Target == selected;
@@ -255,6 +253,28 @@ namespace Wrench
 		void DisarmReloadWatch()
 		{
 			ArmReloadWatch(null);
+		}
+
+		/// <summary>
+		/// Ends a wait that is not going to be answered, and says so.
+		///
+		/// Dropping the watch on its own leaves the mod it belonged to at
+		/// <see cref="TargetMod.ESaveState.Saved"/>, which the status line
+		/// reads as "waiting for the mod to re-read the file" for the rest of
+		/// the session: the player changed mod or closed the screen between the
+		/// save and the reload, and nothing else ever resolves that save. The
+		/// game log loses the same line, so an operator never learns whether the
+		/// write took effect. A wait ended without a reload line is a save whose
+		/// application was never confirmed, which is what
+		/// <see cref="TargetMod.ESaveState.SaveUnconfirmed"/> says.
+		///
+		/// A no-op when no save is being waited for, so the closing screen
+		/// never logs a save it did not make.
+		/// </summary>
+		void StopReloadWatch()
+		{
+			DisarmReloadWatch();
+			SetWatchedSaveState(TargetMod.ESaveState.SaveUnconfirmed);
 		}
 
 		/// <summary>True while a mod's reload line is still being waited for.</summary>

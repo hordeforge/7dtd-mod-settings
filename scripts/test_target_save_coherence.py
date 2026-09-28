@@ -318,7 +318,7 @@ def main() -> int:
 
     opened = body(screen, "public override void OnOpen()")
     check("the reload latch does not survive the closing it was set in",
-          "DisarmReloadWatch()" in opened)
+          "StopReloadWatch()" in opened)
     # A mod is identified by its folder, which its settings file is resolved
     # from, not by the name its ModInfo carries: two installed mods can ship
     # the same name, and reopening on the name would land the player on a
@@ -333,7 +333,22 @@ def main() -> int:
           and "mod.Name, mod.DisplayName, mod.Path" in discovery)
     check("a rejected save and a new selection both disarm the latch",
           "ArmReloadWatch(" in body(screen, "internal bool SaveEdit(")
-          and "DisarmReloadWatch()" in body(screen, "internal void SelectMod("))
+          and "StopReloadWatch()" in body(screen, "internal void SelectMod("))
+
+    # Every way the wait can end without a reload line (the screen closing,
+    # the player picking another mod, the timeout) settles the save it was
+    # watching. Disarming alone leaves that mod at ESaveState.Saved, which
+    # reads as "waiting for the mod to re-read the file" for the rest of the
+    # session, and its game-log line is never written at all.
+    stop = body(screen, "void StopReloadWatch()")
+    check("an unanswered reload wait resolves its save instead of dropping it",
+          "DisarmReloadWatch()" in stop
+          and "SetWatchedSaveState(TargetMod.ESaveState.SaveUnconfirmed)" in stop
+          and "StopReloadWatch()" in body(screen, "public override void OnClose()")
+          and "StopReloadWatch()" in body(screen, "public override void Update("))
+    check("the only way the wait is dropped is the one that resolves it",
+          code_of(screen).count("DisarmReloadWatch();") == 1
+          and "DisarmReloadWatch();" in stop)
 
     logline = body(screen, "void OnLogLine(")
     take = body(screen, "bool TakeReloadSeen(")

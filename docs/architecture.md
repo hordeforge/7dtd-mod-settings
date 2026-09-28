@@ -282,6 +282,22 @@ Both list panes carry an empty-state label (localization keys
 `{noentries}`), so a window with nothing to show says why rather than
 showing an empty frame.
 
+Corrected 2026-09-28: the wait had three ways to end and only one settled
+the save it was watching. A save to a hot-reloading mod moves the state to
+`Saved` and arms the marker; only the reload line or
+`RELOAD_CONFIRM_SECONDS` resolved it. Closing the screen or picking
+another mod in between disarmed the marker and dropped the target, so that
+mod kept `Saved` for the rest of the session: its status line read as
+"waiting for the mod to re-read the file" with nothing left to end that,
+and the game-log line an operator reads after the screen is closed was
+never written at all. `StopReloadWatch` is now the one way the wait ends
+without a line, and it resolves the save as `SaveUnconfirmed` (a no-op
+when no save is pending, so a close never logs a save it did not make).
+`SaveEdit` still arms directly: the only save it can supersede is another
+save to the same mod, and resolving that one as unconfirmed would report
+a timeout that had not happened. Enforced by
+`scripts/test_target_save_coherence.py`.
+
 ## Decided 2026-09-28: every Mod Settings string is a localization key
 
 The strings the screen builds in C# used to be English literals in

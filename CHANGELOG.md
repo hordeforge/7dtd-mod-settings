@@ -30,6 +30,12 @@ its own numbered heading when the version it ships under is declared.
   status and every server note was clipped in every language, and a
   translated rendering was cut sooner still. Both are now tall enough for
   the wrapped text, in German or Russian as well as in English.
+- A save whose reload confirmation was still pending is resolved instead of
+  dropped. Closing the screen or picking another mod between the save and
+  the target mod's re-read left that mod's state at "saved", so its status
+  line said it was waiting for the re-read for the rest of the session and
+  the game log never said whether the write took effect. Ending that wait
+  now records the save as unconfirmed and logs it.
 
 - Another mod's settings file marked UTF-16 or UTF-32 is refused when it
   holds a byte that is not valid in the encoding its own mark names,
