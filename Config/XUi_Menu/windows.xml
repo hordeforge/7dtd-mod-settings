@@ -87,8 +87,14 @@
 				<sprite name="separator" pos="1225,0" width="2" height="750" depth="0" sprite="menu_empty" type="sliced" color="[darkGrey]" fillcenter="false" />
 				<options_descriptions />
 
-				<label name="serverNote" depth="3" pos="0,-712" width="1200" height="26" font_size="22" pivot="left" justify="left" text_key="wrenchServerNote" color="228,18,21,255" visible="{servernote}" />
-				<label name="selStatus" depth="3" pos="0,-742" width="1200" height="30" font_size="24" pivot="left" justify="left" text="{selmodstatus}" color="[lightGrey]" />
+				<!-- Both bottom labels wrap: their text is translated, and a
+				     German or Russian sentence runs past the single line a
+				     1200px label holds at these font sizes, so a
+				     fixed-height un-wrapped label clips the translation. The
+				     status line is the taller of the two and gets the extra
+				     height; positions are unchanged, so nothing moves. -->
+				<label name="serverNote" depth="3" pos="0,-712" width="1200" height="26" font_size="22" wrap="true" pivot="left" justify="left" text_key="wrenchServerNote" color="228,18,21,255" visible="{servernote}" />
+				<label name="selStatus" depth="3" pos="0,-742" width="1200" height="44" font_size="24" wrap="true" pivot="left" justify="left" text="{selmodstatus}" color="[lightGrey]" />
 			</rect>
 
 			<options_buttons />

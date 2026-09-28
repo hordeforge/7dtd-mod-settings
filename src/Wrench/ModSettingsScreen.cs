@@ -190,9 +190,11 @@ namespace Wrench
 			CustomAttributes["caption"] = entry.Name;
 			CustomAttributes["description"] = entry.Comment.Length > 0
 				? entry.Comment
-				: "(no comment in the settings file)";
+				: WrenchText.Get("wrenchNoComment", "(no comment in the settings file)");
 			CustomAttributes["applies_after"] =
-				(selected != null && !selected.HotReloads) ? "restart" : "";
+				(selected != null && !selected.HotReloads)
+					? WrenchText.Get("wrenchAppliesAfterRestart", "restart")
+					: "";
 			IsDirty = true;
 		}
 
@@ -302,26 +304,36 @@ namespace Wrench
 		string StatusLine()
 		{
 			if (selected == null)
-				return "No installed mod ships a Config/<Mod>.toml settings file.";
+				return WrenchText.Get("wrenchNoMods",
+					"No installed mod ships a Config/<Mod>.toml settings file, "
+					+ "so there is nothing to edit here.");
 			if (selected.Entries == null)
-				return "Unreadable, not editable: " + selected.Error;
+				return WrenchText.Format("wrenchStatusUnreadable",
+					"Unreadable, not editable: $1", selected.Error);
 			switch (selected.SaveState)
 			{
 			case TargetMod.ESaveState.Saved:
 				return selected.HotReloads
-					? "Saved. Waiting for the mod to re-read the file..."
-					: "Saved. Takes effect after a restart.";
+					? WrenchText.Get("wrenchStatusSavedWaiting",
+						"Saved. Waiting for the mod to re-read the file...")
+					: WrenchText.Get("wrenchStatusSavedRestart",
+						"Saved. Takes effect after a restart.");
 			case TargetMod.ESaveState.AppliedLive:
-				return "Saved. The mod re-read the file and applied it.";
+				return WrenchText.Get("wrenchStatusAppliedLive",
+					"Saved. The mod re-read the file and applied it.");
 			case TargetMod.ESaveState.SaveUnconfirmed:
-				return "Saved, but the mod has not re-read the file yet. If the change "
-					+ "does not take effect, restart the game.";
+				return WrenchText.Get("wrenchStatusUnconfirmed",
+					"Saved, but the mod has not re-read the file yet. If the change "
+					+ "does not take effect, restart the game.");
 			case TargetMod.ESaveState.SaveFailed:
-				return "Save failed: " + selected.SaveError;
+				return WrenchText.Format("wrenchStatusSaveFailed",
+					"Save failed: $1", selected.SaveError);
 			default:
 				return selected.HotReloads
-					? "Edits apply live: the mod re-reads the file on save."
-					: "Edits take effect after a restart.";
+					? WrenchText.Get("wrenchStatusLiveHint",
+						"Edits apply live: the mod re-reads the file on save.")
+					: WrenchText.Get("wrenchStatusRestartHint",
+						"Edits take effect after a restart.");
 			}
 		}
 	}

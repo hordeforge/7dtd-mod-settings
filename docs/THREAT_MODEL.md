@@ -150,7 +150,8 @@ ones carried into the summary.
   `GetTypes()` runs a loader for every type in the assembly, and
   `ReflectionTypeLoadException` handling already anticipates assemblies that
   cannot load. The effect on Wrench is bounded to a wrong status label
-  ("applies live" versus "restart required"), and the code says so
+  (the `wrenchNoteLive` versus `wrenchNoteRestart` note under the mod), and
+  the code says so
   (`src/Wrench/TargetMod.cs:290`). The residual risk is that a type named
   `ModSettings` with a field named `FilePollIntervalSeconds` is enough to be
   labelled hot-reloading, which is a false label, not a wrong write.

@@ -222,8 +222,27 @@ mid-wait cannot move the outcome onto the wrong row.
 Both list panes carry an empty-state label (localization keys
 `wrenchNoMods` and `wrenchNoSettings`, bound to `{nomods}` and
 `{noentries}`), so a window with nothing to show says why rather than
-showing an empty frame; those strings are localization keys, as every
-other Mod Settings string that is not a live status is.
+showing an empty frame.
+
+## Decided 2026-09-28: every Mod Settings string is a localization key
+
+The strings the screen builds in C# used to be English literals in
+`StatusLine`, `ShowHelp` and the mod row's note, next to a catalog that
+already shipped the empty-state sentences. They now go through
+`WrenchText.Get`/`WrenchText.Format` (`src/Wrench/WrenchText.cs`), which
+reads `Config/Localization.csv` through the game's `Localization` and falls
+back to the English source text when no dictionary holds the key, because
+`Localization.Get` hands back the key itself for a missing one and a
+player must never read that. A value goes into a `$1` slot
+(`WrenchText.Format`) instead of being concatenated, so a translation can
+put it where its own word order wants it.
+
+`scripts/test_localization_catalog.py` holds the catalog and the code
+together: every key named in C# or in a `text_key` attribute exists
+exactly once with a non-empty english column, and that column is the same
+string the C# falls back to. Its negative controls prove both checks can
+fail. The two bottom labels in `Config/XUi_Menu/windows.xml` wrap, since a
+German or Russian sentence runs past one 1200px line at their font sizes.
 
 ## Decided 2026-09-28: another mod's TOML is read and written through `TomlFile`
 

@@ -46,9 +46,11 @@ namespace Wrench
 				return true;
 			case "modnote":
 				_value = Target == null ? ""
-					: Target.Entries == null ? "unreadable"
-					: Target.HotReloads ? "applies live"
-					: "restart required";
+					: Target.Entries == null
+						? WrenchText.Get("wrenchNoteUnreadable", "unreadable")
+					: Target.HotReloads
+						? WrenchText.Get("wrenchNoteLive", "applies live")
+					: WrenchText.Get("wrenchNoteRestart", "restart required");
 				return true;
 			case "rowvisible":
 				_value = (Target != null).ToString();
