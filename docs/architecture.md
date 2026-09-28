@@ -299,6 +299,18 @@ when no save is pending, so a close never logs a save it did not make).
 `SaveEdit` still arms directly: the only save it can supersede is another
 save to the same mod, and resolving that one as unconfirmed would report
 a timeout that had not happened. Enforced by
+Added 2026-09-28: the reload line is matched on a marker built from the
+settings file's name, which is the name in the mod's ModInfo, and two
+installed mods can carry the same one while their folders, and so their
+settings files, differ (Decided 2026-09-28: a mod is identified by its
+folder). The line the settings component logs names the file and no part
+of the folder, so a match cannot tell the two mods apart, and one mod's
+re-read stamped the other "applied live" to the player and in the game
+log. `XUiC_ModSettingsScreen.ReloadMarkerShared` walks the mods discovered
+in the current opening and, where two of them share a marker, the watch
+is not armed: the save is written, the state becomes `SaveUnconfirmed`
+at once rather than waiting out a line that cannot be attributed, and
+the game log says why. Held by
 `scripts/test_target_save_coherence.py`.
 
 ## Decided 2026-09-28: every Mod Settings string is a localization key

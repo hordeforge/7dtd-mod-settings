@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Wrench
@@ -223,9 +224,23 @@ namespace Wrench
 			// or resurrect it over the failure just recorded. The Anvil
 			// component logs the re-read; until that line arrives the status
 			// stays at "saved".
-			var watching = saved && mod.HotReloads;
+			var watching = saved && mod.HotReloads && !ReloadMarkerShared(mod);
 			ArmReloadWatch(watching ? mod.ReloadLogMarker : null);
 			watchedReloadTarget = watching ? mod : null;
+			if (saved && mod.HotReloads && !watching)
+			{
+				// The marker is the settings file's own name, and that name
+				// comes out of a ModInfo two installed mods can carry alike, so
+				// one mod's re-read line is byte-for-byte the one this save is
+				// waiting for. Watching it would say "applied live" about a mod
+				// that never read the file, and the wait is ended here instead
+				// of being left to time out on a line that cannot be told apart.
+				mod.SaveState = TargetMod.ESaveState.SaveUnconfirmed;
+				Log.Warning(ModApi.LogPrefix + " " + mod.Name + " ships a settings file "
+					+ "named " + mod.TomlFileName + ", which another installed mod ships too, "
+					+ "so its re-read cannot be told apart in the log; the change is saved in "
+					+ mod.TomlPath + " and reported unconfirmed.");
+			}
 			reloadStartedAt = ModClock.Current.NowSeconds;
 			// Spans moved with the edit: rebind rows to the re-parsed
 			// entries (also restores the file value after a refused edit).
@@ -246,6 +261,32 @@ namespace Wrench
 					? WrenchText.Get("wrenchAppliesAfterRestart", "restart")
 					: "";
 			IsDirty = true;
+		}
+
+		/// <summary>
+		/// Whether another listed mod ships a settings file of the same name, so
+		/// the one reload line in the log is not this mod's alone. The marker
+		/// is built from the name in the mod's ModInfo, which two installed
+		/// mods can carry alike even though their folders differ; the folder
+		/// is what tells the two settings files apart, and the line the
+		/// settings component logs carries no part of it.
+		///
+		/// The list is every mod discovered in the current opening, so this
+		/// answers for the set the player is looking at. It is walked per save
+		/// rather than memoized: the list is rebuilt on every opening and a
+		/// table of markers would be a second thing to keep coherent with it.
+		/// </summary>
+		bool ReloadMarkerShared(TargetMod mod)
+		{
+			var marker = mod.ReloadLogMarker;
+			for (var i = 0; i < targets.Count; i++)
+			{
+				if (targets[i] != mod
+					&& string.Equals(targets[i].ReloadLogMarker, marker,
+						StringComparison.Ordinal))
+					return true;
+			}
+			return false;
 		}
 
 		void ArmReloadWatch(string marker)

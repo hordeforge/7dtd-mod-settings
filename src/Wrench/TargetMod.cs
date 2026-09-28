@@ -201,6 +201,12 @@ namespace Wrench
 		/// ("settings (reload Config/X.toml)" vs "settings from reload
 		/// Config/X.toml:", proven live against AtomicDoomsday), so only the
 		/// shared "reload Config/&lt;Mod&gt;.toml" part is matched.
+		///
+		/// The name in it is the one the mod's ModInfo carries, and two
+		/// installed mods can carry the same one while their folders, and so
+		/// their settings files, differ. The logged line names no folder, so
+		/// the marker cannot separate them, and the screen has to know that
+		/// before it waits on one.
 		/// </summary>
 		public string ReloadLogMarker
 		{

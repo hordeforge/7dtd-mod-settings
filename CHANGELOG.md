@@ -36,6 +36,13 @@ its own numbered heading when the version it ships under is declared.
   line said it was waiting for the re-read for the rest of the session and
   the game log never said whether the write took effect. Ending that wait
   now records the save as unconfirmed and logs it.
+- A save to a mod whose settings file name another installed mod also
+  ships is no longer reported as applied live on the strength of that
+  other mod's reload line. The line the settings component logs names
+  the settings file and not the folder it lives in, and two installed
+  mods can carry the same ModInfo name, so the two lines are
+  indistinguishable. Such a save is written, reported unconfirmed, and
+  said so in the game log.
 
 - Another mod's settings file marked UTF-16 or UTF-32 is refused when it
   holds a byte that is not valid in the encoding its own mark names,

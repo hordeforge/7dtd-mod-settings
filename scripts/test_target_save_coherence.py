@@ -360,6 +360,47 @@ def main() -> int:
           and "watchedReloadMarker = null;" in take
           and "volatile bool reloadSeen" not in screen)
 
+    # The reload marker is the key one re-read line is looked up by, and it is
+    # built from the settings file's name, which comes out of a ModInfo two
+    # installed mods can carry alike. A match on it then says one of them
+    # re-read the file, and stamps the wrong one "applied live" to the player
+    # and to the operator's log. So the wait is not armed while the listed
+    # mods share a marker, and the status is ended as unconfirmed instead of
+    # being left waiting on a line that cannot be told apart.
+    save_edit = body(screen, "internal bool SaveEdit(")
+    shared = body(screen, "bool ReloadMarkerShared(")
+    check("a marker two listed mods share is not waited on, and the wait is "
+          "ended rather than left open",
+          "ReloadMarkerShared(mod)" in save_edit
+          and "!ReloadMarkerShared(mod)" in save_edit
+          and "ESaveState.SaveUnconfirmed" in save_edit
+          and "cannot be told apart" in save_edit)
+    check("the shared marker is found by walking the current opening's list",
+          "targets.Count" in shared
+          and "targets[i] != mod" in shared
+          and "targets[i].ReloadLogMarker" in shared
+          and "StringComparison.Ordinal" in shared
+          and "mod.ModPath" not in shared
+          and "mod.Name ==" not in shared)
+    # The control mutates the screen, which is where both the helper and the
+    # one call site are; a copy with the check dropped has to fail the gate.
+    unwatched = screen.replace("!ReloadMarkerShared(mod)", "true", 1)
+    check("negative control: a save that watches a shared marker fails the gate",
+          "!ReloadMarkerShared(mod)" in screen
+          and "!ReloadMarkerShared(mod)"
+          not in body(unwatched, "internal bool SaveEdit("))
+    # And one that finds the collision by name rather than by marker: a name
+    # is what two mods can share *and* what ModTomlPath has already proved is
+    # a plain file name, but the folder is what tells the two files apart, so
+    # matching on the name alone would report every mod as sharing a marker
+    # with itself.
+    renamed = screen.replace("targets[i].ReloadLogMarker, marker,",
+                             "targets[i].Name, marker,", 1)
+    check("negative control: a collision test on the wrong key fails the gate",
+          "targets[i].ReloadLogMarker, marker," in screen
+          and "targets[i].ReloadLogMarker, marker,"
+          not in body(renamed, "bool ReloadMarkerShared("))
+
     atomic = write
     check("a save is staged in a temp file and swapped in, never truncated "
           "in place",
