@@ -129,16 +129,21 @@ sealed class MemoryFileSystem : IFileSystem
 		return contents.ContainsKey(path);
 	}
 
-	public DateTime GetLastWriteTimeUtc(string path)
+	/// <summary>
+	/// One metadata read, the seam's own shape: false with a null error is
+	/// simply not there, false with one is a file this disk cannot stat.
+	/// </summary>
+	public bool TryGetStamp(string path, out DateTime writeUtc, out long length,
+		out string error)
 	{
-		Require(path);
-		return Epoch.AddSeconds(clock.NowSeconds);
-	}
-
-	public long GetLength(string path)
-	{
-		Require(path);
-		return contents[path].Length;
+		writeUtc = default(DateTime);
+		length = -1;
+		error = null;
+		if (!contents.ContainsKey(path))
+			return false;
+		writeUtc = Epoch.AddSeconds(clock.NowSeconds);
+		length = contents[path].Length;
+		return true;
 	}
 
 	public string ReadAllText(string path)
@@ -188,7 +193,7 @@ sealed class MemoryFileSystem : IFileSystem
 			// save's read and this staging write, so the text about to be
 			// staged describes a file that no longer exists. Nothing
 			// reports the save but its bytes.
-			Seed(RacingPath, Peek(RacingPath) + OtherWriterLine,
+			Seed(RacingPath, Peek(RacingPath) + Simulation.OtherWriterLine,
 				new UTF8Encoding(false));
 		}
 		Store(path, encoding, text);
@@ -275,7 +280,11 @@ static class Simulation
 	const string ModPath = "/sim/Mods/Example";
 	const string TomlPath = "/sim/Mods/Example/Config/Example.toml";
 	/// <summary>Every name a save stages under, whatever process staged it.</summary>
-	const string TempPrefix = TomlPath + ".wrench-tmp";
+	/// <summary>
+	/// Every name a save of <see cref="TomlPath"/> stages under, whatever
+	/// process staged it: the shipped writer appends its own id.
+	/// </summary>
+	public const string TempPrefix = TomlPath + ".wrench-tmp";
 	const string CountKey = "Count";
 
 	const string Pristine =
@@ -285,7 +294,7 @@ static class Simulation
 		"Label = \"hi\"\n";
 
 	/// <summary>What the outside writer's save leaves behind.</summary>
-	const string OtherWriterLine = "# written by another program\n";
+	public const string OtherWriterLine = "# written by another program\n";
 
 	/// <summary>Runs one seed and returns its trace; throws on a broken invariant.</summary>
 	public static string Run(int seed)

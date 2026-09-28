@@ -131,7 +131,10 @@ static class Program
 	static void TestFailedFallbackKeepsTheOnlyCopy()
 	{
 		const string tomlPath = "/sim/Mods/Example/Config/Example.toml";
-		var tempPath = tomlPath + ".wrench-tmp";
+		// The shipped writer stages under `path + ".wrench-tmp." + pid`, so
+		// the only copy of the new text is found by the prefix every writer of
+		// this file stages under, not by one name.
+		var staged = new List<string>();
 		var files = new MemoryFileSystem(new VirtualClock());
 		files.Seed(tomlPath, "Count = 12\n", new UTF8Encoding(false));
 
@@ -148,6 +151,7 @@ static class Program
 			files.PendingNoAtomicReplace = 1;
 			files.PendingMoveFaults = 1;
 			saved = target.TrySave(entry, "13", out error);
+			staged = files.NamesStartingWith(Simulation.TempPrefix);
 		}
 		finally
 		{
@@ -155,14 +159,17 @@ static class Program
 			ModClock.Current = savedClock;
 		}
 
+		var tempPath = staged.Count == 1 ? staged[0] : null;
 		Check("a save whose fallback move failed reports the failure", !saved, error ?? "");
 		Check("the staging file outlives the failed save",
-			files.Has(tempPath), "the new text was deleted with the failure");
+			staged.Count == 1, staged.Count + " staging files under "
+				+ Simulation.TempPrefix + " (" + string.Join(", ", staged) + ")");
 		Check("the staging file holds the text the save wrote",
-			files.Has(tempPath) && files.Peek(tempPath) == "Count = 13\n",
-			files.Has(tempPath) ? files.Peek(tempPath) : "(absent)");
+			tempPath != null && files.Peek(tempPath) == "Count = 13\n",
+			tempPath == null ? "(absent)" : files.Peek(tempPath));
 		Check("the failure names where the new text was left",
-			!saved && error != null && error.Contains(tempPath), error ?? "");
+			!saved && error != null && tempPath != null && error.Contains(tempPath),
+			error ?? "");
 	}
 
 	static string FirstDifference(string left, string right)
@@ -649,10 +656,13 @@ static class Program
 
 	static bool RefusesRead(string path)
 	{
+		// Through the shipped seam, the same read the save path makes: a copy
+		// of the decode here would prove nothing about the file the game opens.
+		var files = new SystemFileSystem();
 		Encoding read;
 		try
 		{
-			TomlFile.ReadAllText(path, out read);
+			files.ReadAllText(path, out read);
 			return false;
 		}
 		catch (DecoderFallbackException)

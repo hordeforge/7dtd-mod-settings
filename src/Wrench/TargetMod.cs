@@ -216,7 +216,8 @@ namespace Wrench
 		/// included.
 		///
 		/// The whole read-modify-write runs under the file's save gate, and
-		/// the file's signature is re-read just before the staging write: an
+		/// the file's signature is re-read inside the writer, once the new
+		/// text is on the disk and before it takes the file's place: an
 		/// outside writer that landed in between is spliced around rather
 		/// than written over. That closes the window for a writer this
 		/// process cannot lock against (a second game, a config tool) as far
@@ -238,7 +239,7 @@ namespace Wrench
 					string statError;
 					if (!TryRead(out currentText, out currentEncoding, out error))
 						return Fail(error);
-					if (!TryStamp(out writeUtc, out length, out statError))
+					if (!TryStamp(TomlPath, out writeUtc, out length, out statError))
 						return Fail(statError);
 					if (currentText != Text)
 					{
@@ -254,19 +255,24 @@ namespace Wrench
 					if (!TomlEdit.TryReplaceValue(Text, Entries, entry, newRaw,
 						out newText, out newEntries, out error))
 						return Fail(error);
-					if (StampMoved(writeUtc, length))
+					// The file's signature is re-read inside the writer, between
+					// the new text reaching the disk and taking the file's
+					// place, which is the window another program's save can
+					// land in. A file that moved on there is spliced around
+					// rather than written over: this attempt has put nothing
+					// in the file's place, so the next one starts from what the
+					// other program left.
+					bool moved;
+					if (!TryWrite(TomlPath, newText, currentEncoding, writeUtc, length,
+						out moved, out error))
+						return Fail(error);
+					if (moved)
 					{
-						// The file moved on while this splice was being made,
-						// so the text above describes a file that no longer
-						// exists: staging it would put the other save back
-						// where it was. Re-splice into the file as it is now.
 						if (attempt >= SpliceAttempts)
 							return Fail(TomlFileName + " is being written to by another "
 								+ "program; the edit was not saved.");
 						continue;
 					}
-					if (!TryWrite(TomlPath, newText, currentEncoding, out error))
-						return Fail(error);
 					SaveState = ESaveState.Saved;
 					SaveError = null;
 					// The write put exactly the text the writer verified, and the
@@ -284,22 +290,23 @@ namespace Wrench
 		/// The file's write time and length, the pair every change of this
 		/// file is recognised by elsewhere in the mod as well.
 		/// </summary>
-		bool TryStamp(out DateTime writeUtc, out long length, out string error)
+		static bool TryStamp(string path, out DateTime writeUtc, out long length, out string error)
 		{
-			error = null;
-			try
+			writeUtc = default(DateTime);
+			length = -1;
+			// The seam's one metadata read, the same one the settings watch
+			// asks for: two of them here would be two answers that can disagree.
+			string ioError;
+			if (ModFileSystem.Current.TryGetStamp(path, out writeUtc, out length, out ioError))
 			{
-				writeUtc = ModFileSystem.Current.GetLastWriteTimeUtc(TomlPath);
-				length = ModFileSystem.Current.GetLength(TomlPath);
+				error = null;
 				return true;
 			}
-			catch (Exception ex)
-			{
-				writeUtc = default(DateTime);
-				length = -1;
-				error = "could not stat " + TomlFileName + " (" + ex.Message + ").";
-				return false;
-			}
+			var name = Path.GetFileName(path);
+			error = ioError == null
+				? "could not stat " + name + " (it is no longer there)."
+				: "could not stat " + name + " (" + ioError + ").";
+			return false;
 		}
 
 		/// <summary>
@@ -308,12 +315,12 @@ namespace Wrench
 		/// own read is what reports a file that is gone or unreadable, with
 		/// the cause, rather than this one guessing it.
 		/// </summary>
-		bool StampMoved(DateTime writeUtc, long length)
+		static bool StampMoved(string path, DateTime writeUtc, long length)
 		{
 			DateTime nowUtc;
 			long nowLength;
 			string statError;
-			if (!TryStamp(out nowUtc, out nowLength, out statError))
+			if (!TryStamp(path, out nowUtc, out nowLength, out statError))
 				return true;
 			return nowUtc != writeUtc || nowLength != length;
 		}
@@ -326,15 +333,31 @@ namespace Wrench
 		/// settings file it cannot read at all, or with none. The file is the
 		/// whole integration surface (ADR 0001); the one outcome that must
 		/// never happen is losing it.
+		///
+		/// <paramref name="moved"/> says the file's signature was no longer the
+		/// one the text was spliced against, so nothing was put in its place
+		/// and the caller re-splices against what the other writer left. The
+		/// check belongs here rather than at the call site because the staging
+		/// write is itself part of the window: asked for before it, a writer
+		/// that lands while the text is being written is written over.
 		/// </summary>
-		static bool TryWrite(string path, string text, Encoding encoding, out string error)
+		static bool TryWrite(string path, string text, Encoding encoding,
+			DateTime writeUtc, long length, out bool moved, out string error)
 		{
+			moved = false;
 			var temp = path + ".wrench-tmp." + stagingOwner;
 			var previous = path + ".wrench-prev";
 			var files = ModFileSystem.Current;
 			try
 			{
 				files.WriteAllText(temp, text, encoding);
+				if (StampMoved(path, writeUtc, length))
+				{
+					moved = true;
+					TryDeleteTemp(temp);
+					error = null;
+					return true;
+				}
 				for (var attempt = 1; ; attempt++)
 				{
 					try

@@ -96,7 +96,13 @@ def main() -> int:
           and "new FileInfo(path)" in code_of(read("ModFileSystem.cs"))
           and "GetLength" not in files
           and "GetLastWriteTimeUtc" not in files
-          and "ModFileSystem.Current.Exists" not in settings)
+          and "ModFileSystem.Current.Exists" not in settings
+          # The save path stamps the same file it is about to replace, so it
+          # reaches the same seam: a call to a member the interface does not
+          # declare is a mod that does not compile at all.
+          and "ModFileSystem.Current.TryGetStamp" in target
+          and "ModFileSystem.Current.GetLastWriteTimeUtc" not in target
+          and "ModFileSystem.Current.GetLength" not in target)
     check("the file watch measures elapsed time on the mod's one clock",
           "ModClock.Current.NowSeconds" in settings
           and "Stopwatch" not in settings
@@ -139,22 +145,26 @@ def main() -> int:
           and 'error = ex.GetType().Name + ": " + ex.Message;' in settings
           and "catch (Exception ex)" in settings
           and "catch (Exception)" not in settings)
-    # TryWrite stages a sibling in the same folder as the target, under a
-    # name carrying the writing process's id so two writers of one file do
-    # not stage under one name and each report success having written the
-    # other's bytes; it writes that sibling through the seam, and puts it in
-    # place with an atomic replace that retries while the target's own
-    # settings watch holds the file. The same name is unlinked on the failure
-    # path (TryDeleteTemp), so a failed save leaves nothing behind. The read
-    # half of the same save goes through the seam too, so a simulated run
-    # drives the read and the write of one save on one filesystem. The writer
-    # takes the path it stages beside, so the call site, not the writer, is
-    # where the target's own path is named: that call site is asserted too.
-    write = body(target, "static bool TryWrite(string path, string text, Encoding encoding,"
-                         " out string error)")
+    # TryWrite stages the sibling `path + ".wrench-tmp.<pid>"` in the same
+    # folder as the target, under a name carrying the writing process's id so
+    # two writers of one file do not stage under one name and each report
+    # success having written the other's bytes. It writes that sibling
+    # through the seam, and puts it in place with an atomic replace that
+    # retries while the target's own settings watch holds the file; that same
+    # name is unlinked on the failure path (TryDeleteTemp), so a failed save
+    # leaves nothing behind. The read half of the same save goes through the
+    # seam too, so a simulated run drives the read and the write of one save
+    # on one filesystem. The writer takes the path it stages beside, so the
+    # call site, not the writer, is where the target's own path is named:
+    # that call site is asserted too. The signature is matched on its first
+    # line only: `body` needs a string that is contiguous in the source, and
+    # the parameters wrap.
+    write = body(target, "static bool TryWrite(string path, string text,"
+                         " Encoding encoding,")
     check("a save is staged and swapped in, never written over in place",
           "WriteAllText(TomlPath" not in target
-          and "TryWrite(TomlPath, newText, currentEncoding, out error)" in target
+          and "TryWrite(TomlPath, newText, currentEncoding, writeUtc, length,"
+              in target
           and 'var temp = path + ".wrench-tmp." + stagingOwner;' in write
           and "static readonly int stagingOwner = StagingOwnerId();" in target
           and "process.Id" in target

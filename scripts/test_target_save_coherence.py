@@ -342,10 +342,19 @@ def main() -> int:
     check("a save of one file is serialized against every other save of it",
           "lock (saveGates.GetOrAdd(TomlPath" in save
           and "saveGates.GetOrAdd(TomlPath" in target)
+    # The check has to sit between the two halves of the write, not before
+    # them: the staging write is itself part of the window another program's
+    # save can land in, and asked for before it, that writer is written over.
     check("a writer that lands between the read and the write is spliced "
           "around, not written over",
-          "StampMoved(writeUtc, length)" in save
-          and "if (StampMoved(writeUtc, length))" in save
+          "StampMoved(path, writeUtc, length)" in write
+          and "if (StampMoved(path, writeUtc, length))" in write
+          and "moved = true;" in write
+          and "files.WriteAllText(temp, text, encoding)"
+              in write[:write.index("StampMoved(path, writeUtc, length)")]
+          and "files.Replace(temp, path)"
+              in write[write.index("StampMoved(path, writeUtc, length)"):]
+          and "if (moved)" in save
           and "continue;" in save
           and "SpliceAttempts" in save)
 

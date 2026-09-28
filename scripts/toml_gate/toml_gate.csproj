@@ -22,7 +22,6 @@
     <Compile Include="../../src/Wrench/ModFileSystem.cs" />
     <Compile Include="../../src/Wrench/ModTomlPath.cs" />
     <Compile Include="../../src/Wrench/ModFileText.cs" />
-    <Compile Include="../../src/Wrench/ModFileSystem.cs" />
     <Compile Include="../../src/Wrench/ModClock.cs" />
     <Compile Include="../../src/Wrench/TargetMod.cs" />
   </ItemGroup>

@@ -424,10 +424,12 @@ dedicated server runs the console command on its telnet thread, and
   `volatile` flag beside a plain field: a log line arriving between the
   marker swap and the flag clear would otherwise be dropped.
 - a save is a whole read-modify-write of one file, so it runs under a
-  per-path lock, and the file's write time and length are re-read just
-  before the staging write: an outside writer that landed in between is
-  re-spliced around (`SpliceAttempts` bounds it) instead of being written
-  over by a whole-file copy of what the save read. The staging name
+  per-path lock, and the file's write time and length are re-read after
+  the staging write and before the swap: the staging write is itself part
+  of the window another program's save can land in, so asking any earlier
+  writes that writer over. An outside writer that landed is re-spliced
+  around (`SpliceAttempts` bounds it) instead of being overwritten by a
+  whole-file copy of what the save read. The staging name
   carries the writing process's id, so two writers of one file never
   truncate or rename each other's staging file. Two programs saving one
   file in the same instant are still last-writer-wins; the signature
