@@ -63,18 +63,16 @@ namespace Wrench
 		{
 			Entries = null;
 			Error = null;
-			try
-			{
-				Text = File.ReadAllText(TomlPath);
-			}
-			catch (Exception ex)
+			string text;
+			string error;
+			if (!TryRead(out text, out error))
 			{
 				Text = null;
-				Error = ex.Message;
+				Error = error;
 				return;
 			}
+			Text = text;
 			List<TomlSettings.DocEntry> entries;
-			string error;
 			if (TomlSettings.TryReadDocument(Text, out entries, out error))
 				Entries = entries;
 			else
@@ -84,16 +82,33 @@ namespace Wrench
 		/// <summary>
 		/// Replaces one value in place and writes the file. On any failure
 		/// nothing is written and the parsed state is unchanged.
+		///
+		/// The edit is spliced by byte offset into the parsed text, so it is
+		/// applied to the file as it is *now*, never to the copy parsed at the
+		/// last <see cref="Reload"/>: another writer (a config tool, the mod
+		/// itself, a second game) can save in between, and stale offsets would
+		/// land on a neighbouring key and then write the whole file back over
+		/// that save. When the file has moved on, the key is located again by
+		/// name; one that is gone or now ambiguous refuses the edit rather
+		/// than guessing which span the row meant.
 		/// </summary>
 		public bool TrySave(TomlSettings.DocEntry entry, string newRaw, out string error)
 		{
+			string currentText;
+			if (!TryRead(out currentText, out error))
+				return Fail(error);
+			if (currentText != Text)
+			{
+				Reload();
+				TomlSettings.DocEntry fresh;
+				if (!TryRelocate(entry, out fresh, out error))
+					return Fail(error);
+				entry = fresh;
+			}
+
 			string newText;
 			if (!TomlEdit.TryReplaceValue(Text, entry, newRaw, out newText, out error))
-			{
-				SaveState = ESaveState.SaveFailed;
-				SaveError = error;
-				return false;
-			}
+				return Fail(error);
 			try
 			{
 				File.WriteAllText(TomlPath, newText);
@@ -101,14 +116,72 @@ namespace Wrench
 			catch (Exception ex)
 			{
 				error = ex.Message;
-				SaveState = ESaveState.SaveFailed;
-				SaveError = error;
-				return false;
+				return Fail(error);
 			}
 			SaveState = ESaveState.Saved;
 			SaveError = null;
 			Reload();
 			return true;
+		}
+
+		bool Fail(string message)
+		{
+			SaveState = ESaveState.SaveFailed;
+			SaveError = message;
+			return false;
+		}
+
+		/// <summary>
+		/// The same key's span in the file as it stands now, taken from the
+		/// re-read entries. Refuses when the file no longer parses, no longer
+		/// carries the key, or carries it more than once: the row the edit
+		/// came from is the only thing that knows which key was meant, and a
+		/// wrong span is a wrong write.
+		/// </summary>
+		bool TryRelocate(TomlSettings.DocEntry stale, out TomlSettings.DocEntry found, out string error)
+		{
+			found = null;
+			if (Entries == null)
+			{
+				error = Error;
+				return false;
+			}
+			for (var i = 0; i < Entries.Count; i++)
+			{
+				if (Entries[i].Name != stale.Name)
+					continue;
+				if (found != null)
+				{
+					error = "'" + stale.Name + "' is in the file more than once now; "
+						+ "reopen the screen and edit it there.";
+					found = null;
+					return false;
+				}
+				found = Entries[i];
+			}
+			if (found == null)
+			{
+				error = "'" + stale.Name + "' is no longer in the file; it changed outside Wrench.";
+				return false;
+			}
+			error = null;
+			return true;
+		}
+
+		bool TryRead(out string text, out string error)
+		{
+			try
+			{
+				text = File.ReadAllText(TomlPath);
+				error = null;
+				return true;
+			}
+			catch (Exception ex)
+			{
+				text = null;
+				error = ex.Message;
+				return false;
+			}
 		}
 
 		/// <summary>Every loaded mod with a Config/&lt;Mod&gt;.toml, load order preserved.</summary>
@@ -130,11 +203,19 @@ namespace Wrench
 		/// True when any of the mod's assemblies carries the Anvil settings
 		/// component: a ModSettings type with the FilePollIntervalSeconds
 		/// constant, i.e. the debounced save watch that re-reads the file.
+		///
+		/// One assembly the runtime cannot fully load must not take the whole
+		/// screen down: it only decides this mod's status line, and the other
+		/// mods in the list still have settings to edit.
 		/// </summary>
 		static bool HasSettingsComponent(Mod mod)
 		{
+			if (mod.AllAssemblies == null)
+				return false;
 			foreach (var assembly in mod.AllAssemblies)
 			{
+				if (assembly == null)
+					continue;
 				Type[] types;
 				try
 				{
@@ -142,7 +223,13 @@ namespace Wrench
 				}
 				catch (ReflectionTypeLoadException ex)
 				{
+					// A dependency the runtime could not load hides some of the
+					// types; the rest are still worth scanning.
 					types = ex.Types;
+				}
+				catch (Exception)
+				{
+					continue;
 				}
 				foreach (var type in types)
 				{

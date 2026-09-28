@@ -55,6 +55,12 @@ namespace Wrench
 		{
 			base.OnOpen();
 			Log.LogCallbacks += OnLogLine;
+			// A reload line seen while the screen was closed belongs to the
+			// previous opening: targets are re-discovered below, so carrying
+			// the latch over would stamp a fresh TargetMod "applied live" for
+			// a save that never happened.
+			watchedReloadMarker = null;
+			reloadSeen = false;
 			var keep = selected == null ? null : selected.Mod.Name;
 			targets = TargetMod.Discover();
 			var index = targets.FindIndex(t => t.Mod.Name == keep);

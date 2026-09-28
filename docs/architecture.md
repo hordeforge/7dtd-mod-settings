@@ -85,6 +85,21 @@ suite must end in the same file the first run started from. It writes the
 `CaptureBaseline()`, so no execution can take its baseline from a file the
 suite already edited. Enforced by `scripts/test_playtest_rerun_safety.py`.
 
+## Decided 2026-09-28: the parsed file is a cache, and a write re-reads it
+
+`TargetMod.Text` / `TargetMod.Entries` are a cache of the target's TOML,
+taken when the screen opens and after every save. Consistency requirement:
+an edit lands in the file as it is at the moment of the save. So `TrySave`
+re-reads the file first, and when it has moved on it re-parses and locates
+the key by name; a key that is gone or now appears twice is refused with a
+message instead of being spliced at a byte offset that now points somewhere
+else, which would write a stale copy of the whole file over the other
+writer's save. Display staleness is the looser part and is left alone: the
+rows show the file as of the last open or save, so an external edit appears
+on reopen. The "applied live" observation is a one-shot latch and is
+cleared when the screen opens, so a reload line seen while it was closed
+cannot stamp a newly discovered mod as saved-and-applied.
+
 ## Open questions
 
 - (none yet)
