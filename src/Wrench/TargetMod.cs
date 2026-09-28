@@ -147,7 +147,7 @@ namespace Wrench
 			List<TomlSettings.DocEntry> newEntries;
 			if (!TomlEdit.TryReplaceValue(Text, Entries, entry, newRaw, out newText, out newEntries, out error))
 				return Fail(error);
-			if (!TryWrite(newText, currentEncoding, out error))
+			if (!TryWrite(TomlPath, newText, currentEncoding, out error))
 				return Fail(error);
 			SaveState = ESaveState.Saved;
 			SaveError = null;
@@ -161,7 +161,7 @@ namespace Wrench
 		}
 
 		/// <summary>
-		/// Writes <paramref name="newText"/> to this mod's file through a
+		/// Writes <paramref name="text"/> to <paramref name="path"/> through a
 		/// sibling temp file and an atomic replace. Writing in place
 		/// truncates the target first, so a crash, a shutdown, or a full disk
 		/// between the truncate and the last byte leaves the mod with a
@@ -169,18 +169,18 @@ namespace Wrench
 		/// whole integration surface (ADR 0001); the one outcome that must
 		/// never happen is losing it.
 		/// </summary>
-		bool TryWrite(string newText, Encoding encoding, out string error)
+		static bool TryWrite(string path, string text, Encoding encoding, out string error)
 		{
-			var tempPath = TomlPath + ".wrench-tmp";
+			var temp = path + ".wrench-tmp";
 			var files = ModFileSystem.Current;
 			try
 			{
-				files.WriteAllText(tempPath, newText, encoding);
+				files.WriteAllText(temp, text, encoding);
 				for (var attempt = 1; ; attempt++)
 				{
 					try
 					{
-						files.Replace(tempPath, TomlPath);
+						files.Replace(temp, path);
 						break;
 					}
 					catch (NotSupportedException)
@@ -188,8 +188,8 @@ namespace Wrench
 						// A runtime with no atomic replace: the file goes away
 						// for an instant instead of being half-written, which
 						// is the closest this platform gets.
-						files.Delete(TomlPath);
-						files.Move(tempPath, TomlPath);
+						files.Delete(path);
+						files.Move(temp, path);
 						break;
 					}
 					catch (IOException)
@@ -206,7 +206,7 @@ namespace Wrench
 			}
 			catch (Exception ex)
 			{
-				TryDeleteTemp(tempPath);
+				TryDeleteTemp(temp);
 				error = ex.Message;
 				return false;
 			}

@@ -198,7 +198,11 @@ def main() -> int:
         return any(call in code_of(name) for call in other_disk_calls)
 
     # `File.` has to be matched as the BCL type, not as the tail of this mod's
-    # own `TomlFile.`, which is a call through the seam and nothing else.
+    # own `TomlFile.`, which is a call through the seam and nothing else:
+    # `TomlFile` is the byte-faithful seam a target mod's own file goes
+    # through (architecture.md, "another mod's TOML is read and written
+    # through TomlFile"), so a plain substring rule would forbid the seam
+    # that decision put in place.
     check("the shipped sources touch a disk only through the two seams",
           "interface IFileSystem" in files
           and "class SystemFileSystem : IFileSystem" in files

@@ -69,7 +69,15 @@ and its comments. Three decisions follow, enforced by
   read so a file from elsewhere loads. Another mod's file keeps whatever
   encoding it is in (`TomlFile`, decided below). Relying on the API
   default made the written bytes depend on the runtime rather than on the
-  mod.
+  mod. A decoder whose text is written back is strict: bytes that are not
+  valid in the encoding they declare are refused, not replaced with
+  U+FFFD, and the strict decoder is the same on the marked and the
+  unmarked form, so a three-byte preamble cannot decide how forgiving a
+  read is. That is every read of another mod's file; nothing writes
+  `Wrench.toml` back, so a stray byte in its comment costs nothing there
+  and its decoder may replace. Held by
+  `scripts/test_toml_document.py`, which reads back an unmarked and a
+  marked file carrying a byte no UTF-8 sequence starts with.
 - **One string grammar, both directions.** The reader accepts the whole
   TOML escape set the writer can emit, and the writer escapes every
   control character rather than the two that read well, so a value Wrench
@@ -266,9 +274,12 @@ write one back, so the first save of a mod's `Config/<Mod>.toml` changes
 bytes outside the edited span, which ADR 0001 forbids; and both open with
 `FileShare.Read`, which Windows refuses with a sharing violation while the
 hot-reloading mod's own save watcher holds the same file open for read and
-write, the mode `ModSettings.Poll` uses. `TomlFile.cs` detects the
-declared encoding (UTF-8 with or without a mark, UTF-16 and UTF-32 either
-way round) and codes a file's bytes to text and back, and `ModFileSystem`
+write, the mode `ModSettings.Poll` uses. `TomlFile.cs` takes a file's
+bytes, detects the declared encoding (UTF-8 with or without a mark, UTF-16
+and UTF-32 either way round) and codes the bytes to text and back, byte
+order mark included; every one of those decoders is strict, so a file in
+some other 8-bit encoding is refused and left alone instead of being
+rewritten full of U+FFFD the first time a value is saved. `ModFileSystem`
 makes every open, both sides, with `FileShare.ReadWrite | FileShare.Delete`.
 `TargetMod` reads and writes the target through that one seam, temp sibling
 included, so this is the shipped path and not a helper only the gate
@@ -407,9 +418,12 @@ clock and filesystem in those two slots and drive the same decisions the
 game makes, including a save that loses the replace race, a write that
 fails, and a reload that lands at a chosen moment.
 
-`scripts/test_settings_reload.py` holds both seams: no `File.` and no
+`scripts/test_settings_reload.py` holds both seams: no direct
+`System.IO` file call (`File.` or `Directory.` on a word boundary) and no
 `Thread.Sleep` outside a comment in `ModSettings.cs` or `TargetMod.cs`,
-and each caller reading its clock and its filesystem through the seam.
+and each caller reading its clock and its filesystem through the seam. A
+target mod's bytes go through `TomlFile`, the seam decided below, so the
+ban is on the call and not on the letters in its name.
 
 ## Decided 2026-09-28: the save path is game-free, and simulated from a seed
 

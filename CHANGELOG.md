@@ -78,6 +78,13 @@ value.
   after its save succeeded.
 - Wrench's own broken settings file is no longer re-logged on every
   frame.
+- A mod's settings file that is not valid UTF-8 is now reported as
+  unreadable instead of being read with replacement characters. Saving
+  one such file turned every byte the decoder could not read into U+FFFD,
+  for good; a file whose bytes are not valid in the encoding it declares
+  is now left exactly as it is. The marked and unmarked forms behaved
+  differently before, so three bytes of preamble decided how forgiving
+  the read was.
 - TOML string escapes follow the TOML grammar in both directions:
   `\b \f \r \t \n \" \\`, `\uXXXX` and `\UXXXXXXXX` including surrogate
   pairs are read and written correctly, a raw control character in a

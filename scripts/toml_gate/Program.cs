@@ -503,6 +503,7 @@ static class Program
 			RoundTrips(dir, "utf32", new UTF32Encoding(false, true), windows);
 			RoundTrips(dir, "utf32be", new UTF32Encoding(true, true), windows);
 			SharedAccessWhileOpen(dir);
+			StrictDecoding(dir);
 		}
 		finally
 		{
@@ -572,6 +573,44 @@ static class Program
 		catch (IOException ex)
 		{
 			Check("read and write tolerate a concurrent holder", false, ex.Message);
+		}
+	}
+
+	// Bytes that are not valid in the encoding the file declares are
+	// refused, not decoded into U+FFFD. A mod author who saved in a single
+	// byte encoding would otherwise get a file whose comment is a row of
+	// replacement characters the first time they saved one value from the
+	// settings screen. The marked and the unmarked form must agree, so three
+	// bytes of preamble cannot decide how forgiving the read is.
+	static void StrictDecoding(string dir)
+	{
+		// "# caf\xE9" in latin-1: 0xE9 starts no character in UTF-8.
+		var bytes = new byte[] { (byte)'#', (byte)' ', (byte)'c', (byte)'a', (byte)'f',
+			0xE9, (byte)'\n', (byte)'A', (byte)' ', (byte)'1', (byte)'\n' };
+		var path = Path.Combine(dir, "latin1.toml");
+		File.WriteAllBytes(path, bytes);
+		Check("an unmarked file with invalid UTF-8 is refused, not replaced",
+			RefusesRead(path));
+
+		var marked = Path.Combine(dir, "latin1-bom.toml");
+		File.WriteAllBytes(marked, new byte[] { 0xEF, 0xBB, 0xBF }.Concat(bytes).ToArray());
+		Check("a marked file with invalid UTF-8 is refused the same way",
+			RefusesRead(marked));
+		Check("a refused read leaves the file's bytes untouched",
+			File.ReadAllBytes(path).SequenceEqual(bytes));
+	}
+
+	static bool RefusesRead(string path)
+	{
+		Encoding read;
+		try
+		{
+			TomlFile.ReadAllText(path, out read);
+			return false;
+		}
+		catch (DecoderFallbackException)
+		{
+			return true;
 		}
 	}
 

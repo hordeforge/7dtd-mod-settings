@@ -26,9 +26,16 @@ namespace Wrench
 	/// </summary>
 	internal static class TomlFile
 	{
+		// Every candidate decodes strictly. A decoder that replaces bad
+		// bytes turns a file saved in some other 8-bit encoding into a file
+		// full of U+FFFD the first time Wrench saves it, and the mod on the
+		// other side never sees the bytes that were there; refusing to read
+		// leaves the file alone and says so. The file is the whole
+		// integration surface (ADR 0001), so an unreadable one is the only
+		// outcome that loses nothing.
 		static readonly Encoding[] KnownEncodings =
 		{
-			new UTF8Encoding(true),
+			new UTF8Encoding(true, true),
 			// UTF-32LE's mark starts with UTF-16LE's, so it is tested first.
 			new UTF32Encoding(false, true),
 			new UTF32Encoding(true, true),
@@ -66,7 +73,9 @@ namespace Wrench
 		/// <summary>
 		/// The encoding whose byte order mark the bytes start with, and how
 		/// long that mark is. No mark means UTF-8 without one, the encoding
-		/// every other reader of these files assumes.
+		/// every other reader of these files assumes, decoded strictly like
+		/// the marked form: whether a 3-byte mark is there must not decide
+		/// whether an invalid byte throws or arrives as U+FFFD.
 		///
 		/// Public because a simulated filesystem holds a file's bytes
 		/// rather than a path, and has to decode them by the same rule this
@@ -84,7 +93,7 @@ namespace Wrench
 				}
 			}
 			preambleLength = 0;
-			return new UTF8Encoding(false);
+			return new UTF8Encoding(false, true);
 		}
 
 		static bool StartsWith(byte[] bytes, byte[] prefix)

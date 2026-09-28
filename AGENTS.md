@@ -223,6 +223,14 @@ subfolder.
   filesystem) with `TomlFile` as the byte-faithful codec, in whatever
   encoding its bytes declare, so a non-ASCII comment in it survives a save
   unchanged, mark included.
+- A decoder whose text is written back is strict: bytes that are not
+  valid in the encoding they declare are refused, never replaced with
+  U+FFFD. That is every read of another mod's file, since a save writes
+  the decoded text back and a replaced byte would be lost from a file
+  this mod does not own. The strict decoder is the same whether or not a
+  byte order mark is there. `Wrench.toml` is the other case: nothing
+  writes it back, so a stray byte in a comment costs nothing there and
+  its decoder may replace.
 - The TOML string grammar is TOML's, both directions: the reader
   understands every escape the writer emits (`\b \f \r \t \n \" \\`,
   `\uXXXX`, `\UXXXXXXXX`, surrogate pairs), a raw control character in a
@@ -238,7 +246,8 @@ subfolder.
 
 Corrected 2026-09-28: escapes, encoding, and key case in the TOML path;
 enforced by `scripts/test_toml_document.py` (spans, escapes, non-ASCII
-round trips), `scripts/test_toml_fuzz.py` (mutated documents against the
+round trips, a file whose bytes are not valid in the encoding it declares
+refused on read), `scripts/test_toml_fuzz.py` (mutated documents against the
 reader/writer/resolver invariants, fixed seed), and
 `scripts/test_python_defects.py` (text output without an
 explicit encoding).
