@@ -330,6 +330,7 @@ namespace Wrench
 		static bool TryWrite(string path, string text, Encoding encoding, out string error)
 		{
 			var temp = path + ".wrench-tmp." + stagingOwner;
+			var previous = path + ".wrench-prev";
 			var files = ModFileSystem.Current;
 			try
 			{
@@ -345,9 +346,36 @@ namespace Wrench
 					{
 						// A runtime with no atomic replace: the file goes away
 						// for an instant instead of being half-written, which
-						// is the closest this platform gets.
-						files.Delete(path);
-						files.Move(temp, path);
+						// is the closest this platform gets. It is moved aside
+						// rather than deleted, and put back when the move that
+						// replaces it fails: a delete leaves the old text only
+						// in this process, and a move that fails after it has
+						// lost the file.
+						files.Delete(previous);
+						files.Move(path, previous);
+						try
+						{
+							files.Move(temp, path);
+						}
+						catch (Exception swap)
+						{
+							try
+							{
+								files.Move(previous, path);
+							}
+							catch (Exception restore)
+							{
+								// Both failures belong in the one message: the
+								// file is still missing, and the text that
+								// filled it is named.
+								throw new IOException("the swap failed (" + swap.Message
+									+ ") and the previous text could not be put back ("
+									+ restore.Message + "); it is at " + previous + ".",
+									swap);
+							}
+							throw;
+						}
+						files.Delete(previous);
 						break;
 					}
 					catch (IOException)
@@ -381,6 +409,10 @@ namespace Wrench
 				// exception's own type and text follow for the detail.
 				error = "the settings file could not be written: "
 					+ ex.GetType().Name + ": " + ex.Message;
+				// The old text left beside the target is the only copy of the
+				// player's settings left, so the message has to name it.
+				if (files.Exists(previous))
+					error += " The previous text is at " + previous + ".";
 				return false;
 			}
 			error = null;

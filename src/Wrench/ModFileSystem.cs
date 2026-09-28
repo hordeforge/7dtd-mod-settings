@@ -158,11 +158,20 @@ namespace Wrench
 		public void WriteAllText(string path, string text, Encoding encoding)
 		{
 			var bytes = TomlFile.Encode(text, encoding);
-			// A link at the staged name is unlinked rather than followed, so
-			// creating over it cannot truncate what it points at. Delete does
-			// not throw when there is nothing there.
+			// The path this is called with is the staged sibling of a target
+			// in another mod's folder, and its name is predictable, so it is
+			// created exclusively: create-or-truncate follows whatever a link
+			// left there and writes the settings text through it. A link at
+			// the staged name is unlinked rather than followed, so creating
+			// over it cannot truncate what it points at. A staged file still
+			// there is not a save in progress (nothing reads it, and a save
+			// that was interrupted already reported itself failed), and a
+			// staging file a crash left behind would otherwise refuse every
+			// save after it, so it goes first. Delete does not throw when
+			// there is nothing there.
 			File.Delete(path);
 			using (var stream = File.Open(path, FileMode.CreateNew, FileAccess.Write, SharedAccess))
+			{
 				stream.Write(bytes, 0, bytes.Length);
 				// The write is not done until it is on the disk, and this is
 				// the only place that can say so: a flush that fails is a save

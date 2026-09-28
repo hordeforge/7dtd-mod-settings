@@ -24,13 +24,16 @@ namespace Wrench
 		// not the only one that can reach it: the lookup and the fill are one
 		// check-then-act, so two threads discovering at once would both
 		// probe and then both write the same dictionary, which is what
-		// corrupts it. One lock around the whole sequence, with the probe
-		// inside it, so a miss is filled before the next lookup sees it.
+		// corrupts it. A Dictionary is not safe to read while another thread
+		// writes it, and the screen is opened from the Unity thread while a
+		// dedicated server's telnet thread can discover a mod of its own. One
+		// lock around the whole sequence, with the probe inside it, so a miss
+		// is filled before the next lookup sees it.
 		//
 		// Only a conclusive probe is kept: an assembly the runtime could not
-		// enumerate may hide the component, so its "no" is an absence of
-		// evidence and memoizing it would fix a wrong live-reload label for
-		// the rest of the session.
+		// enumerate, or enumerates only in part, may hide the component, so
+		// its "no" is an absence of evidence and memoizing it would fix a
+		// wrong live-reload label for the rest of the session.
 		static readonly Dictionary<string, bool> hotReloadsByModPath =
 			new Dictionary<string, bool>(StringComparer.Ordinal);
 		static readonly object hotReloadsGate = new object();
@@ -109,10 +112,11 @@ namespace Wrench
 		/// <paramref name="definitive"/> says whether every assembly was fully
 		/// inspected. It is not when one of them could not be enumerated, or
 		/// enumerated only in part: an unread type may be the component, so
-		/// that "no" is reported for this opening and left unmemoized rather
-		/// than cached as the mod's answer, which would label a hot-reloading
-		/// mod restart-only for the rest of the session over a type that would
-		/// not load once.
+		/// the answer is then "not found in what was looked at" and that "no"
+		/// is reported for this opening and left unmemoized rather than cached
+		/// as the mod's answer, which would label a hot-reloading mod
+		/// restart-only for the rest of the session over a type that would not
+		/// load once.
 		/// </summary>
 		public static bool HasSettingsComponent(Mod mod, out bool definitive)
 		{
@@ -147,7 +151,7 @@ namespace Wrench
 					if (types == null)
 						continue;
 				}
-				catch (Exception)
+				catch (Exception ex)
 				{
 					// A partial negative is not a negative: this mod may well
 					// carry the component in an assembly that would not load.
@@ -155,7 +159,8 @@ namespace Wrench
 					// costs them the truth for the rest of the session.
 					definitive = false;
 					Log.Warning(ModApi.LogPrefix + " could not inspect an assembly of "
-						+ mod.Name + "; the mod is treated as not hot-reloading.");
+						+ mod.Name + " (" + ex.Message + "); the mod is reported as "
+						+ "not hot-reloading until an inspection succeeds.");
 					complete = false;
 					continue;
 				}

@@ -181,10 +181,14 @@ def main() -> int:
     # Every occurrence, not the first: the lookup and the fill are two
     # blocks, and a copy with only one of them taken is still unlocked, so
     # the control asks whether the fill is guarded rather than whether the
-    # word "lock" is still anywhere in the method.
+    # word "lock" is still anywhere in the method. Every lock the probe takes
+    # is removed, or the mutation leaves one behind and the control proves
+    # nothing.
     unlocked = discovery.replace("lock (hotReloadsGate)", "")
     check("negative control: an unlocked memo table fails the gate",
           "lock (hotReloadsGate)" in discovery
+          and "lock (hotReloadsGate)"
+          not in body(unlocked, "static bool CachedHasSettingsComponent(")
           and not guarded(body(unlocked, "static bool CachedHasSettingsComponent("),
                          "hotReloadsByModPath[mod.Path] = found;"))
     guard = "if (hotReloadsByModPath.TryGetValue(mod.Path, out known))"
@@ -212,7 +216,7 @@ def main() -> int:
 
     probe = body(discovery, "static bool HasSettingsComponent(")
     check("one unloadable assembly does not take the settings list down",
-          "catch (Exception)" in probe and "continue;" in probe)
+          "catch (Exception" in probe and "continue;" in probe)
     check("an assembly that could not be inspected leaves the answer "
           "incomplete",
           "public static bool HasSettingsComponent(Mod mod, out bool definitive)"
@@ -255,6 +259,17 @@ def main() -> int:
           and "ModClock.Current.Sleep(ReplaceRetryMilliseconds)" in write)
     check("a failed replace leaves no temp file behind",
           "TryDeleteTemp(temp);" in write)
+    # With no atomic replace, the target used to be deleted before the staged
+    # text was moved into its place. A move that fails there leaves the mod
+    # with no settings file at all and the only copy of the old text in this
+    # process, so the fallback moves the target aside and puts it back.
+    check("a runtime with no atomic replace moves the target aside, not away",
+          "files.Move(path, previous);" in write
+          and "files.Move(previous, path);" in write
+          and "files.Delete(path);" not in target)
+    check("a swap that cannot be closed says where the old text is",
+          "files.Exists(previous)" in write
+          and "The previous text is at" in write)
 
     read_body = body(target, "bool TryRead(")
     # The read is the other half of the atomic save: it has to report the
@@ -296,8 +311,8 @@ def main() -> int:
     # name instead of following it, and clears a staging file a crash left
     # behind. The write moved out of the codec and into the filesystem seam
     # when the codec stopped naming paths, so the property is read where the
-    # open is. The rename fallback lands on an existing name on no runtime,
-    # so it removes the destination first too.
+    # open is, in the filesystem that owns it. The rename fallback lands on
+    # an existing name on no runtime, so it removes the destination first too.
     seam_write = body(seam, "public void WriteAllText(")
     seam_move = body(seam, "public void Move(")
     check("the staged file is created, never created-or-truncated over a link",
@@ -312,10 +327,11 @@ def main() -> int:
     opened = body(screen, "public override void OnOpen()")
     check("the reload latch does not survive the closing it was set in",
           "DisarmReloadWatch()" in opened)
-    # A mod is identified by its folder, not by the name its ModInfo carries:
-    # two installed mods can ship the same name, and reopening on the name
-    # would land the player on a different mod's settings. The folder is a
-    # string the save path carries, so this costs the game-free contract
+    # A mod is identified by its folder, which its settings file is resolved
+    # from, not by the name its ModInfo carries: two installed mods can ship
+    # the same name, and reopening on the name would land the player on a
+    # different mod's settings. The identity is a resolved path rather than
+    # the game type it came from, so this costs the game-free contract
     # nothing.
     check("reopening keeps the selection on the same mod, matched by path",
           "selected.ModPath" in opened

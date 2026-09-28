@@ -200,8 +200,11 @@ be able to destroy it. Two properties, both held by
   first, so a crash, a shutdown, or a full disk between the truncate and
   the last byte would leave the mod with an unparsable settings file, or
   with none, which is the one outcome the file-as-surface rule exists to
-  prevent. A runtime with no atomic replace falls back to delete-then-move,
-  which still never writes over the target in place.
+  prevent. A runtime with no atomic replace falls back to move-then-move:
+  the target moves aside to `.wrench-prev` and the staged text takes its
+  place, and a move that fails puts the old text back (naming the file if
+  even that fails), so the only window in which the target is missing is
+  one the same method closes again.
 - The staged file is created with `FileMode.CreateNew` after unlinking
   whatever is at that name, never `FileMode.Create`. The stage has a fixed,
   guessable name beside the target, so on a shared server install anything
@@ -234,9 +237,13 @@ game runs, so its answer is memoized per mod path and paid once per mod
 rather than on every opening of the screen. Only a conclusive probe is kept:
 an assembly the runtime cannot enumerate, or enumerates only in part, may
 hold the component, so its "no" is reported for that opening and left out
-of the table rather than cached as the mod's answer; a component that was
-found is conclusive whatever else went unread. The table is read and filled
-under one lock, `hotReloadsGate`. Enforced by
+of the table rather than cached as the mod's answer; a mod remembered as
+not hot-reloading because one assembly would not load keeps saying "restart
+required" for the rest of the session, and a component that was found is
+conclusive whatever else went unread. The table is read and filled under
+one lock, `hotReloadsGate`, because the screen is opened from the Unity
+thread while a dedicated server's telnet thread can discover a mod of its
+own. Enforced by
 `scripts/test_target_save_coherence.py`.
 
 The settings watch in `ModSettings` keeps the applied file's write time,

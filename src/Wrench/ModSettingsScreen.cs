@@ -105,10 +105,10 @@ namespace Wrench
 			// a save that never happened.
 			DisarmReloadWatch();
 			watchedReloadTarget = null;
-			// A mod is identified by its installed folder, not by the name its
-			// ModInfo carries: two installed mods can ship the same name, and
-			// reopening on the name would land the player on a different
-			// mod's settings.
+			// A mod is identified by its installed folder, which its settings
+			// file is resolved from, not by the name its ModInfo carries: two
+			// installed mods can ship the same name, and reopening on the name
+			// would land the player on a different mod's settings.
 			var keep = selected == null ? null : selected.ModPath;
 			targets = TargetModDiscovery.Discover();
 			var index = targets.FindIndex(t => t.ModPath == keep);

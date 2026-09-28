@@ -40,12 +40,28 @@ PREFIX_SAVES = os.path.join(
 SAVES_DIR_KEY = "SEVEN_DAYS_TO_DIE_SAVES_DIR"
 
 MOD_DIR = str(mod_dir())
-# The checkout is named after the repo slug; ModInfo.xml Name is the mod
-# (test_static_checks.py holds it to the build tooling).
-MOD_NAME = next(
-    p.get("value") or ""
-    for p in ET.parse(os.path.join(MOD_DIR, "ModInfo.xml")).getroot()
-    if p.tag == "Name")
+
+
+def mod_name() -> str:
+    """This mod's own name, from its ModInfo.
+
+    The checkout is named after the repo slug, not the mod, so the file is
+    the authority (test_static_checks.py holds it to the build tooling). A
+    missing or malformed one ends the run with that fact named; a traceback
+    out of a module-level parse would not say which file or why.
+    """
+    path = os.path.join(MOD_DIR, "ModInfo.xml")
+    try:
+        root = ET.parse(path).getroot()
+    except (ET.ParseError, OSError) as exc:
+        raise SystemExit(f"ERROR: could not read {path}: {exc}") from exc
+    name = next((p.get("value") or "" for p in root if p.tag == "Name"), "")
+    if not name:
+        raise SystemExit(f"ERROR: {path} declares no Name property.")
+    return name
+
+
+MOD_NAME = mod_name()
 
 # Patches whose value depends on landing inside a specific parent. These are
 # the ones a wrong-but-valid XPath would silently misplace.
