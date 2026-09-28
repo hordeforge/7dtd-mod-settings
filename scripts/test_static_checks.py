@@ -15,6 +15,8 @@ Deterministic, offline, no game install needed:
 - localization ships at Config/Localization.csv, never the mod root (the
   engine only loads mod localization from <mod>/Config/)
 - no pre-V3 XUi shapes: no Config/XUi/ directory, no `{binding}` syntax
+- .gitattributes pins LF for the shipped mod content, so the packaged
+  modlet is the same bytes on a CRLF checkout as on an LF one
 """
 
 from __future__ import annotations
@@ -131,6 +133,18 @@ def main() -> int:
                 check("no-legacy-binding-syntax:" + rel,
                       not binding.search(handle.read()),
                       "use V3 {% expression %} bindings")
+
+    # Shipped mod content pins LF in the working tree, so the modlet
+    # `make package` zips is the same bytes on every machine: without it a
+    # Windows checkout (core.autocrlf=true) ships CRLF where everyone else
+    # ships LF.
+    with open(os.path.join(MOD_DIR, ".gitattributes"), encoding="utf-8") as handle:
+        attributes = handle.read()
+    for pattern in ("*.csv", "*.xml", "*.toml", "*.txt"):
+        check("shipped-content-line-endings:" + pattern,
+              re.search(rf"^{re.escape(pattern)} text eol=lf$", attributes,
+                        re.MULTILINE) is not None,
+              ".gitattributes must pin " + pattern + " to LF")
 
     print(f"{len(FAILURES)} failures.")
     return 1 if FAILURES else 0

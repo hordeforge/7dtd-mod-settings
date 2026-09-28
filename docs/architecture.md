@@ -120,6 +120,21 @@ so a window with nothing to show says why rather than showing an empty
 frame; the strings are localization keys, as every other Mod Settings
 string that is not a live status is.
 
+## Decided 2026-09-28: another mod's TOML is read and written through `TomlFile`
+
+`File.ReadAllText` and `File.WriteAllText` are wrong on both sides of the
+settings screen's write. They strip a byte order mark on read and never
+write one back, so the first save of a mod's `Config/<Mod>.toml` changes
+bytes outside the edited span, which ADR 0001 forbids; and both open with
+`FileShare.Read`, which Windows refuses with a sharing violation while the
+hot-reloading mod's own save watcher holds the same file open for read and
+write, the mode `ModSettings.Poll` uses. `TomlFile.cs` reads the bytes,
+detects the declared encoding (UTF-8 with or without a mark, UTF-16 and
+UTF-32 either way round), and writes the file back in it, both sides with
+`FileShare.ReadWrite | FileShare.Delete`. Enforced by
+`scripts/test_toml_document.py`, which round-trips each of those file
+shapes through the shipped writer.
+
 ## Open questions
 
 - (none yet)

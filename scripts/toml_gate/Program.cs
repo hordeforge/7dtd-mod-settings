@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text;
 using Wrench;
 
 // Offline gate for the TOML document parser and the in-place writer:
@@ -49,6 +51,7 @@ static class Program
 		TestEdits();
 		TestRejections();
 		TestCrlf();
+		TestFileIo();
 		TestShippedFile();
 		Console.WriteLine(failures + " failures.");
 		Environment.Exit(failures > 0 ? 1 : 0);
@@ -203,6 +206,90 @@ static class Program
 			TomlSettings.TryReadDocument(text, out doc, out error), error ?? "");
 		Check("shipped file's keys carry help comments",
 			doc != null && doc.Count > 0 && doc.TrueForAll(e => e.Comment.Length > 0));
+	}
+
+	// The file the settings screen actually edits, in every shape a mod
+	// author saves it on a machine that is not this one: a byte order mark
+	// (Windows editors write one), CRLF, UTF-16, and a file another process
+	// holds open while it watches for changes.
+	static void TestFileIo()
+	{
+		var dir = Path.Combine(Path.GetTempPath(), "wrench-toml-gate");
+		Directory.CreateDirectory(dir);
+		try
+		{
+			var plain = "# help\nA = 1\nB = 2\n";
+			var windows = "# help\r\nA = 1\r\nB = 2\r\n";
+			RoundTrips(dir, "plain", new UTF8Encoding(false), plain);
+			RoundTrips(dir, "bom", new UTF8Encoding(true), plain);
+			RoundTrips(dir, "crlf-bom", new UTF8Encoding(true), windows);
+			RoundTrips(dir, "utf16", new UnicodeEncoding(false, true), windows);
+			SharedAccessWhileOpen(dir);
+		}
+		finally
+		{
+			Directory.Delete(dir, true);
+		}
+	}
+
+	static void RoundTrips(string dir, string name, Encoding encoding, string body)
+	{
+		var path = Path.Combine(dir, name + ".toml");
+		var preamble = encoding.GetPreamble();
+		var original = preamble.Concat(encoding.GetBytes(body)).ToArray();
+		File.WriteAllBytes(path, original);
+
+		Encoding read;
+		var text = TomlFile.ReadAllText(path, out read);
+		Check(name + ": read decodes the body", text == body);
+		Check(name + ": read keeps the declared encoding", read.GetPreamble().SequenceEqual(preamble));
+
+		TomlFile.WriteAllText(path, text, read);
+		Check(name + ": write without an edit is byte-identical",
+			File.ReadAllBytes(path).SequenceEqual(original));
+
+		List<TomlSettings.DocEntry> doc;
+		string error, newText;
+		if (!TomlSettings.TryReadDocument(text, out doc, out error))
+		{
+			Check(name + ": document parses", false, error ?? "");
+			return;
+		}
+		var entry = doc.Find(e => e.Name == "A");
+		Check(name + ": edit replaces the value span",
+			TomlEdit.TryReplaceValue(text, entry, "7", out newText, out error)
+			&& text.Replace("A = 1", "A = 7") == newText, error ?? "");
+		TomlFile.WriteAllText(path, newText, read);
+		var reread = File.ReadAllBytes(path);
+		Check(name + ": edit leaves every other byte alone",
+			reread.Length == original.Length
+			&& reread.Take(3).SequenceEqual(original.Take(3))
+			&& read.GetString(reread, read.GetPreamble().Length, reread.Length - read.GetPreamble().Length)
+				== newText);
+	}
+
+	// The hot-reloading mod's watcher keeps the file open for read and
+	// write while polling it; a save from the settings screen must not fail
+	// with a sharing violation (Windows rejects the default share mode here).
+	static void SharedAccessWhileOpen(string dir)
+	{
+		var path = Path.Combine(dir, "shared.toml");
+		TomlFile.WriteAllText(path, "A = 1\n", new UTF8Encoding(false));
+		Encoding read;
+		try
+		{
+			using (var watcher = new FileStream(path, FileMode.Open, FileAccess.ReadWrite,
+				FileShare.ReadWrite | FileShare.Delete))
+			{
+				TomlFile.ReadAllText(path, out read);
+				TomlFile.WriteAllText(path, "A = 2\n", new UTF8Encoding(false));
+			}
+			Check("read and write tolerate a concurrent holder", read != null && File.ReadAllText(path) == "A = 2\n");
+		}
+		catch (IOException ex)
+		{
+			Check("read and write tolerate a concurrent holder", false, ex.Message);
+		}
 	}
 
 	static string Raw(string text, TomlSettings.DocEntry entry)

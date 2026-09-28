@@ -26,6 +26,16 @@ namespace Wrench
 	{
 		public const string RelativePath = "Config/Wrench.toml";
 
+		/// <summary>
+		/// The settings file inside an installed mod folder. Built with the
+		/// platform separator; <see cref="RelativePath"/> is the form shown to
+		/// the player, not a path to hand to the filesystem.
+		/// </summary>
+		public static string ResolvePath(string modPath)
+		{
+			return Path.Combine(modPath, "Config", "Wrench.toml");
+		}
+
 		public const string ExampleEnabledName = "ExampleEnabled";
 		public const bool ExampleEnabledDefault = false;
 
@@ -77,7 +87,7 @@ namespace Wrench
 				return;
 			}
 
-			watchedPath = Path.Combine(mod.Path, RelativePath);
+			watchedPath = ResolvePath(mod.Path);
 			ReloadFromWatchedFile(true, true, out _);
 		}
 

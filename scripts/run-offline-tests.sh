@@ -58,6 +58,15 @@ if [[ ! "$max_jobs" =~ ^[1-9][0-9]*$ ]]; then
 	max_jobs=$(nproc 2>/dev/null || printf '8')
 	(( max_jobs > 8 )) && max_jobs=8
 fi
+# The parallel runner throttles with `wait -n`, which needs bash 4.3; the
+# stock macOS /bin/bash is 3.2, where it fails and the run's accounting
+# goes with it. Serialize there instead of guessing a job count.
+if (( BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 3) )); then
+	if (( max_jobs > 1 )); then
+		echo "NOTE: bash $BASH_VERSION has no 'wait -n'; running the suite serially." >&2
+	fi
+	max_jobs=1
+fi
 
 # Global, not local: the EXIT trap must still see it after run_parallel returns.
 tmpdir=""

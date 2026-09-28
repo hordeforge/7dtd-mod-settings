@@ -7,6 +7,15 @@
 Makefile text eol=lf
 *.mk text eol=lf
 
+# Shipped mod content pins LF too, so the modlet a contributor packages is
+# the same bytes on every machine: `make package` zips the working tree, and
+# without this a Windows checkout (core.autocrlf=true) ships CRLF
+# localization keys, XML and TOML where everyone else ships LF.
+*.csv text eol=lf
+*.xml text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+
 # Shipped binaries must never be guessed at or converted.
 *.png binary
 *.jpg binary

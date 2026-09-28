@@ -14,5 +14,6 @@
     <!-- The classes under test, compiled as shipped: no game references. -->
     <Compile Include="../../src/Wrench/TomlSettings.cs" />
     <Compile Include="../../src/Wrench/TomlEdit.cs" />
+    <Compile Include="../../src/Wrench/TomlFile.cs" />
   </ItemGroup>
 </Project>

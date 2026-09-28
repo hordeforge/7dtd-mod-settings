@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text;
 
 namespace Wrench
 {
@@ -32,6 +33,8 @@ namespace Wrench
 
 		public readonly Mod Mod;
 		public readonly string TomlPath;
+		/// <summary>Encoding the file declared; the save writes it back unchanged.</summary>
+		Encoding encoding;
 		/// <summary>The Anvil settings component was found, so a save applies without a restart.</summary>
 		public readonly bool HotReloads;
 
@@ -125,7 +128,7 @@ namespace Wrench
 			string tempPath = TomlPath + TempSuffix;
 			try
 			{
-				File.WriteAllText(tempPath, newText);
+				TomlFile.WriteAllText(tempPath, newText, encoding);
 				if (File.Exists(TomlPath))
 					File.Replace(tempPath, TomlPath, null);
 				else
@@ -193,7 +196,7 @@ namespace Wrench
 		{
 			try
 			{
-				text = File.ReadAllText(TomlPath);
+				text = TomlFile.ReadAllText(TomlPath, out encoding);
 				error = null;
 				return true;
 			}
