@@ -179,21 +179,20 @@ namespace Wrench
 				return false;
 			}
 
-			if (!ModFileSystem.Current.Exists(watchedPath))
-			{
-				if (appliedLength < 0 && !startup)
-				{
-					message = "defaults (no " + RelativePath + ")";
-					return false;
-				}
-				return ApplyMissingFileDefaults(out message);
-			}
-
 			DateTime writeUtc;
 			long length;
 			string ioError;
-			if (!TryStamp(watchedPath, out writeUtc, out length, out ioError))
+			if (!ModFileSystem.Current.TryGetStamp(watchedPath, out writeUtc, out length, out ioError))
 			{
+				if (ioError == null)
+				{
+					if (appliedLength < 0 && !startup)
+					{
+						message = "defaults (no " + RelativePath + ")";
+						return false;
+					}
+					return ApplyMissingFileDefaults(out message);
+				}
 				var problem = "could not stat " + RelativePath + " (" + ioError + ").";
 				LogProblem(problem, false);
 				message = problem;
@@ -332,24 +331,6 @@ namespace Wrench
 			seenAt = -1d;
 			nextPollAt = -1d;
 			loggedProblem = null;
-		}
-
-		static bool TryStamp(string path, out DateTime writeUtc, out long length, out string error)
-		{
-			writeUtc = default(DateTime);
-			length = -1;
-			error = null;
-			try
-			{
-				writeUtc = ModFileSystem.Current.GetLastWriteTimeUtc(path);
-				length = ModFileSystem.Current.GetLength(path);
-				return true;
-			}
-			catch (Exception ex)
-			{
-				error = ex.Message;
-				return false;
-			}
 		}
 
 		static bool TryReadText(string path, out string text, out string error)

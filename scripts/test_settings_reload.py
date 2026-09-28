@@ -118,7 +118,18 @@ def main() -> int:
           and "ModSettings.Poll()" in api
           and "FilePollIntervalSeconds" in settings
           and "FileReloadDebounceSeconds" in settings
-          and "ModFileSystem.Current.GetLastWriteTimeUtc" in settings)
+          and "ModFileSystem.Current.TryGetStamp" in settings)
+    # The poll runs four times a second for as long as the game does, so the
+    # stamp it compares is one metadata read: a separate existence check, a
+    # separate write-time read, and an open of the file to ask its length are
+    # three round trips where the watch needs one.
+    check("the watch reads the file's stamp in a single metadata read",
+          "bool TryGetStamp(string path, out DateTime writeUtc"
+          in files
+          and "new FileInfo(path)" in code_of("ModFileSystem.cs")
+          and "GetLength" not in files
+          and "GetLastWriteTimeUtc" not in files
+          and "ModFileSystem.Current.Exists" not in settings)
     check("the file watch measures elapsed time on the mod's one clock",
           "ModClock.Current.NowSeconds" in settings
           and "Stopwatch" not in settings

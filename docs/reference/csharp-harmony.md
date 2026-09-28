@@ -76,8 +76,9 @@ carries the full contract, taken from AtomicDoomsday (its ADRs 0006/0015):
   (defaults stand, one log line says so)
 - **saving the file applies without a restart**: a mtime/length watch
   polled from `ModEvents.UnityUpdate`, debounced so a half-written save is
-  not read; `<mod> reload` re-reads immediately. The mtime is read with
-  `GetLastWriteTimeUtc` and both intervals are elapsed time off
+  not read; `<mod> reload` re-reads immediately. The mtime and the length
+  come back from one `ModFileSystem.TryGetStamp` metadata read per poll,
+  and both intervals are elapsed time off
   `ModClock` (`StopwatchClock` in the game), never `Time.unscaledTime`
   (a float that stops resolving sub-second intervals on a server with
   weeks of uptime). Every file read and write goes through

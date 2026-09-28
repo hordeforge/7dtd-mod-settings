@@ -291,7 +291,20 @@ rewritten full of U+FFFD the first time a value is saved. `ModFileSystem`
 makes every open, both sides, with `FileShare.ReadWrite | FileShare.Delete`.
 `TargetMod` reads and writes the target through that one seam, temp sibling
 included, so this is the shipped path and not a helper only the gate
-exercises. The split is deliberate: the codec takes and returns bytes and
+exercises.
+
+Decided 2026-09-28: the settings watch's stamp is one metadata read.
+`ModSettings.Poll` runs from `ModEvents.UnityUpdate` every frame and acts
+four times a second, for as long as the process lives, so what it asks the
+disk is the only I/O this mod does continuously. `IFileSystem` exposes
+`TryGetStamp` (existence, write time and length, one `FileInfo`) rather
+than `Exists` plus `GetLastWriteTimeUtc` plus `GetLength`: the old three
+calls cost two stats and a full open of the file per poll, and the poll
+only ever wanted to know whether the file changed. A missing file and an
+unreadable one stay distinguishable, so a deleted settings file still falls
+back to the shipped defaults and a real I/O failure still names its cause.
+
+The split is deliberate: the codec takes and returns bytes and
 names no path, so the read half of a save and the write half of the same
 save cannot reach two different filesystems, which is the one thing a
 simulated run needs and what a static that opened a path could not give it.

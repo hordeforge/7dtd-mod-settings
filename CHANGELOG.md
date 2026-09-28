@@ -67,6 +67,12 @@ value.
 
 ### Fixed
 
+- The settings file watch asked the disk three times per poll, once of
+  them by opening the file, every quarter second for as long as the game
+  ran. One metadata read now answers existence, write time and length.
+- The offline TOML fuzz gate could not compile: it called
+  `TomlEdit.TryParseRawValue` with a fourth argument the method has never
+  taken, so the build failed and the gate never ran.
 - A stale in-memory copy of a settings file could be written over a
   newer file on save.
 - After a mod was reloaded on a long-running dedicated server, the file

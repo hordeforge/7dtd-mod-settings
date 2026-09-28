@@ -22,11 +22,15 @@ namespace Wrench
 		/// <summary>Whether the path is there.</summary>
 		bool Exists(string path);
 
-		/// <summary>When the file was last written.</summary>
-		DateTime GetLastWriteTimeUtc(string path);
-
-		/// <summary>The file's length in bytes.</summary>
-		long GetLength(string path);
+		/// <summary>
+		/// The file's write time and length in one metadata read, which is
+		/// all the settings watch asks for and asks for four times a second
+		/// for as long as the game runs. False with a null
+		/// <paramref name="error"/> means the file is simply not there, the
+		/// normal state after a player deletes it; false with a reason means
+		/// the metadata could not be read.
+		/// </summary>
+		bool TryGetStamp(string path, out DateTime writeUtc, out long length, out string error);
 
 		/// <summary>
 		/// Reads and decodes a text file whose encoding is already fixed
@@ -85,15 +89,30 @@ namespace Wrench
 			return File.Exists(path);
 		}
 
-		public DateTime GetLastWriteTimeUtc(string path)
+		public bool TryGetStamp(string path, out DateTime writeUtc, out long length, out string error)
 		{
-			return File.GetLastWriteTimeUtc(path);
-		}
-
-		public long GetLength(string path)
-		{
-			using (var stream = File.Open(path, FileMode.Open, FileAccess.Read, SharedAccess))
-				return stream.Length;
+			writeUtc = default(DateTime);
+			length = -1;
+			error = null;
+			try
+			{
+				// One FileInfo carries all three answers, so the poll that
+				// runs four times a second costs one metadata read instead of
+				// an existence check, a write-time read and an open of the
+				// file. Nothing here is cached between calls: the watch is
+				// watching for the file to change.
+				var info = new FileInfo(path);
+				if (!info.Exists)
+					return false;
+				writeUtc = info.LastWriteTimeUtc;
+				length = info.Length;
+				return true;
+			}
+			catch (Exception ex)
+			{
+				error = ex.Message;
+				return false;
+			}
 		}
 
 		public string ReadAllText(string path)

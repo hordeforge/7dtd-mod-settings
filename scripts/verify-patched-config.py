@@ -76,7 +76,10 @@ def expected_elements() -> dict[str, int]:
             tree = ET.parse(path)
         except ET.ParseError as exc:
             raise VerifyError(f"{path} is not well-formed XML: {exc}") from exc
-        total = sum(len(list(append)) for append in tree.getroot().iter("append"))
+        # Counting the children as they come, not `len(list(append))`: the
+        # list is a full copy of every appended element's children, held for
+        # nothing.
+        total = sum(1 for append in tree.getroot().iter("append") for _ in append)
         if total:
             counts[os.path.relpath(path, config_dir).replace(os.sep, "/")] = total
     return counts
@@ -89,8 +92,13 @@ def applied_elements(dump_dir: str) -> dict[str, int]:
     # XUi_InGame/windows.xml), so the scan must descend too or every nested
     # patch reads as missing.
     for path in sorted(glob.glob(os.path.join(dump_dir, "**", "*.xml"), recursive=True)):
+        # A dumped config file runs to tens of megabytes, and `findall` over
+        # it materializes a string for every element any mod appended, of
+        # which this mod's are a handful. `finditer` is the same scan without
+        # that list.
         with open(path, encoding="utf-8", errors="replace") as handle:
-            hits = sum(1 for name in APPENDED_BY.findall(handle.read()) if name == MOD_NAME)
+            hits = sum(1 for match in APPENDED_BY.finditer(handle.read())
+                       if match.group(1) == MOD_NAME)
         if hits:
             counts[os.path.relpath(path, dump_dir).replace(os.sep, "/")] = hits
     return counts
