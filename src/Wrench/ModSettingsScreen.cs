@@ -166,11 +166,9 @@ namespace Wrench
 			var mod = selected;
 			var saved = mod.TrySave(entry, newRaw, out _);
 			// One save, one watch: a refused save, or one to a mod that only
-			// takes effect on a restart, must not keep an earlier mod's marker
-			// armed and stamp the next reload line onto it. A refused edit (or
-			// one to a mod that only takes effect on a restart) disarms the
-			// watch entirely, so a line from an earlier save cannot resurrect
-			// "applied live" over the failure just recorded. The Anvil
+			// takes effect on a restart, disarms the watch entirely, so a line
+			// from an earlier save cannot stamp the next mod as "applied live"
+			// or resurrect it over the failure just recorded. The Anvil
 			// component logs the re-read; until that line arrives the status
 			// stays at "saved".
 			var watching = saved && mod.HotReloads;

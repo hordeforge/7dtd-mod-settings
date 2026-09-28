@@ -13,9 +13,14 @@ target-mod model (`TargetMod.cs`, `ModTomlPath.cs`) know nothing about the
 UI; the XUi controllers (`ModSettingsScreen.cs`, `ModSettingsRows.cs`) sit on
 top of them; the entry points (`ModApi.cs`, `ConsoleCmdWrench.cs`,
 `ModSettings.cs`, which is the mod's own `Config/Wrench.toml` reader and
-reads it through `ModFileText.cs`) wire the two together. One namespace, no
-subfolders: at eleven files the folder would carry no information the names
-do not.
+reads it through `ModFileText.cs`) wire the two together, with `WrenchText.cs`
+holding the screen's localization lookups. One namespace, no subfolders: at
+this size a folder split would carry no information the names do not.
+
+`ModClock.cs` and `ModFileSystem.cs` sit under all three: the clock and the
+filesystem every one of those files reads (see the injection decision
+below), so nothing in the mod reaches for `Time`, `File.` or
+`Thread.Sleep` directly.
 
 `scripts/` splits three ways, and nothing crosses the lines:
 
@@ -24,8 +29,7 @@ do not.
   `verify-*.py` need an installed game, so they are tools, not gates.
 - `lib/` is the only shared layer. `gate_report.py` owns the PASS/FAIL shape
   every gate prints, `local_env.py` owns both the `.local.env` lookup and
-  `mod_dir()`, the marker walk every script uses to find the mod root,
-  `xml_extends.py` the `Extends` merge the XML tools share, and
+  `mod_dir()`, the marker walk every script uses to find the mod root, and
   `game_telnet.py` the stdlib console client. A script that needs any of
   them imports it; it does not keep a second copy.
 - `toml_gate/` and `playtest/` are the C# hosts: a console runner that

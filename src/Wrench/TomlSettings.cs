@@ -52,7 +52,12 @@ namespace Wrench
 			/// <summary>Normalized value, in the TrySet grammar.</summary>
 			public readonly string Value;
 			public readonly ValueKind Kind;
-			/// <summary>Start of the raw value token in the file text.</summary>
+			/// <summary>
+			/// Start of the raw value token in the file text, and its length,
+			/// both in characters rather than bytes: a file with a non-ASCII
+			/// comment above the key has a byte offset past its character
+			/// offset, and the writer splices by character.
+			/// </summary>
 			public readonly int ValueStart;
 			public readonly int ValueLength;
 			/// <summary>Comment block directly above the key, '#' stripped; "" when none.</summary>
@@ -107,7 +112,6 @@ namespace Wrench
 			/// <summary>The largest Unicode scalar value, U+10FFFF.</summary>
 			const long MaxCodePoint = 0x10FFFF;
 
-			/// <summary>
 			readonly string text;
 			int index;
 			int line = 1;
