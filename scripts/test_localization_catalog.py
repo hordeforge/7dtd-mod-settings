@@ -12,6 +12,17 @@ this gate holds both from the tree: every referenced key exists, is
 unique, carries a non-empty english column, and that column is exactly
 the literal the C# falls back to.
 
+The third thing it holds is the label the string is drawn in. NGUI
+clips at a label's own height, so a label sized to the English source
+cuts the German, Russian or Japanese rendering off mid-sentence, and a
+wrapped label no more than an unwrapped one. Every label that renders a
+catalog string is measured against that string, grown by EXPANSION for a
+longer translation, with a full-width script counted at the width it
+really takes. A label's own text attribute names a binding rather than a
+key when the string comes from the C#, and TRANSLATED_BINDINGS lists the
+bindings that do; a binding that starts reading the catalog without being
+added there fails rather than going unsized.
+
 Stdlib-only, tracked files only, deterministic, offline. The negative
 controls run against fixture strings inside this file, never the shared
 tree.
@@ -20,6 +31,7 @@ tree.
 from __future__ import annotations
 
 import csv
+import math
 import os
 import re
 import sys
@@ -46,8 +58,52 @@ ENGLISH_COLUMN = EXPECTED_HEADER.index("english")
 
 KEY_PREFIX = "wrench"
 
+# The strings a translated label must be sized for, and how much longer
+# than the English source a rendering is assumed to get. A translated
+# sentence runs 30-50% past its source in German, Russian or Polish, and
+# NGUI draws a label inside its own rect, so a label sized to the English
+# text clips the translation with no other symptom. These three are the
+# bounds the height check below works to.
+EXPANSION = 1.5
+# The height one wrapped line occupies, as a multiple of the font size.
+# It is the floor the game's own labels clear (a 26pt line in a 28px
+# label, a 20pt line in a 22px one), not a claim about the exact font
+# metrics: NGUI clips at the label's own height, so a box too short for
+# the lines is the failure, and holding the gate to the floor catches
+# every box that is one line short without failing the ones the game
+# itself draws this way.
+LINE_HEIGHT_RATIO = 1.0
+# An NGUI label's own advance, as a multiple of the font size, for a
+# character drawn in one of the full-width scripts. Anything else is
+# counted at half that, which is the widest a Latin face in this game's
+# fonts gets on average, so the Latin columns are not under-counted and a
+# CJK or kana rendering is counted at the full width it really takes.
+WIDE_ADVANCE = 2.0
+NARROW_ADVANCE = 1.0
+WIDE_RANGES = (
+    (0x1100, 0x115F),    # Hangul Jamo
+    (0x2E80, 0x303E),    # CJK radicals, Kangxi, punctuation
+    (0x3041, 0x33FF),    # kana, CJK compatibility
+    (0x3400, 0x4DBF),    # CJK extension A
+    (0x4E00, 0x9FFF),    # CJK unified ideographs
+    (0xA000, 0xA4CF),    # Yi
+    (0xAC00, 0xD7A3),    # Hangul syllables
+    (0xF900, 0xFAFF),    # CJK compatibility ideographs
+    (0xFF00, 0xFF60),    # fullwidth forms
+    (0x20000, 0x2FA1F),  # CJK extensions B and later
+)
+
+# The label bindings whose value is a catalog string rather than data.
+# `modnote` reaches the catalog inline in its own case, and
+# `selmodstatus` reaches it through StatusLine(), so neither is derivable
+# from the case block alone; the cross-checks below hold every name here
+# against a real binding in the C# and against a WrenchText call in the
+# file that declares it.
+TRANSLATED_BINDINGS = ("modnote", "selmodstatus")
+
 CALL_RE = re.compile(r"WrenchText\.(Get|Format)\s*\(")
 TEXT_KEY_RE = re.compile(r'text_key="([^"]+)"')
+LABEL_RE = re.compile(r"<label\b[^>]*>")
 STRING_LITERAL_RE = re.compile(r'^"((?:[^"\\]|\\.)*)"$')
 
 SIMPLE_ESCAPES = {
@@ -171,6 +227,113 @@ def catalog_english() -> dict[str, str]:
     return rows
 
 
+def is_wide(char: str) -> bool:
+    """True for a character the game's fonts draw at the full font size.
+
+    CJK, kana and Hangul are. Counting them at the Latin half-width would
+    size a Japanese or Korean label for twice the text it really has to
+    lay out, and the height the check demands would be wrong in the
+    lenient direction for exactly the scripts that cannot be shortened.
+    """
+    point = ord(char)
+    return any(low <= point <= high for low, high in WIDE_RANGES)
+
+
+def line_count(text: str, width_px: int, font_size: int) -> int:
+    """How many lines *text* wraps to in a label *width_px* wide.
+
+    A model, not the game's layout: a full-width character counts as
+    WIDE_ADVANCE font sizes and everything else as NARROW_ADVANCE, and a
+    line breaks at the last space that fits. A run with no space in it is
+    broken by the label itself, which is what carries the CJK and kana
+    columns: splitting on spaces alone would call a whole Japanese
+    sentence one line however narrow the label, and the height demanded
+    for it would be the one thing the gate gets backwards. Latin text is
+    measured at half the width the game's faces actually draw, so a Latin
+    line is over-counted and a label that passes has room to spare.
+    """
+    if not text:
+        return 1
+    limit = width_px * WIDE_ADVANCE
+    lines = 1
+    used = 0.0
+    for word in text.split(" "):
+        advance = sum(WIDE_ADVANCE if is_wide(char) else NARROW_ADVANCE
+                      for char in word) * font_size
+        gap = NARROW_ADVANCE * font_size if used else 0.0
+        if used and used + gap + advance > limit:
+            lines += 1
+            used = 0.0
+            gap = 0.0
+        if advance > limit:
+            broken = math.ceil(advance / limit) - 1
+            lines += broken
+            used = advance - broken * limit
+        else:
+            used += gap + advance
+    return lines
+
+
+def binding_block(source: str, binding: str) -> str | None:
+    """The body of `case "<binding>":` in *source*, up to the next case
+    or the switch's default, or None when the binding is not there."""
+    marker = f'case "{binding}":'
+    start = source.find(marker)
+    if start < 0:
+        return None
+    rest = source[start + len(marker):]
+    ends = [end for end in (rest.find('case "', 1), rest.find("default:", 1))
+            if end > 0]
+    return rest[:min(ends)] if ends else rest
+
+
+def cs_keys(block: str) -> set[str]:
+    """The catalog keys a C# block can pass to WrenchText."""
+    keys: set[str] = set()
+    for match in CALL_RE.finditer(block):
+        arguments = split_arguments(block, match.end() - 1)
+        if len(arguments) < 2:
+            continue
+        key = join_literals(arguments[0])
+        if key is not None:
+            keys.add(key)
+    return keys
+
+
+def label_attribute(tag: str, name: str) -> str | None:
+    """The value of attribute *name* on an XUi tag, or None when absent."""
+    found = re.search(rf'\b{re.escape(name)}="([^"]*)"', tag)
+    return found.group(1) if found else None
+
+
+def binding_name(text: str | None) -> str | None:
+    """The binding a label's text attribute carries, `{name}`, or None."""
+    if text is None:
+        return None
+    found = re.fullmatch(r"\{([a-z]+)\}", text)
+    return found.group(1) if found else None
+
+
+def required_height(text: str, width_px: int, font_size: int) -> float:
+    """The height *text* needs once it is allowed to grow in
+    translation, at the line height NGUI gives a label."""
+    grown = expand(text)
+    return line_count(grown, width_px, font_size) * font_size * LINE_HEIGHT_RATIO
+
+
+def expand(text: str) -> str:
+    """*text* at EXPANSION times its length, built by repeating it.
+
+    A translation is not a copy of its source, but the wrap points of a
+    longer sentence depend on its words, and a repeated source keeps them
+    where they are: the height demanded here is the height the real
+    rendering needs, within the model's own margin, and the count stays
+    a whole number of characters so the result is deterministic.
+    """
+    target = math.ceil(len(text) * EXPANSION)
+    return ((text + " ") * (target // max(len(text) + 1, 1) + 1))[:target]
+
+
 def main() -> int:
     if not os.path.isfile(CATALOG):
         # Every check below reads the catalog, so a missing one would raise
@@ -206,6 +369,91 @@ def main() -> int:
             for key in TEXT_KEY_RE.findall(handle.read()):
                 check("xml-key-in-catalog:" + rel + ":" + key,
                       key in english_by_key, "no Config/Localization.csv row")
+
+    # The label a translated string is drawn in. NGUI draws inside the
+    # label's own rect, so a label sized to the English source clips the
+    # translation, and nothing in the log says so. Each label that renders
+    # a catalog string is checked against the catalog's own english text
+    # for that string, grown by EXPANSION for a longer rendering.
+    csharp = {}
+    for rel in tracked("src/*.cs"):
+        with open(os.path.join(MOD_DIR, rel), encoding="utf-8") as handle:
+            csharp[rel] = handle.read()
+
+    def binding_text(binding: str) -> str | None:
+        """The longest catalog string a binding can render, or None when
+        no binding of that name is declared."""
+        blocks = [block for block in
+                  (binding_block(source, binding) for source in csharp.values())
+                  if block is not None]
+        if not blocks:
+            return None
+        keys: set[str] = set()
+        for block in blocks:
+            keys |= cs_keys(block)
+        # A binding that hands off to a method cannot be read off its own
+        # case, so the whole declaring file stands in for it: every name
+        # in TRANSLATED_BINDINGS is held to that by the cross-check below.
+        if not keys:
+            for source in csharp.values():
+                keys |= cs_keys(source)
+        texts = [english_by_key[key] for key in keys if key in english_by_key]
+        return max(texts, key=len) if texts else None
+
+    for rel in tracked("*.xml"):
+        with open(os.path.join(MOD_DIR, rel), encoding="utf-8") as handle:
+            source = handle.read()
+        for tag in LABEL_RE.findall(source):
+            name = label_attribute(tag, "name") or "?"
+            rendered: str | None
+            text_key = label_attribute(tag, "text_key")
+            if text_key is not None:
+                rendered = english_by_key.get(text_key)
+                if rendered is None:
+                    continue
+            else:
+                binding = binding_name(label_attribute(tag, "text"))
+                if binding is None or binding not in TRANSLATED_BINDINGS:
+                    # Data, not a translated string: a mod name, a file
+                    # path, a TOML key. Its length is the mod author's, not
+                    # a translation's, and no catalog can size it.
+                    continue
+                rendered = binding_text(binding)
+                if rendered is None:
+                    check("label-binding-renders-text:" + rel + ":" + name,
+                          False, f"{binding} renders no catalog string")
+                    continue
+            width = label_attribute(tag, "width")
+            height = label_attribute(tag, "height")
+            size = label_attribute(tag, "font_size")
+            if width is None or height is None or size is None:
+                check("label-geometry:" + rel + ":" + name, False,
+                      "a translated label needs width, height and font_size")
+                continue
+            width_px, height_px, font_size = (int(width), int(height), int(size))
+            lines = line_count(rendered, width_px, font_size)
+            need = required_height(rendered, width_px, font_size)
+            check("label-wraps:" + rel + ":" + name,
+                  lines == 1 or label_attribute(tag, "wrap") == "true",
+                  f"the text needs {lines} lines and the label does not wrap")
+            check("label-fits:" + rel + ":" + name, height_px >= need,
+                  f"height {height_px} clips: {lines} line(s) at font "
+                  f"{font_size} need {need:.0f}px")
+
+    # A binding whose own case reads the catalog is one this gate must
+    # size, whether or not the label using it has been found above: a new
+    # one that is not declared is skipped silently, and a string nobody
+    # sized is exactly the clip this check exists to catch.
+    for rel in tracked("*.xml"):
+        with open(os.path.join(MOD_DIR, rel), encoding="utf-8") as handle:
+            source = handle.read()
+        for binding in sorted(set(re.findall(r'text="\{([a-z]+)\}"', source))):
+            block = binding_block("\n".join(csharp.values()), binding)
+            renders = block is not None and "WrenchText." in block
+            check("binding-sized:" + rel + ":" + binding,
+                  (not renders) or binding in TRANSLATED_BINDINGS,
+                  f"{binding} renders a catalog string and is not in "
+                  "TRANSLATED_BINDINGS")
 
     for rel in tracked("src/*.cs"):
         with open(os.path.join(MOD_DIR, rel), encoding="utf-8") as handle:
@@ -270,6 +518,37 @@ def main() -> int:
     check("negative-control:non-literal-fallback",
           not_literal is None,
           "a non-literal fallback must fail the extraction")
+
+    # The size model, proved the same way: the shipped labels pass, and
+    # each way of being wrong fails.
+    note = english_by_key["wrenchServerNote"]
+    shipped = {note: (1200, 90, 22),
+               english_by_key["wrenchStatusUnconfirmed"]: (1200, 104, 24)}
+    for sample, (box_w, box_h, box_size) in shipped.items():
+        check("negative-control:shipped-label-fits:" + sample[:20],
+              box_h >= required_height(sample, box_w, box_size),
+              "a shipped label must satisfy the model the gate applies")
+    check("negative-control:one-line-label-clips",
+          required_height(note, 1200, 22) > 26,
+          "the one-line height the label used to have must fail")
+    check("negative-control:growth-never-shrinks",
+          all(line_count(expand(key), 1200, 22) >= line_count(key, 1200, 22)
+              for key in english_by_key.values()),
+          "growing a string for translation must never need fewer lines")
+    narrow = english_by_key["wrenchNoMods"]
+    check("negative-control:growth-is-measured",
+          line_count(expand(narrow), 380, 22) > line_count(narrow, 380, 22),
+          "a translated rendering must need more lines in a narrow label")
+    check("negative-control:wide-scripts-take-more",
+          line_count("設定ファイル", 100, 22) > line_count("abcdefgh", 100, 22),
+          "a full-width script must be measured wider than a Latin one")
+    check("negative-control:short-string-fits",
+          required_height("unreadable", 200, 20)
+          < required_height("restart required", 100, 20),
+          "a short string must not demand the height of a long one")
+    check("negative-control:shipped-single-line-passes",
+          required_height("restart required", 376, 20) <= 22,
+          "a one-line label the game itself draws this way must still pass")
 
     return result()
 

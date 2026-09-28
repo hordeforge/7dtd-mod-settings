@@ -267,6 +267,21 @@ on the read-only tree they replaced.
 - Any subprocess whose output is decoded as text declares its encoding
   (`encoding="utf-8", errors="replace"`); the locale's default is ASCII
   under a bare `LANG`.
+- Every user-facing string is a `Config/Localization.csv` key, and a
+  catalog key and a broken C# string literal reading the game log alike.
+  The label a key is drawn in is sized for it: an NGUI label clips at its
+  own height, so `wrap="true"` alone does not help, and a box cut to the
+  English source cuts the German, Russian or Japanese rendering off
+  mid-sentence.
+
+Corrected 2026-09-28: the two bottom labels were one line high, so the
+status line and the server note were clipped in every language, and
+nothing but the screen said so; enforced by
+`scripts/test_localization_catalog.py`, which measures each label against
+the catalog's own english text grown for translation, counts a CJK or kana
+character at full width, and holds `modnote` and `selmodstatus` (the two
+bindings whose text comes from the C# rather than a `text_key`) to the same
+measure.
 
 Corrected 2026-09-28: escapes, encoding, and key case in the TOML path;
 enforced by `scripts/test_toml_document.py` (spans, escapes, non-ASCII

@@ -23,6 +23,13 @@ its own numbered heading when the version it ships under is declared.
   the mod because its file was not there. The next run puts the file back
   and the mod is listed and editable again; a run after that changes
   nothing.
+- The status line and the server note at the bottom of the Mod Settings
+  screen are no longer cut off after one line. NGUI draws a label inside
+  its own height, so `wrap="true"` did not help: both labels were one
+  line high and their English sentences run to two, so the end of every
+  status and every server note was clipped in every language, and a
+  translated rendering was cut sooner still. Both are now tall enough for
+  the wrapped text, in German or Russian as well as in English.
 
 - Another mod's settings file marked UTF-16 or UTF-32 is refused when it
   holds a byte that is not valid in the encoding its own mark names,

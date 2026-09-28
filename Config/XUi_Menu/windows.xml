@@ -46,7 +46,7 @@
 				<label name="selFile" depth="3" pos="960,-4" width="260" height="28" font_size="22" pivot="left" justify="left" text="{selmodfile}" color="[mediumGrey]" />
 
 				<rect name="modsArea" pos="0,0" width="430" height="750" on_scroll="true" gamepad_selectable="false" snap="false">
-					<label name="noMods" depth="3" pos="0,0" width="380" height="140" font_size="22" justify="center" wrap="true" text_key="wrenchNoMods" color="[mediumGrey]" visible="{nomods}" />
+					<label name="noMods" depth="3" pos="0,0" width="380" height="160" font_size="22" justify="center" wrap="true" text_key="wrenchNoMods" color="[mediumGrey]" visible="{nomods}" />
 					<options_scrollbar />
 					<scrollview depth="2" clippingsoftness="0,10" anchor_top="#parent,1,0" anchor_bottom="buttons,1,10">
 						<grid pos="0,-4" cols="1" rows="24" cell_width="400" cell_height="66" repeat_content="true" arrangement="horizontal">
@@ -61,11 +61,11 @@
 				</rect>
 
 				<rect name="settingsArea" pos="450,-44" width="760" height="700" on_scroll="true" gamepad_selectable="false" snap="false">
-					<label name="noSettings" depth="3" pos="0,0" width="700" height="140" font_size="22" justify="center" wrap="true" text_key="wrenchNoSettings" color="[mediumGrey]" visible="{noentries}" />
+					<label name="noSettings" depth="3" pos="0,0" width="700" height="160" font_size="22" justify="center" wrap="true" text_key="wrenchNoSettings" color="[mediumGrey]" visible="{noentries}" />
 					<!-- A file that will not parse is not a file with no keys in
 					     it, so it gets its own words; the reason the reader gave
 					     is on the status line below. -->
-					<label name="unreadableSettings" depth="3" pos="0,0" width="700" height="140" font_size="22" justify="center" wrap="true" text_key="wrenchSettingsUnreadable" color="[mediumGrey]" visible="{noreadable}" />
+					<label name="unreadableSettings" depth="3" pos="0,0" width="700" height="160" font_size="22" justify="center" wrap="true" text_key="wrenchSettingsUnreadable" color="[mediumGrey]" visible="{noreadable}" />
 					<options_scrollbar />
 					<scrollview depth="2" clippingsoftness="0,10" anchor_top="#parent,1,0" anchor_bottom="buttons,1,10">
 						<grid pos="0,-4" cols="1" rows="48" cell_width="720" cell_height="47" repeat_content="true" arrangement="horizontal">
@@ -91,14 +91,25 @@
 				<sprite name="separator" pos="1225,0" width="2" height="750" depth="0" sprite="menu_empty" type="sliced" color="[darkGrey]" fillcenter="false" />
 				<options_descriptions />
 
-				<!-- Both bottom labels wrap: their text is translated, and a
-				     German or Russian sentence runs past the single line a
-				     1200px label holds at these font sizes, so a
-				     fixed-height un-wrapped label clips the translation. The
-				     status line is the taller of the two and gets the extra
-				     height; positions are unchanged, so nothing moves. -->
-				<label name="serverNote" depth="3" pos="0,-712" width="1200" height="26" font_size="22" wrap="true" pivot="left" justify="left" text_key="wrenchServerNote" color="228,18,21,255" visible="{servernote}" />
-				<label name="selStatus" depth="3" pos="0,-742" width="1200" height="44" font_size="24" wrap="true" pivot="left" justify="left" text="{selmodstatus}" color="{statuscolor}" />
+				<!-- Both bottom labels wrap, and both are tall enough for the
+				     wrapped text to land inside them. Wrapping alone is not
+				     enough: an NGUI label draws within its own rect, so a
+				     wrap="true" label whose text needs a second line is
+				     clipped at its height exactly like an unwrapped one.
+				     Each height below holds three lines at its font size,
+				     and the English source at these widths needs two, which
+				     leaves the room a German or Russian rendering runs
+				     into.
+				     Both were one line high, so the English sentence was cut
+				     off in every language. scripts/test_localization_catalog.py
+				     holds the height against the catalog's own english text
+				     at 1.5x for translation growth, so a longer string or a
+				     smaller font fails the gate instead of the player.
+				     The two labels are stacked, status line under the server
+				     note, with the gap between them a label's leading, so
+				     growing one does not overlap the other. -->
+				<label name="serverNote" depth="3" pos="0,-610" width="1200" height="90" font_size="22" wrap="true" pivot="left" justify="left" text_key="wrenchServerNote" color="228,18,21,255" visible="{servernote}" />
+				<label name="selStatus" depth="3" pos="0,-712" width="1200" height="104" font_size="24" wrap="true" pivot="left" justify="left" text="{selmodstatus}" color="{statuscolor}" />
 			</rect>
 
 			<options_buttons />
