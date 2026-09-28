@@ -49,6 +49,7 @@ def main() -> int:
     settings = read("ModSettings.cs")
     target = read("TargetMod.cs")
     api = read("ModApi.cs")
+    screen = read("ModSettingsScreen.cs")
     toml_path = os.path.join(MOD_DIR, "Config", MOD_NAME + ".toml")
 
     check("the shipped settings TOML exists beside its reader",
@@ -76,19 +77,16 @@ def main() -> int:
           and "error = ex.Message;" in settings
           and "catch (Exception ex)" in settings
           and "catch (Exception)" not in settings)
-    # The spliced text reaches disk through one write, and it must name the
-    # staged path: the writer is TomlFile.WriteAllText, which encodes for the
-    # file's own byte order mark, so a check on the File.* spelling would
-    # only pin whichever writer happens to be current.
-    spliced_writes = [line.strip() for line in target.splitlines()
-                      if "newText" in line and "WriteAllText" in line]
+    # The staged sibling is named `temp` in TryWrite: the temp file is a
+    # sibling of the target, the replace is what puts it in, and the same
+    # name is unlinked on the failure path (TryDeleteTemp) so a failed save
+    # leaves nothing behind.
     check("a save is staged and swapped in, never written over in place",
-          len(spliced_writes) == 1
-          and all("tempPath" in line and "TomlPath" not in line
-                  for line in spliced_writes)
-          and "File.Replace(tempPath, TomlPath, null)" in target
-          and "File.Move(tempPath, TomlPath)" in target
-          and "DeleteTemp(tempPath)" in target)
+          "File.WriteAllText(TomlPath" not in target
+          and 'var temp = path + ".wrench-tmp";' in target
+          and "File.WriteAllText(temp, text, encoding)" in target
+          and "File.Replace(temp, path, null)" in target
+          and "TryDeleteTemp(temp)" in target)
     # The mod name comes out of another mod's ModInfo.xml, and this screen
     # writes to the file it names: the path must be resolved, not
     # concatenated. scripts/toml_gate exercises the resolver itself.
@@ -96,6 +94,19 @@ def main() -> int:
           read("ModTomlPath.cs") != ""
           and "ModTomlPath.TryResolve(mod.Path, mod.Name" in target
           and 'Path.Combine(mod.Path, "Config", mod.Name' not in target)
+    # Both hooks are registered on a static/engine-owned list that nothing
+    # else unhooks, so an unguarded second registration keeps the first one
+    # alive for the rest of the session: the file watch polls twice per
+    # frame, and the screen stays reachable from Log.LogCallbacks after it
+    # closed, holding every discovered TargetMod and its parsed text.
+    check("the file watch is registered once per process",
+          "if (!updateHooked)" in api
+          and "updateHooked = true;" in api)
+    check("the screen subscribes to the log once and unhooks on close",
+          "if (!watchingLog)" in screen
+          and "if (watchingLog)" in screen
+          and "Log.LogCallbacks -= OnLogLine" in screen
+          and "Log.LogCallbacks += OnLogLine" in screen)
 
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0

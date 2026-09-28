@@ -35,6 +35,25 @@ fi
 "$SCRIPT_DIR/deploy-server.sh"
 mkdir -p "$LOG_DIR"
 
+# Every run leaves a timestamped smoke log behind and nothing ever removed
+# the old ones, so a server install that gets smoke-tested regularly grows
+# a log per run forever. Keep a handful of recent ones for comparison: the
+# newest KEPT_SMOKE_LOGS - 1 before this run's own log is written.
+KEPT_SMOKE_LOGS=5
+prune_old_smoke_logs() {
+	local keep=$((KEPT_SMOKE_LOGS - 1)) stale
+	shopt -s nullglob
+	local existing=("$LOG_DIR"/wrench-server-smoke-*.log)
+	shopt -u nullglob
+	(( ${#existing[@]} > keep )) || return 0
+	# The names sort chronologically, so the tail past the kept ones is the
+	# oldest.
+	printf '%s\n' "${existing[@]}" | sort -r | tail -n "+$((keep + 1))" | while read -r stale; do
+		rm -f -- "$stale"
+	done
+}
+prune_old_smoke_logs
+
 echo "Launching dedicated server for ${RUN_FOR_SECONDS}s."
 set +e
 timeout --signal=TERM --kill-after=10 "$RUN_FOR_SECONDS" \

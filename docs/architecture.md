@@ -242,6 +242,22 @@ Enforced by `scripts/toml_gate/Program.cs` (`TestModTomlPath`, run by
 `scripts/test_toml_document.py`) and, at source level, by
 `scripts/test_settings_reload.py`.
 
+## Decided 2026-09-28: a handler on a static list is registered once
+
+`ModApi` registers the `ModEvents.UnityUpdate` poll and
+`XUiC_ModSettingsScreen` registers `Log.LogCallbacks`; neither list is
+unhooked by the engine or the game. So each registration is guarded by a
+flag (`updateHooked`, `watchingLog`) and the unhook runs only when the
+guard is set. An unguarded second registration is a real leak rather than
+a duplicate callback: the static event keeps the screen alive, holding
+every discovered `TargetMod` and its parsed text, and the poll runs twice
+per frame. Enforced by `scripts/test_settings_reload.py`.
+
+The ilspy runtime fallback in `scripts/verify-patch-targets.py` restores
+`PATH` from the value it started with after every failed candidate: a
+failed candidate's SDK directory left prepended shadows the real `dotnet`
+for the rest of the run.
+
 ## Open questions
 
 - (none yet)

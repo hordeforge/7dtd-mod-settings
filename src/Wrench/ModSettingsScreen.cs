@@ -43,6 +43,14 @@ namespace Wrench
 		TargetMod watchedReloadTarget;
 		float reloadWait;
 
+		// Log.LogCallbacks is a static event, so a subscription keeps this
+		// screen (and every TargetMod and parsed entry it holds) alive until
+		// it is unhooked, and each extra registration runs OnLogLine once
+		// more per line. OnOpen is the only subscriber and OnClose the only
+		// unhook, so an open that is not matched by its close would double
+		// the handler and retain the screen for the rest of the session.
+		bool watchingLog;
+
 		// Nothing here uses the vanilla unsaved-changes model: every edit is
 		// written (or refused) immediately.
 		public override bool SupportsDefaults
@@ -81,12 +89,20 @@ namespace Wrench
 			SelectMod(index < 0 ? 0 : index);
 			// Subscribed last: OnClose is the only unhook, so a failure
 			// while opening must not leave this screen on the log callback.
-			Log.LogCallbacks += OnLogLine;
+			if (!watchingLog)
+			{
+				Log.LogCallbacks += OnLogLine;
+				watchingLog = true;
+			}
 		}
 
 		public override void OnClose()
 		{
-			Log.LogCallbacks -= OnLogLine;
+			if (watchingLog)
+			{
+				Log.LogCallbacks -= OnLogLine;
+				watchingLog = false;
+			}
 			watchedReloadMarker = null;
 			watchedReloadTarget = null;
 			base.OnClose();

@@ -245,12 +245,17 @@ def ensure_ilspy_runtime() -> str | None:
         (path / "Editor" / "Data" / "DotNetSdk" for path in hub_editors.glob("*")),
         reverse=True,
     ) if hub_editors.is_dir() else []
+    # Every candidate is tried against the PATH this function started with:
+    # a failed candidate's SDK directory left on PATH would shadow the real
+    # dotnet for every later call, and the list would grow one entry per
+    # editor version tried.
+    original_path = os.environ.get("PATH", "")
+    original_root = os.environ.get("DOTNET_ROOT")
     for runtime_root in candidates:
         if not (runtime_root / "dotnet").is_file():
             continue
-        original_root = os.environ.get("DOTNET_ROOT")
         os.environ["DOTNET_ROOT"] = str(runtime_root)
-        os.environ["PATH"] = str(runtime_root) + os.pathsep + os.environ.get("PATH", "")
+        os.environ["PATH"] = str(runtime_root) + os.pathsep + original_path
         retry = subprocess.run(["ilspycmd", "--version"], capture_output=True,
                                text=True, encoding="utf-8", errors="replace",
                                check=False, timeout=60)
@@ -261,6 +266,7 @@ def ensure_ilspy_runtime() -> str | None:
             os.environ.pop("DOTNET_ROOT", None)
         else:
             os.environ["DOTNET_ROOT"] = original_root
+        os.environ["PATH"] = original_path
 
     return probe.stderr.strip() or probe.stdout.strip() or "unknown ilspycmd runtime error"
 
