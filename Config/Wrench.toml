@@ -6,9 +6,10 @@
 # immediately. See `help wrench`.
 #
 # Keys match the console names. Unknown keys and bad values fail loud
-# (a warning in the log) and leave the default in place. Supported values:
-# booleans, integers, floats, "strings", and arrays of those. Tables and
-# dotted keys are rejected.
+# (a warning in the log) and leave the default in place. The parser
+# accepts booleans, integers, floats, "strings", and arrays of those;
+# tables and dotted keys are rejected. A key is only applied once
+# ModSettings.cs declares it, and that declaration fixes its type.
 
 # Example setting; replace with this mod's real options (each one needs
 # its ModSettings.cs counterpart — see that file's header comment).

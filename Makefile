@@ -4,7 +4,10 @@ ROOT := $(CURDIR)
 # same bytes. Override with SOURCE_DATE_EPOCH=<unix seconds>.
 SOURCE_DATE_EPOCH ?= $(shell git log -1 --format=%ct 2>/dev/null || date +%s)
 
-.PHONY: build package test lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server rollback-server server-smoke playtest clean build-assets validate-assets
+# This mod ships no asset bundles, so there is deliberately no
+# build-assets or validate-assets target: both are for a mod that owns
+# bundles built by the sibling asset pipeline.
+.PHONY: build package test lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke playtest clean
 
 # Offline contract/unit suite: every scripts/test_*.py must exit 0.
 # Optional substring filters: make test TF="xml layout"

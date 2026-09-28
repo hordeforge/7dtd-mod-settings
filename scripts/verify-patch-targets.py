@@ -22,13 +22,12 @@ import re
 import shutil
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import local_env  # noqa: E402
 
-# src/<ModName> mirrors the mod directory name (Repo layout rule in AGENTS.md).
-SOURCE_DIR = Path("src") / Path(__file__).resolve().parent.parent.name
 MANAGED_SUBDIR = Path("7DaysToDie_Data") / "Managed"
 ASSEMBLY_NAME = "Assembly-CSharp.dll"
 
@@ -72,6 +71,18 @@ def usage() -> None:
     print("EXAMPLES")
     print("  scripts/verify-patch-targets.py")
     print("  scripts/verify-patch-targets.py --game-dir /path/to/7dtd")
+
+
+def source_dir(root: Path) -> Path:
+    """`src/<Name>`, where the mod name is ModInfo's, not the directory's.
+
+    The checkout is named after the repo slug, deliberately not the mod name.
+    """
+    name = next(
+        node.get("value") or ""
+        for node in ET.parse(root / "ModInfo.xml").getroot()
+        if node.tag == "Name")
+    return Path("src") / name
 
 
 def configured_game_dir(root: Path | None = None) -> Path | None:
@@ -315,12 +326,13 @@ def main(argv: list[str]) -> int:
         print("Install its target .NET runtime, or install Unity Hub with an editor SDK so this verifier can use its local fallback.")
         return 2
 
-    if not (root / SOURCE_DIR).is_dir():
-        print("no " + str(SOURCE_DIR) + " directory; nothing to verify")
+    sources = root / source_dir(root)
+    if not sources.is_dir():
+        print("no " + str(sources) + " directory; nothing to verify")
         return 0
-    targets, patch_classes = collect_targets(root / SOURCE_DIR)
+    targets, patch_classes = collect_targets(sources)
     if not targets:
-        print("no [HarmonyPatch] attributes under " + str(SOURCE_DIR) + "; nothing to verify")
+        print("no [HarmonyPatch] attributes under " + str(sources) + "; nothing to verify")
         return 0
 
     print(f"ASSEMBLY  {assembly}")

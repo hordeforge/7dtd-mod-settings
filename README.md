@@ -20,9 +20,10 @@ directory itself — `make build` stages the deployable copy under
 - **Discovery**: every loaded mod with a `Config/<Mod>.toml` appears; a
   file the TOML-subset parser rejects is listed as unreadable and never
   written to.
-- **Editing**: booleans toggle on click; numbers, strings, and arrays
-  are text fields saved on Enter. The comment block above a key is its
-  help text, shown in the description panel on hover.
+- **Editing**: every value is edited as its raw token in a text field
+  saved on Enter, so a key can change kind (`false` to `["Tactical"]`);
+  booleans also get a one-click flip. The comment block above a key is
+  its help text, shown in the description panel on hover.
 - **In-place write-back**: only the edited key's value span changes; the
   file is byte-identical everywhere else, so comments and layout survive
   ([ADR 0001](docs/adr/0001-toml-file-is-the-integration-surface.md)).

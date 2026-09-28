@@ -19,10 +19,12 @@ From the planning doc that started this mod (`~/code/mod-settings-ui.md`):
    `Config/<ModName>.toml`. One entry per mod found.
 2. **Rendering**: a "Mod Settings" tab in the regular options menu
    (pause menu → Options, and main menu → Options). Per mod: key list
-   with current values; edit controls typed from the parsed value
-   (toggle for booleans, numeric field for numbers, text field for
-   strings/arrays). The comment block directly above a key renders as
-   its help text.
+   with current values, each editable as a raw value token in a text
+   field that saves on Enter, plus a one-click flip for booleans. Raw
+   tokens, not a control per parsed type: a key's type is fluid
+   (`RaidMode` is `false`, `"all"`, or `["Tactical"]`), so one field
+   must be able to change a value's kind. The comment block directly
+   above a key renders as its help text.
 3. **Write-back**: value replacement in place on the existing `Key = `
    line so comments and layout survive; keys are never reordered or
    reformatted. Hot-reload consumers apply the save live; for others

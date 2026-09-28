@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Shellcheck gate over every tracked shell script in this mod.
 #
-# install-tools.sh lists shellcheck as required for these gates; this script
-# is where that requirement is actually enforced. Runs at full severity
+# The README lists shellcheck as a required host tool; this script is where
+# that requirement is actually enforced. Runs at full severity
 # (style included) and follows sourced files (-x) so cross-file variables
 # resolve. Tracked files only: untracked scratch under .local/, dist/, etc.
 # never blocks the gate.

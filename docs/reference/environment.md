@@ -4,14 +4,24 @@
 
 Never hardcode a machine-local path in tracked files. Every mod scaffolded
 from this template carries an ignored `.local.env` at its root (documented
-by the tracked `.local.env.example`) with these keys:
+by the tracked `.local.env.example`, which is the authoritative list) with
+these keys:
 
 ```dotenv
 SEVEN_DAYS_TO_DIE_DIR=""         # client game-install root (required to build C#)
 SEVEN_DAYS_TO_DIE_SERVER_DIR=""  # optional SteamCMD Linux dedicated server
-UNITY_EDITOR=""                  # optional; only to rebuild asset bundles
 HORDEFORGE_ROOT=""               # directory holding the hordeforge tool checkouts
+PLAYTEST_ROOT=""                 # hordeforge/7dtd-playtest checkout
+CONNECT_ROOT=""                  # hordeforge/7dtd-fastconnect checkout
+ASSET_PIPELINE_ROOT=""           # hordeforge/7dtd-asset-pipeline (shamway) checkout
+DOTNET_ROOT=""                   # optional; toolchain location when not on PATH
+ILSPYCMD=""                      # optional; ilspycmd for Harmony target validation
+UNITY_EDITOR=""                  # optional; only to rebuild asset bundles
 ```
+
+A mod may add its own keys (`Wrench` adds `WRENCH_ATOMIC_MOD_DIR`, the
+AtomicDoomsday checkout its live suite edits); read `.local.env.example`
+rather than this list when you need the full inventory.
 
 `new-mod.sh` writes this file at scaffold time. On a machine where it is
 missing, blank, or invalid: **ask the user for the absolute path before

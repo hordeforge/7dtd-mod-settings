@@ -64,7 +64,10 @@ a hardcoded path or the working directory. The engine's XML patcher never
 sees it (the patcher only opens `Config/` files named after vanilla files),
 and net48 has no TOML library, so the template ships a fail-loud TOML
 subset parser (`TomlSettings.cs`: bare keys, booleans, numbers, strings,
-arrays; tables and dotted keys rejected).
+arrays; tables and dotted keys rejected). Its document reader
+(`TryReadDocument`) additionally records each value's raw span, kind, and
+comment block, which is what lets a settings UI rewrite one value in
+place without disturbing anything else in the file.
 
 The scaffolded wiring (`ModSettings.cs` + the mod's console command)
 carries the full contract, taken from AtomicDoomsday (its ADRs 0006/0015):

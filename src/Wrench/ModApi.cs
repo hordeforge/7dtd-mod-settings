@@ -12,15 +12,18 @@ namespace Wrench
 
         public void InitMod(Mod _modInstance)
         {
-            // Fast and defensive: log, never throw if recoverable. One
-            // failing Harmony target must not kill the whole mod — prefer
-            // per-patch try/catch when patches become optional.
+            // Fast and defensive: log, never throw if recoverable. Fast
+            // because the game waits here, defensive because the settings
+            // and UI must work even if something below fails.
             Log.Out($"{LogPrefix} InitMod");
             ModSettings.Load(_modInstance);
             // Re-reads Config/Wrench.toml when it is saved, via the
             // engine's UnityUpdate event (client and dedicated) — no restart,
             // no Harmony patch.
             ModEvents.UnityUpdate.RegisterHandler(OnUnityUpdate);
+            // Patches nothing today: the options tab is an XUi XML patch
+            // (ADR 0002). When a patch does land, wrap it per-patch so one
+            // target the game renamed cannot stop the mod from loading.
             new Harmony("com.ywy50.wrench")
                 .PatchAll(Assembly.GetExecutingAssembly());
         }

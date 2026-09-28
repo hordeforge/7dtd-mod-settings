@@ -51,9 +51,11 @@ without the component are marked restart-required up front.
 Mod list and setting rows are fixed pools built by a grid with
 `repeat_content` (vanilla's keyboard-bindings-list pattern); unused rows
 hide via a binding, overflow past the pool is logged and not shown.
-Booleans toggle on press; every other kind is a text field that saves on
-Enter (strings are decoded for display and re-encoded on save; other
-kinds show the raw token).
+Every value is edited as its raw token in a text field that saves on
+Enter, and a boolean additionally gets a one-click flip. Raw rather than
+decoded because a key in this TOML subset is type-fluid (AtomicDoomsday's
+`RaidMode` is legitimately `false`, `"all"`, or `["Tactical"]`), which a
+decode-and-re-encode field could never express.
 
 ## Decided 2026-08-30: scrollview panels need an explicit depth bump
 

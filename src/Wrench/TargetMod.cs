@@ -205,6 +205,10 @@ namespace Wrench
 		/// True when any of the mod's assemblies carries the Anvil settings
 		/// component: a ModSettings type with the FilePollIntervalSeconds
 		/// constant, i.e. the debounced save watch that re-reads the file.
+		/// Matched by name because the component is another mod's type
+		/// (ADR 0001: no shared assembly). A rename upstream can only cost
+		/// the live-reload label and the applied-live status, never a
+		/// wrong write, so the heuristic is safe to keep.
 		///
 		/// One assembly the runtime cannot fully load must not take the whole
 		/// screen down: it only decides this mod's status line, and the other
