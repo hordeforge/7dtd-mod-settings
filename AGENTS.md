@@ -53,9 +53,8 @@ scripts/new-session-id.sh <agent-family>   # e.g. claude, codex
 ```
 
 The ID identifies the session; the `[-]` marker remains the ownership
-claim. Never reuse an ID. Expect other agents' edits in the tree: stage
-commits by explicit path only — never `git add -A` / `git add .` /
-`git commit -a`.
+claim. Never reuse an ID. Expect other agents' edits in the tree, and
+stage by explicit path (see Git workflow).
 
 ## Playtest / live-client exclusivity
 
@@ -119,11 +118,9 @@ relative path of this repo.
 ## Asset bundles (when this mod ships them)
 
 This mod ships none, and the Makefile has no asset targets on purpose. If it
-ever does, the bundle is built by **shamway** (`hordeforge/7dtd-asset-pipeline`)
-and gated there with `shamway validate` and `shamway check-icons` before a
-client launch. A bundle without a class-142 `AssetBundle` object is rejected
-at runtime, and a matching UnityFS header is not acceptance evidence. A
-failed gate there is fixed in the cause, never downgraded.
+ever does, the bundle is built and gated in **shamway**
+(`hordeforge/7dtd-asset-pipeline`), never here, and a failed gate there is
+fixed in the cause, never downgraded.
 
 ## Runtime settings are TOML
 
@@ -325,14 +322,15 @@ gate or a sourced file.
 ## Testing
 
 Offline gates: `make test` (every `scripts/test_*.py`) and
-`make lint` (`make lint-python`: ruff plus mypy `--strict` over every tracked
-`*.py` per `pyproject.toml`; then `make lint-shell`: shellcheck at full
-severity) must pass before any commit. `make check` is the same gates plus
-`verify-package` and `buildinfo`, and is what CI runs.
+`make lint` (`make lint-python`: ruff over the tree, then mypy `--strict`
+over `scripts/` per `pyproject.toml`; then `make lint-shell`: shellcheck at
+full severity) must pass before any commit. `make check` is the same gates
+plus `verify-package` and `buildinfo`, and is what CI runs.
 
 `make test` needs the .NET SDK, not only a Python interpreter: the two TOML
-round-trip gates compile `src/Wrench/*.cs`, and a runtime answers `dotnet`
-and lists no SDKs (`scripts/test_toolchain_floor.py`). The lint tool
+round-trip gates compile the TOML sources under `src/Wrench/` into a runner,
+and a runtime answers `dotnet` and lists no SDKs
+(`scripts/test_toolchain_floor.py`). The lint tool
 versions are written down in `requirements-dev.txt` only, which CI installs
 (`scripts/test_lint_toolchain_declared.py`). Every `subprocess.run` and
 `subprocess.check_output` in a tracked `*.py` names a timeout, as a named
@@ -370,12 +368,17 @@ makes a borrowed case change every case after it).
 This is a standalone hordeforge repository and the clone may be shared by
 concurrent sessions: never `git checkout` / `git switch` / `git branch -D`
 in it — take a worktree per unit of work
-(`git worktree add /tmp/Wrench-<topic> -b <branch> origin/main`).
+(`git worktree add ~/.cache/wrench-worktrees/<topic> -b <branch> origin/main`).
+Not under `/tmp`: that is RAM-backed and wiped on some machines, so a
+worktree there loses uncommitted work and leaves `git worktree prune` to
+clear a registration pointing at a directory that is gone.
 Complete the full lifecycle autonomously when unblocked: branch → commit →
 push → PR → merge; never commit directly to the default branch. Stage by
-explicit path. No `Co-Authored-By` or other attribution trailers in commits
-or PRs. If another session is working on something — a dirty file, a live
-branch, an open PR — do not touch it at all.
+explicit path, never `git add -A` / `git add .` / `git commit -a`; a codex
+session gets the same rule enforced in `.codex/rules/default.rules`. No
+`Co-Authored-By` or other attribution trailers in commits or PRs. If another
+session is working on something — a dirty file, a live branch, an open PR —
+do not touch it at all.
 
 ## Scope
 
