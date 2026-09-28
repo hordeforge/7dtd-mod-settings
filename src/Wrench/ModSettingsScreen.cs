@@ -27,7 +27,7 @@ namespace Wrench
 		// A settings component that polls the file every few seconds should
 		// log its re-read well inside this. Past it the wait is over: the
 		// status must not keep promising a reload that never arrived.
-		const double RELOAD_CONFIRM_SECONDS = 10d;
+		const double ReloadConfirmSeconds = 10d;
 
 		// The status line says one of four things, and reading which one
 		// costs a player the same sentence every time, so the line is tinted
@@ -152,13 +152,19 @@ namespace Wrench
 			}
 			else if (IsWatchingReload())
 			{
-				if (ModClock.Current.NowSeconds - reloadStartedAt >= RELOAD_CONFIRM_SECONDS)
+				if (ModClock.Current.NowSeconds - reloadStartedAt >= ReloadConfirmSeconds)
 					StopReloadWatch();
 			}
 			base.Update(_dt);
 		}
 
-		/// <summary>Stops watching the mod, then moves it out of the pending state.</summary>
+		/// <summary>
+		/// Settles the save the watch was waiting for, and detaches the mod
+		/// it belonged to. The marker is not disarmed here: a reload line
+		/// still in flight belongs to this watch until
+		/// <see cref="TakeReloadSeen"/> or <see cref="StopReloadWatch"/>
+		/// takes it.
+		/// </summary>
 		void SetWatchedSaveState(TargetMod.ESaveState state)
 		{
 			var target = watchedReloadTarget;

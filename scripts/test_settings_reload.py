@@ -124,7 +124,7 @@ def main() -> int:
     screen_code = code_of(read("ModSettingsScreen.cs"))
     update = body(screen, "public override void Update(float _dt)")
     check("the screen's reload-confirm wait runs on the mod's one clock",
-          "ModClock.Current.NowSeconds - reloadStartedAt >= RELOAD_CONFIRM_SECONDS" in update
+          "ModClock.Current.NowSeconds - reloadStartedAt >= ReloadConfirmSeconds" in update
           and "ModClock.Current.NowSeconds;" in body(screen, "internal bool SaveEdit(")
           and "_dt +=" not in screen_code
           and "reloadWait" not in screen_code)
@@ -132,8 +132,8 @@ def main() -> int:
     frame_sum = screen.replace(
         "ModClock.Current.NowSeconds - reloadStartedAt", "reloadWait += _dt; if (reloadWait", 1)
     check("negative control: a frame-delta countdown fails the gate",
-          "ModClock.Current.NowSeconds - reloadStartedAt >= RELOAD_CONFIRM_SECONDS" in screen
-          and "ModClock.Current.NowSeconds - reloadStartedAt >= RELOAD_CONFIRM_SECONDS"
+          "ModClock.Current.NowSeconds - reloadStartedAt >= ReloadConfirmSeconds" in screen
+          and "ModClock.Current.NowSeconds - reloadStartedAt >= ReloadConfirmSeconds"
           not in body(frame_sum, "public override void Update(float _dt)"))
     check("reload resets to defaults then applies the file",
           "ResetToDefaults();" in settings

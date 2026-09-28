@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate_report import FAILURES, check
+from git_tracked import tracked_paths
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(MOD_DIR, "scripts")
@@ -54,13 +54,13 @@ def tracked_text_files() -> list[str]:
 
     A path the working tree no longer holds is left out: `git ls-files` still
     lists a file between the delete and the commit that records it, and
-    reading it then raises instead of reporting a verdict.
+    reading it then raises instead of reporting a verdict. The listing itself
+    is the shared one, so a `git` that fails stops this gate instead of
+    reporting every file clean.
     """
-    listing = subprocess.run(["git", "ls-files"], cwd=MOD_DIR, capture_output=True,
-                             text=True, encoding="utf-8", errors="replace", check=False)
-    return sorted(name for name in listing.stdout.splitlines()
-                  if (name.endswith(TEXT_SUFFIXES) or name in ("Makefile", REQUIREMENTS))
-                  and os.path.isfile(os.path.join(MOD_DIR, name)))
+    return [name for name in tracked_paths()
+            if (name.endswith(TEXT_SUFFIXES) or name in ("Makefile", REQUIREMENTS))
+            and os.path.isfile(os.path.join(MOD_DIR, name))]
 
 
 def pinned(text: str) -> dict[str, str]:

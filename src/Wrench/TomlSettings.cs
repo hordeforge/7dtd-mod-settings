@@ -121,7 +121,7 @@ namespace Wrench
 			{
 				entries = new List<DocEntry>();
 				error = null;
-					// Keys are case-sensitive, exactly as TOML defines them: `Foo` and
+				// Keys are case-sensitive, exactly as TOML defines them: `Foo` and
 				// `foo` are two keys, and treating them as one refuses a file that
 				// is perfectly valid. The in-place writer and the by-name
 				// relocation compare them the same way.

@@ -269,7 +269,7 @@ stay in place. Enforced by `scripts/test_settings_reload.py`.
 ## Decided 2026-09-28: bounded reload wait, empty-state labels
 
 The post-save wait for a hot-reloading mod's reload line is bounded by
-`RELOAD_CONFIRM_SECONDS` in `XUiC_ModSettingsScreen`; past it the mod's
+`ReloadConfirmSeconds` in `XUiC_ModSettingsScreen`; past it the mod's
 save state becomes `SaveUnconfirmed` and the status says the change was
 saved but not re-read, instead of promising a reload forever. The state
 belongs to the watched mod, not to the selection, so switching mods
@@ -288,7 +288,7 @@ showing an empty frame.
 Corrected 2026-09-28: the wait had three ways to end and only one settled
 the save it was watching. A save to a hot-reloading mod moves the state to
 `Saved` and arms the marker; only the reload line or
-`RELOAD_CONFIRM_SECONDS` resolved it. Closing the screen or picking
+`ReloadConfirmSeconds` resolved it. Closing the screen or picking
 another mod in between disarmed the marker and dropped the target, so that
 mod kept `Saved` for the rest of the session: its status line read as
 "waiting for the mod to re-read the file" with nothing left to end that,

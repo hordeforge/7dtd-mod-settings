@@ -173,14 +173,56 @@ def injected_parameters(lines: list[str], attribute_line: int) -> list[str]:
     return parameter_names(signature)
 
 
-def parameter_names(signature: str) -> list[str]:
+def split_parameters(signature: str) -> list[str]:
+    """The parameter entries of `signature`, split on top-level commas only.
+
+    A `Dictionary<string, int>`, a tuple or a default value holding a
+    composite all carry commas that are not separators; they are counted so
+    one parameter stays one entry. `parameter_names` and `parameter_types`
+    share this splitter, so a nested comma is handled the same way whichever
+    of the two is asked.
+    """
     inner = signature[signature.index("(") + 1:signature.rindex(")")]
+    if not inner.strip():
+        return []
+    entries: list[str] = []
+    depth = 0
+    current = ""
+    for character in inner:
+        if character in "<([{":
+            depth += 1
+        elif character in ">)]}":
+            depth -= 1
+        if character == "," and depth == 0:
+            entries.append(current)
+            current = ""
+        else:
+            current += character
+    entries.append(current)
+    return entries
+
+
+def parameter_names(signature: str) -> list[str]:
+    """The parameter names of `signature`, defaults dropped."""
     names = []
-    for entry in inner.split(","):
+    for entry in split_parameters(signature):
         words = entry.strip().split("=")[0].strip().split()
         if len(words) >= 2:
             names.append(words[-1])
     return names
+
+
+def parameter_types(signature: str) -> list[str]:
+    """The parameter types of `signature`, the name of each one dropped.
+
+    `ref`/`out` and a namespace prefix are dropped too, so the list compares
+    against a `typeof()` array as it is written in the attribute.
+    """
+    result = []
+    for entry in split_parameters(signature):
+        words = entry.strip().split("=")[0].strip().split()
+        result.append(words[-2].split(".")[-1] if len(words) >= 2 else words[-1])
+    return result
 
 
 def add_target(targets: list[Target], source: Path, lines: list[str], entry_line: int,
@@ -319,33 +361,6 @@ def declared_signatures(body: list[str], method: str) -> list[str]:
     pattern = re.compile(r"^\t(?!//)[^\t].*\b" + re.escape(method) + r"\s*\(")
     return [line.strip() for line in body
             if pattern.match(line) and not line.strip().startswith("[")]
-
-
-def parameter_types(signature: str) -> list[str]:
-    inner = signature[signature.index("(") + 1:signature.rindex(")")]
-    if not inner.strip():
-        return []
-    types: list[str] = []
-    depth = 0
-    current = ""
-    for character in inner:
-        if character in "<([":
-            depth += 1
-        elif character in ">)]":
-            depth -= 1
-        if character == "," and depth == 0:
-            types.append(current)
-            current = ""
-        else:
-            current += character
-    types.append(current)
-
-    result = []
-    for entry in types:
-        words = entry.strip().split("=")[0].strip().split()
-        # Drop the parameter name, keep the (possibly `ref`/`out`) type.
-        result.append(words[-2].split(".")[-1] if len(words) >= 2 else words[-1])
-    return result
 
 
 def main(argv: list[str]) -> int:
