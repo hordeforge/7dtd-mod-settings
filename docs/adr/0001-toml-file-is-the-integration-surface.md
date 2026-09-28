@@ -6,6 +6,11 @@ Date: 2026-08-30
 
 Accepted
 
+Amended 2026-09-28: the "exactly as strict" consequence below was
+narrowed by the text-boundary decision in
+[`../architecture.md`](../architecture.md) (whole escape set both ways,
+case-sensitive keys, the file's own encoding kept on a save).
+
 ## Context
 
 Wrench shows and edits other mods' settings. Some coupling shape had to
@@ -47,7 +52,7 @@ comments and layout survive byte-for-byte.
 
 - No API to version, no assembly to share, no load order to manage. A
   mod opts in by shipping a TOML file, which Anvil mods already do.
-- Wrench's parser must stay exactly as strict as Anvil's
+- Wrench's parser must stay in step with the target's
   `TomlSettings`: anything Wrench would accept but the target rejects
   could be written into a file the target then refuses to load
   (refusing keeps current values, so the failure is soft, but the edit

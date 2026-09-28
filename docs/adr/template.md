@@ -4,7 +4,11 @@ Date: YYYY-MM-DD
 
 ## Status
 
-Proposed | Accepted | Superseded by [NNNN](NNNN-title.md)
+Accepted | Superseded by [NNNN](NNNN-title.md)
+
+(An ADR records a decision that has been made. A decision still being
+argued belongs in an RFC, not here, and gets its ADR only once the choice
+is made.)
 
 ## Context
 

@@ -138,18 +138,24 @@ def main() -> int:
 
     read_body = body(target, "bool TryRead(")
     check("a read takes the file's bytes and its encoding, not just its text",
-          "ModFileSystem.Current.ReadAllBytes(" in read_body
-          and "Decode(bytes, out encoding)" in read_body)
+          "TomlFile.ReadAllText(TomlPath, out encoding)" in read_body
+          and "File.ReadAllBytes(" not in target
+          and target.count("ReadAllText(") == 1)
     check("a save writes the encoding the file is in",
           "out currentEncoding" in save
           and "TryWrite(TomlPath, newText, currentEncoding" in save)
 
-    decode = body(target, "static string Decode(")
+    toml_file = read("TomlFile.cs")
     check("a byte order mark is decoded away and written back",
-          "0xEF" in decode and "0xBB" in decode and "0xBF" in decode
-          and "new UTF8Encoding(true)" in decode
-          and "Encoding.Unicode" in decode
-          and "new UTF8Encoding(false)" in decode)
+          "new UTF8Encoding(true)" in toml_file
+          and "new UnicodeEncoding(false, true)" in toml_file
+          and "new UnicodeEncoding(true, true)" in toml_file
+          and "new UTF32Encoding(false, true)" in toml_file
+          and "new UTF32Encoding(true, true)" in toml_file
+          and "new UTF8Encoding(false)" in toml_file)
+    check("a read and a write tolerate a hot-reloading mod's own holder",
+          "FileShare.ReadWrite | FileShare.Delete" in toml_file
+          and toml_file.count("SharedAccess") >= 3)
 
     opened = body(screen, "public override void OnOpen()")
     check("the reload latch does not survive the closing it was set in",

@@ -7,7 +7,7 @@ earliest unfinished section.
 
 ## Purpose
 
-Adds a Mod Settings screen to the in-game options menu, listing every installed mod that ships a Config/<Mod>.toml settings file and letting the player view and edit those settings from the UI. Edits are written back in place to the mod's own TOML; mods built on Anvil's settings component apply them live through their existing hot-reload watch, with no coupling between this mod and theirs.
+Adds a Mod Settings screen to the in-game options menu, listing every loaded mod that ships a Config/<Mod>.toml settings file and letting the player view and edit those settings from the UI. Edits are written back in place to the mod's own TOML; mods built on Anvil's settings component apply them live through their existing hot-reload watch, with no coupling between this mod and theirs.
 
 ## Design
 
@@ -68,6 +68,10 @@ Adds a Mod Settings screen to the in-game options menu, listing every installed 
       printing its seed so a failure replays from it. Needs the state
       machines free of `UnityEngine`/game references to be driven from
       the game-free gate host in `scripts/toml_gate/`.
+- [ ] Re-run the live suite after the save path moved onto `TomlFile`
+      (read, temp sibling and all): the offline gates cannot compile the
+      mod DLL here, so the atomic replace, the mark round trip and the
+      shared-access open need one real save on the client.
 
 ## Open questions
 

@@ -282,8 +282,7 @@ namespace Wrench
 		{
 			try
 			{
-				var bytes = ModFileSystem.Current.ReadAllBytes(TomlPath);
-				text = Decode(bytes, out encoding);
+				text = TomlFile.ReadAllText(TomlPath, out encoding);
 				error = null;
 				return true;
 			}
@@ -294,38 +293,6 @@ namespace Wrench
 				error = ex.Message;
 				return false;
 			}
-		}
-
-		/// <summary>
-		/// Decodes the file and reports the encoding it is in, byte order mark
-		/// included, so a save can write the same one back. <c>File.ReadAllText</c>
-		/// decodes a mark away and keeps no record of it, and a plain
-		/// UTF-8 write then drops it: an edit that changed one value token
-		/// would have silently changed the file's first three bytes too.
-		/// Anything with no recognizable mark is decoded as UTF-8, which is
-		/// what the file would be read as before; a file in some other
-		/// encoding then fails the TOML parse and is listed unreadable
-		/// rather than written back unreadable bytes.
-		/// </summary>
-		static string Decode(byte[] bytes, out Encoding encoding)
-		{
-			if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
-			{
-				encoding = new UTF8Encoding(true);
-				return encoding.GetString(bytes, 3, bytes.Length - 3);
-			}
-			if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
-			{
-				encoding = Encoding.Unicode;
-				return encoding.GetString(bytes, 2, bytes.Length - 2);
-			}
-			if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
-			{
-				encoding = Encoding.BigEndianUnicode;
-				return encoding.GetString(bytes, 2, bytes.Length - 2);
-			}
-			encoding = new UTF8Encoding(false);
-			return encoding.GetString(bytes);
 		}
 
 		/// <summary>Every loaded mod with a Config/&lt;Mod&gt;.toml, load order preserved.</summary>

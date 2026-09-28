@@ -331,8 +331,8 @@ static class Program
 
 	// The file the settings screen actually edits, in every shape a mod
 	// author saves it on a machine that is not this one: a byte order mark
-	// (Windows editors write one), CRLF, UTF-16, and a file another process
-	// holds open while it watches for changes.
+	// (Windows editors write one), CRLF, UTF-16 and UTF-32 either way round,
+	// and a file another process holds open while it watches for changes.
 	static void TestFileIo()
 	{
 		var dir = Path.Combine(Path.GetTempPath(), "wrench-toml-gate");
@@ -345,6 +345,9 @@ static class Program
 			RoundTrips(dir, "bom", new UTF8Encoding(true), plain);
 			RoundTrips(dir, "crlf-bom", new UTF8Encoding(true), windows);
 			RoundTrips(dir, "utf16", new UnicodeEncoding(false, true), windows);
+			RoundTrips(dir, "utf16be", new UnicodeEncoding(true, true), windows);
+			RoundTrips(dir, "utf32", new UTF32Encoding(false, true), windows);
+			RoundTrips(dir, "utf32be", new UTF32Encoding(true, true), windows);
 			SharedAccessWhileOpen(dir);
 		}
 		finally

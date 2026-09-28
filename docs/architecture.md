@@ -7,12 +7,15 @@ also get an ADR in [`adr/`](adr/) — link it from here. Layer escalations
 ## Repo map
 
 `src/Wrench/` is the mod, in three layers with dependencies running down:
-the TOML document (`TomlSettings.cs` parses, `TomlEdit.cs` writes) and the
-target-mod model (`TargetMod.cs`) know nothing about the UI; the XUi
-controllers (`ModSettingsScreen.cs`, `ModSettingsRows.cs`) sit on top of them;
-the entry points (`ModApi.cs`, `ConsoleCmdWrench.cs`, `ModSettings.cs`) wire
-the two together. One namespace, no subfolders: at eight files the folder
-would carry no information the names do not.
+the TOML document (`TomlSettings.cs` parses, `TomlEdit.cs` writes, and
+`TomlFile.cs` is the byte-faithful file I/O both go through) and the
+target-mod model (`TargetMod.cs`, `ModTomlPath.cs`) know nothing about the
+UI; the XUi controllers (`ModSettingsScreen.cs`, `ModSettingsRows.cs`) sit on
+top of them; the entry points (`ModApi.cs`, `ConsoleCmdWrench.cs`,
+`ModSettings.cs`, which is the mod's own `Config/Wrench.toml` reader and
+reads it through `ModFileText.cs`) wire the two together. One namespace, no
+subfolders: at eleven files the folder would carry no information the names
+do not.
 
 `scripts/` splits three ways, and nothing crosses the lines:
 
@@ -20,16 +23,21 @@ would carry no information the names do not.
   `run-offline-tests.sh` globs for them there. `validate-*.py` and
   `verify-*.py` need an installed game, so they are tools, not gates.
 - `lib/` is the only shared layer. `gate_report.py` owns the PASS/FAIL shape
-  every gate prints, and `local_env.py` owns both the `.local.env` lookup and
-  `mod_dir()`, the marker walk every script uses to find the mod root. A
-  script that needs either imports it; it does not keep a second copy.
+  every gate prints, `local_env.py` owns both the `.local.env` lookup and
+  `mod_dir()`, the marker walk every script uses to find the mod root,
+  `xml_extends.py` the `Extends` merge the XML tools share, and
+  `game_telnet.py` the stdlib console client. A script that needs any of
+  them imports it; it does not keep a second copy.
 - `toml_gate/` and `playtest/` are the C# hosts: a console runner that
-  exercises the parser and writer, and the provider that drives the live
-  suite. They are build-time, so they sit under `scripts/`, not `src/`.
+  exercises the parser, the writer and `TomlFile`, and the provider that
+  drives the live suite. They are build-time, so they sit under `scripts/`,
+  not `src/`.
 
 Shell scripts sit beside the Python they drive (`server-common.sh` with the
 server lane, `run-offline-tests.sh` with the gates) and share no library
-with them.
+with them. `configure-server-config.py` is a tool, not a gate: it derives
+the mod-owned serverconfig from the vanilla one before the mod is
+deployed.
 
 ## Decisions
 
@@ -49,10 +57,12 @@ Wrench reads and writes text it does not own: another mod's `Config/*.toml`
 and its comments. Three decisions follow, enforced by
 `scripts/test_toml_document.py`.
 
-- **Encoding.** UTF-8 without a byte order mark on every read and write
-  (`ModFileText`), a BOM still honoured on read so a file from elsewhere
-  loads. Relying on the API default made the written bytes depend on the
-  runtime rather than on the mod.
+- **Encoding.** Wrench's own `Config/Wrench.toml` is read and written as
+  UTF-8 without a byte order mark (`ModFileText`), a BOM still honoured on
+  read so a file from elsewhere loads. Another mod's file keeps whatever
+  encoding it is in (`TomlFile`, decided below). Relying on the API
+  default made the written bytes depend on the runtime rather than on the
+  mod.
 - **One string grammar, both directions.** The reader accepts the whole
   TOML escape set the writer can emit, and the writer escapes every
   control character rather than the two that read well, so a value Wrench
@@ -95,8 +105,9 @@ the hovered-description panel (fed via the controller's own
 A target mod is labeled hot-reloading when any of its assemblies has a
 `ModSettings` type with the `FilePollIntervalSeconds` constant (the Anvil
 settings component's debounced save watch). After a save the screen
-subscribes to `Log.LogCallbacks` and reports applied-live only once that
-mod's own `settings (reload Config/<Mod>.toml)` line appears; mods
+subscribes to `Log.LogCallbacks` and reports applied-live only once a line
+carrying `reload Config/<Mod>.toml` appears — the substring every component
+vintage shares, since they phrase the rest of the line differently. Mods
 without the component are marked restart-required up front.
 
 ## Decided 2026-08-30: pooled XUi rows
@@ -175,11 +186,13 @@ be able to destroy it. Two properties, both held by
   prevent. A runtime with no atomic replace falls back to delete-then-move,
   which still never writes over the target in place.
 - `TargetMod.TryRead` reads bytes, not text, and reports the encoding it
-  decoded (UTF-8 with or without byte order mark, UTF-16 either way); the
-  save writes that same encoding back. `File.ReadAllText` decodes a mark
-  away and keeps no record of it, so a plain UTF-8 write stripped a mark
-  the file was carrying: an edit that changed one value token had silently
-  changed the file's first three bytes as well.
+  decoded; the save writes that same encoding back. Both go through
+  `TomlFile`, which detects the declared mark (UTF-8, UTF-16 or UTF-32, a
+  mark either way round) and falls back to UTF-8 with none;
+  `File.ReadAllText` decodes a mark away and keeps no record of it, so a
+  plain UTF-8 write stripped a mark the file was carrying: an edit that
+  changed one value token had silently changed the file's first three bytes
+  as well.
 
 ## Decided 2026-09-28: a save parses the file once, and probes an assembly once
 
@@ -206,10 +219,11 @@ saved but not re-read, instead of promising a reload forever. The state
 belongs to the watched mod, not to the selection, so switching mods
 mid-wait cannot move the outcome onto the wrong row.
 
-Both list panes carry an empty-state label (`nomods`, `noentries`),
-so a window with nothing to show says why rather than showing an empty
-frame; the strings are localization keys, as every other Mod Settings
-string that is not a live status is.
+Both list panes carry an empty-state label (localization keys
+`wrenchNoMods` and `wrenchNoSettings`, bound to `{nomods}` and
+`{noentries}`), so a window with nothing to show says why rather than
+showing an empty frame; those strings are localization keys, as every
+other Mod Settings string that is not a live status is.
 
 ## Decided 2026-09-28: another mod's TOML is read and written through `TomlFile`
 
@@ -222,9 +236,12 @@ hot-reloading mod's own save watcher holds the same file open for read and
 write, the mode `ModSettings.Poll` uses. `TomlFile.cs` reads the bytes,
 detects the declared encoding (UTF-8 with or without a mark, UTF-16 and
 UTF-32 either way round), and writes the file back in it, both sides with
-`FileShare.ReadWrite | FileShare.Delete`. Enforced by
+`FileShare.ReadWrite | FileShare.Delete`. `TargetMod` reads and writes the
+target through it, temp sibling included, so this is the shipped path and
+not a helper only the gate exercises. Enforced by
 `scripts/test_toml_document.py`, which round-trips each of those file
-shapes through the shipped writer.
+shapes through the shipped writer, and by `test_target_save_coherence.py`,
+which holds the shape `TargetMod` keeps.
 
 ## Decided 2026-09-28: a mod's settings file is resolved, never concatenated
 

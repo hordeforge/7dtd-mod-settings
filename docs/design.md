@@ -5,7 +5,7 @@ made, under a dated heading, and never leave stale contradictory statements.
 
 ## Goal
 
-Adds a Mod Settings screen to the in-game options menu, listing every installed mod that ships a Config/<Mod>.toml settings file and letting the player view and edit those settings from the UI. Edits are written back in place to the mod's own TOML; mods built on Anvil's settings component apply them live through their existing hot-reload watch, with no coupling between this mod and theirs.
+Adds a Mod Settings screen to the in-game options menu, listing every loaded mod that ships a Config/<Mod>.toml settings file and letting the player view and edit those settings from the UI. Edits are written back in place to the mod's own TOML; mods built on Anvil's settings component apply them live through their existing hot-reload watch, with no coupling between this mod and theirs.
 
 ## Decisions
 
@@ -15,8 +15,9 @@ Adds a Mod Settings screen to the in-game options menu, listing every installed 
 
 From the planning doc that started this mod (`~/code/mod-settings-ui.md`):
 
-1. **Discovery**: scan the loaded mod list (`ModManager`) for
-   `Config/<ModName>.toml`. One entry per mod found.
+1. **Discovery**: scan the loaded mod list (`ModManager.GetLoadedMods`)
+   for `Config/<ModName>.toml`, resolved inside each mod's own folder so
+   a name cannot steer the path out of it. One entry per mod found.
 2. **Rendering**: a "Mod Settings" tab in the regular options menu
    (pause menu → Options, and main menu → Options). Per mod: key list
    with current values, each editable as a raw value token in a text

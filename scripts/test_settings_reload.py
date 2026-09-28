@@ -120,6 +120,7 @@ def main() -> int:
     # leaves nothing behind.
     check("a save is staged and swapped in, never written over in place",
           "WriteAllText(TomlPath" not in target
+          and 'var temp = path + ".wrench-tmp";' in target
           and "files.WriteAllText(temp, text, encoding)" in target
           and "files.Replace(temp, path)" in target
           and "TryDeleteTemp(temp)" in target)
