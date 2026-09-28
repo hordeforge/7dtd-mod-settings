@@ -36,6 +36,10 @@ class TelnetError(RuntimeError):
     pass
 
 
+def _encode(line: str) -> bytes:
+    return (line + "\r\n").encode("utf-8", "replace")
+
+
 class GameTelnet:
     """A minimal client for the 7DTD telnet console."""
 
@@ -94,18 +98,19 @@ class GameTelnet:
             raise
 
     def close(self) -> None:
-        if self.closed_by_server and self._sock is not None:
-            with contextlib.suppress(OSError):
-                self._sock.close()
-            self._sock = None
+        """Release the socket. Never raises: cleanup runs on failure paths."""
+        sock, self._sock = self._sock, None
+        if sock is None:
             return
-        if self._sock is not None:
+        if not self.closed_by_server:
+            # A polite exit, so the server's own shutdown path runs. The peer
+            # is often already gone by then, and a broken pipe must not
+            # propagate out of a __exit__ or leave the socket open.
             with contextlib.suppress(OSError):
-                self.send_raw("exit")
+                sock.sendall(_encode("exit"))
                 time.sleep(0.2)
-            with contextlib.suppress(OSError):
-                self._sock.close()
-            self._sock = None
+        with contextlib.suppress(OSError):
+            sock.close()
 
     # -- io ---------------------------------------------------------------
 
@@ -113,7 +118,7 @@ class GameTelnet:
         if self._sock is None:
             raise TelnetError("not connected")
         try:
-            self._sock.sendall((line + "\r\n").encode("utf-8", "replace"))
+            self._sock.sendall(_encode(line))
         except OSError as exc:
             raise TelnetError(f"sending {line!r} failed: {exc}") from exc
 

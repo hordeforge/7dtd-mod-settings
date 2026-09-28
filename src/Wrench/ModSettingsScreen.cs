@@ -65,7 +65,6 @@ namespace Wrench
 		public override void OnOpen()
 		{
 			base.OnOpen();
-			Log.LogCallbacks += OnLogLine;
 			// A reload line seen while the screen was closed belongs to the
 			// previous opening: targets are re-discovered below, so carrying
 			// the latch over would stamp a fresh TargetMod "applied live" for
@@ -77,6 +76,9 @@ namespace Wrench
 			var index = targets.FindIndex(t => t.Mod.Name == keep);
 			PopulateModRows();
 			SelectMod(index < 0 ? 0 : index);
+			// Subscribed last: OnClose is the only unhook, so a failure
+			// while opening must not leave this screen on the log callback.
+			Log.LogCallbacks += OnLogLine;
 		}
 
 		public override void OnClose()

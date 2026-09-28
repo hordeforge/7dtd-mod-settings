@@ -5,8 +5,10 @@ The mod's runtime settings are Config/<Mod>.toml, read by the DLL itself:
 applied at InitMod, re-read on save without a restart (UnityUpdate watch,
 debounced), reset-to-defaults-then-apply, and a broken save keeps the
 current values. The console command shares the value grammar via TrySet.
-This gate holds those source-level contracts so a refactor cannot quietly
-drop one; the live behavior itself is proven in game.
+A write to another mod's settings file is staged and swapped in, and every
+failure on either path is reported with its cause. This gate holds those
+source-level contracts so a refactor cannot quietly drop one; the live
+behavior itself is proven in game.
 
 A mod without src/ has no settings reader; the gate passes with a note.
 """
@@ -43,6 +45,7 @@ def main() -> int:
             return handle.read()
 
     settings = read("ModSettings.cs")
+    target = read("TargetMod.cs")
     api = read("ModApi.cs")
     toml_path = os.path.join(MOD_DIR, "Config", MOD_NAME + ".toml")
 
@@ -66,6 +69,16 @@ def main() -> int:
           and '"reload " + RelativePath' in settings)
     check("a failed re-read keeps the current values",
           "keeping current settings" in settings)
+    check("a read that fails says so, with the cause, once per problem",
+          "LogProblem(" in settings
+          and "error = ex.Message;" in settings
+          and "catch (Exception ex)" in settings
+          and "catch (Exception)" not in settings)
+    check("a save is staged and swapped in, never written over in place",
+          "File.WriteAllText(TomlPath" not in target
+          and "File.WriteAllText(tempPath, newText)" in target
+          and "File.Replace(tempPath, TomlPath, null)" in target
+          and "DeleteTemp(tempPath)" in target)
 
     print(f"{len(FAILURES)} failures.")
     return 1 if FAILURES else 0

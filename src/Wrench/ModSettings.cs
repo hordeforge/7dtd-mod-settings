@@ -46,6 +46,7 @@ namespace Wrench
 		static long seenLength = -1;
 		static double seenAt = -1d;
 		static double nextPollAt;
+		static string loggedProblem;
 
 		// Elapsed time is read from a monotonic clock, not from
 		// Time.unscaledTime: that one is a float, so a dedicated server with
@@ -122,9 +123,12 @@ namespace Wrench
 
 			DateTime writeUtc;
 			long length;
-			if (!TryStamp(watchedPath, out writeUtc, out length))
+			string ioError;
+			if (!TryStamp(watchedPath, out writeUtc, out length, out ioError))
 			{
-				message = "could not stat " + RelativePath + ".";
+				var problem = "could not stat " + RelativePath + " (" + ioError + ").";
+				LogProblem(problem, false);
+				message = problem;
 				return false;
 			}
 
@@ -145,13 +149,20 @@ namespace Wrench
 			}
 
 			string text;
-			if (!TryReadText(watchedPath, out text))
+			if (!TryReadText(watchedPath, out text, out ioError))
 			{
+				var cause = "could not be read (" + ioError + "); ";
 				if (startup)
+				{
+					var failure = RelativePath + " " + cause + "using default settings.";
+					LogProblem(failure, true);
 					LogCurrent("defaults (unreadable " + RelativePath + ")");
-				message = startup
-					? RelativePath + " could not be read; using defaults."
-					: RelativePath + " could not be read; keeping current settings.";
+					message = failure;
+					return false;
+				}
+				var problem = RelativePath + " " + cause + "keeping current settings.";
+				LogProblem(problem, false);
+				message = problem;
 				return false;
 			}
 
@@ -166,8 +177,10 @@ namespace Wrench
 			string error;
 			if (!TomlSettings.TryRead(text, out entries, out error))
 			{
-				Debug.LogError("[Wrench] " + RelativePath + ": " + error
-					+ (startup ? "; using default settings." : "; keeping current settings."));
+				var problem = error + (startup
+					? "; using default settings."
+					: "; keeping current settings.");
+				LogProblem(problem, true);
 				if (startup)
 					LogCurrent("defaults");
 				message = error;
@@ -185,11 +198,30 @@ namespace Wrench
 			appliedText = text;
 			seenWriteUtc = writeUtc;
 			seenLength = length;
+			loggedProblem = null;
 			var source = startup ? RelativePath : "reload " + RelativePath;
 			LogCurrent(source);
 			message = source;
 			Applied?.Invoke();
 			return true;
+		}
+
+		/// <summary>
+		/// Records a problem with the settings file. The poll runs several
+		/// times a second and an unfixed file is retried on every tick, so one
+		/// line per distinct problem is logged, and again when the problem
+		/// changes or a good read clears it.
+		/// </summary>
+		static void LogProblem(string problem, bool isError)
+		{
+			if (string.Equals(problem, loggedProblem, StringComparison.Ordinal))
+				return;
+			loggedProblem = problem;
+			var line = "[Wrench] " + RelativePath + ": " + problem;
+			if (isError)
+				Debug.LogError(line);
+			else
+				Debug.LogWarning(line);
 		}
 
 		static void ResetToDefaults()
@@ -216,10 +248,11 @@ namespace Wrench
 			return true;
 		}
 
-		static bool TryStamp(string path, out DateTime writeUtc, out long length)
+		static bool TryStamp(string path, out DateTime writeUtc, out long length, out string error)
 		{
 			writeUtc = default(DateTime);
 			length = -1;
+			error = null;
 			try
 			{
 				writeUtc = SdFile.GetLastWriteTimeUtc(path);
@@ -227,15 +260,17 @@ namespace Wrench
 					length = stream.Length;
 				return true;
 			}
-			catch (Exception)
+			catch (Exception ex)
 			{
+				error = ex.Message;
 				return false;
 			}
 		}
 
-		static bool TryReadText(string path, out string text)
+		static bool TryReadText(string path, out string text, out string error)
 		{
 			text = null;
+			error = null;
 			try
 			{
 				using (var stream = SdFile.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
@@ -243,8 +278,9 @@ namespace Wrench
 					text = reader.ReadToEnd();
 				return true;
 			}
-			catch (Exception)
+			catch (Exception ex)
 			{
+				error = ex.Message;
 				return false;
 			}
 		}

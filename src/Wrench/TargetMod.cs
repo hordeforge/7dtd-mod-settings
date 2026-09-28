@@ -15,6 +15,9 @@ namespace Wrench
 	/// </summary>
 	internal sealed class TargetMod
 	{
+		/// <summary>Staging name a save is written to before it is swapped in.</summary>
+		const string TempSuffix = ".wrench-save";
+
 		public enum ESaveState
 		{
 			None,
@@ -110,15 +113,31 @@ namespace Wrench
 
 			string newText;
 			if (!TomlEdit.TryReplaceValue(Text, entry, newRaw, out newText, out error))
-				return Fail(error);
+			{
+				SaveState = ESaveState.SaveFailed;
+				SaveError = error;
+				return false;
+			}
+			// The new text goes to a sibling temp file that is then swapped in,
+			// so a write that dies midway (disk full, killed process) leaves
+			// the original file whole rather than truncated at the failure
+			// point. The temp file is removed on every failing path.
+			string tempPath = TomlPath + TempSuffix;
 			try
 			{
-				File.WriteAllText(TomlPath, newText);
+				File.WriteAllText(tempPath, newText);
+				if (File.Exists(TomlPath))
+					File.Replace(tempPath, TomlPath, null);
+				else
+					File.Move(tempPath, TomlPath);
 			}
 			catch (Exception ex)
 			{
 				error = ex.Message;
-				return Fail(error);
+				SaveState = ESaveState.SaveFailed;
+				SaveError = error;
+				DeleteTemp(tempPath);
+				return false;
 			}
 			SaveState = ESaveState.Saved;
 			SaveError = null;
@@ -186,6 +205,19 @@ namespace Wrench
 			}
 		}
 
+		static void DeleteTemp(string tempPath)
+		{
+			try
+			{
+				if (File.Exists(tempPath))
+					File.Delete(tempPath);
+			}
+			catch (Exception ex)
+			{
+				Log.Warning(ModApi.LogPrefix + " could not remove " + tempPath + ": " + ex.Message);
+			}
+		}
+
 		/// <summary>Every loaded mod with a Config/&lt;Mod&gt;.toml, load order preserved.</summary>
 		public static List<TargetMod> Discover()
 		{
@@ -196,7 +228,19 @@ namespace Wrench
 					continue;
 				if (!File.Exists(Path.Combine(mod.Path, "Config", mod.Name + ".toml")))
 					continue;
-				result.Add(new TargetMod(mod));
+				try
+				{
+					result.Add(new TargetMod(mod));
+				}
+				catch (Exception ex)
+				{
+					// One mod whose DLLs cannot be inspected must not take the
+					// whole screen down; the rest stay editable, and the mod
+					// that was dropped says so in the log.
+					Log.Warning(ModApi.LogPrefix + " skipped " + mod.Name
+						+ " (" + Path.Combine(mod.Path, "Config", mod.Name + ".toml")
+						+ "): " + ex.Message);
+				}
 			}
 			return result;
 		}
@@ -229,12 +273,14 @@ namespace Wrench
 				}
 				catch (ReflectionTypeLoadException ex)
 				{
-					// A dependency the runtime could not load hides some of the
-					// types; the rest are still worth scanning.
+					// Null entries are the types whose dependencies could not
+					// be loaded; the rest still answer the question.
 					types = ex.Types;
 				}
 				catch (Exception)
 				{
+					Log.Warning(ModApi.LogPrefix + " could not inspect an assembly of "
+						+ mod.Name + "; the mod is treated as not hot-reloading.");
 					continue;
 				}
 				foreach (var type in types)
