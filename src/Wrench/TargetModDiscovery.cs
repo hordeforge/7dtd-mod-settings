@@ -20,15 +20,15 @@ namespace Wrench
 		// the screen. The only cost of being wrong about that is the live
 		// reload label, as it is for the probe itself (ADR 0001).
 		//
-		// The table is static state shared by every caller, and the screen is
-		// not the only one that can reach it: the lookup and the fill are one
-		// check-then-act, so two threads discovering at once would both
-		// probe and then both write the same dictionary, which is what
-		// corrupts it. A Dictionary is not safe to read while another thread
-		// writes it, and the screen is opened from the Unity thread while a
-		// dedicated server's telnet thread can discover a mod of its own. One
-		// lock around the whole sequence, with the probe inside it, so a miss
-		// is filled before the next lookup sees it.
+		// The table is static state shared by every caller, and the lookup and
+		// the fill are one check-then-act, so two threads discovering at once
+		// would both probe and then both write the same dictionary, which is
+		// what corrupts it. A Dictionary is not safe to read while another
+		// thread writes it, and a cache this static outlives whichever screen
+		// opened it: nothing in the mod says the next caller of this class is
+		// the thread that found the mod. One lock around the whole sequence,
+		// with the probe inside it, so a miss is filled before the next lookup
+		// sees it.
 		//
 		// Only a conclusive probe is kept: an assembly the runtime could not
 		// enumerate, or enumerates only in part, may hide the component, so

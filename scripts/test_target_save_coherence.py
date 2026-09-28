@@ -22,7 +22,9 @@ offset. Three things must hold for that to be safe:
 - a save is written through a temp file and renamed over the destination, so
   the mod polling the file never reads a half-written one, and a run killed
   between the two moves of the no-atomic-replace fallback converges on the
-  next one instead of leaving the mod with no settings file at all.
+  next one instead of leaving the mod with no settings file at all. That
+  recovery reads the same names a live swap is between, so it takes the same
+  per-file gate a save does.
 
 All three are source-level contracts here: the behavior is proven live by the
 `wrench-mod-settings` suite, and the C# cannot be executed offline. This gate
@@ -113,10 +115,11 @@ def main() -> int:
           and "out List<TomlSettings.DocEntry> after" in edit)
 
     probe = body(discovery, "static bool CachedHasSettingsComponent(")
-    # The memo is reached only from Discover(), which only the screen's
-    # OnOpen calls on the UI thread, so it is a plain dictionary and needs no
-    # lock: what has to hold is that a probe is paid once per installed mod
-    # and answered from the memo afterwards, keyed by the mod's own path.
+    # What has to hold is that a probe is paid once per installed mod and
+    # answered from the memo afterwards, keyed by the mod's own path, and
+    # that the table's lookup and its fill are taken under one lock: it is
+    # static state that outlives the screen that filled it, so no caller of
+    # this class can promise it is the only thread looking.
     check("the assembly probe is paid once per installed mod, not once per "
           "screen opening",
           "hotReloadsByModPath.TryGetValue(mod.Path" in probe
@@ -251,6 +254,29 @@ def main() -> int:
           and "path + PreviousSuffix" in write
           and "RecoverInterruptedSave(TomlPath);" in save
           and "TargetMod.RecoverInterruptedSave(tomlPath)" in discovery)
+    # Recovery reads the same two names a save's fallback swap is mid-way
+    # through, and the destination being missing is what both of them look
+    # for. Ungated, a recovery that lands inside a save's swap window moves
+    # the old text back under the staged one, and a save whose move into
+    # place then fails has consumed the only copy of the old text without
+    # landing the new. It is the one check-then-act here with no gate around
+    # it, so it is held to the same one the save takes, by the same lookup.
+    check("a recovery of an interrupted save takes the file's save gate",
+          "lock (SaveGateFor(tomlPath))" in recover
+          and guarded(recover, "files.Move(previous, tomlPath)")
+          and guarded(recover, "if (files.Exists(tomlPath))"))
+    # The control takes the lock out of the copy, and the gate has to notice
+    # that the check and the move are unguarded rather than that the word
+    # "lock" is still somewhere in the method.
+    unlocked_recover = target.replace("lock (SaveGateFor(tomlPath))", "", 1)
+    check("negative control: an ungated recovery fails the gate",
+          "lock (SaveGateFor(tomlPath))" in target
+          and "lock (SaveGateFor(tomlPath))"
+          not in body(unlocked_recover,
+                     "public static bool RecoverInterruptedSave(")
+          and not guarded(body(unlocked_recover,
+                               "public static bool RecoverInterruptedSave("),
+                          "files.Move(previous, tomlPath)"))
 
     read_body = body(target, "bool TryRead(")
     # The read is the other half of the atomic save: it has to report the
@@ -426,8 +452,9 @@ def main() -> int:
     # read it. The gate is keyed by path so two mods still save in parallel,
     # and it is taken around the read and not only around the write.
     check("a save of one file is serialized against every other save of it",
-          "lock (saveGates.GetOrAdd(TomlPath" in save
-          and "saveGates.GetOrAdd(TomlPath" in target)
+          "lock (SaveGateFor(TomlPath))" in save
+          and "saveGates.GetOrAdd(tomlPath" in target
+          and "static object SaveGateFor(string tomlPath)" in target)
     # The check has to sit between the two halves of the write, not before
     # them: the staging write is itself part of the window another program's
     # save can land in, and asked for before it, that writer is written over.

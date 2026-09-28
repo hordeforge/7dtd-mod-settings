@@ -606,6 +606,21 @@ interrupted-swap and save-twice scenarios, and
 `scripts/test_target_save_coherence.py` holds the shape of the recovery
 so a refactor cannot quietly drop it.
 
+### Decided 2026-09-28: the recovery takes the file's save gate
+
+The recovery recognized a crash by exactly the condition the swap's
+two-move fallback produces on purpose: the target is missing and the
+`.wrench-prev` sibling is there. Both callers ran that check and move with
+no lock, so a recovery landing inside a live swap moved the old text back
+under the staged one, and a save whose own move into place then failed had
+consumed the only copy of the old text without landing the new, which is
+the one outcome the file-as-surface rule forbids. `RecoverInterruptedSave`
+now takes the same per-file gate `TrySave` takes, through one
+`SaveGateFor` lookup, and `Monitor` being reentrant is what lets the save
+path call it again from inside its own. Held by
+`scripts/test_target_save_coherence.py`, with a negative control that
+takes the lock back out of a copy of the source.
+
 ## Decided 2026-09-28: a mod is identified by its folder, and an unproven answer is not an answer
 
 A selection the screen restores on reopen and a label the status line shows

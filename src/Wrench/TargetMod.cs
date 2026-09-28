@@ -65,17 +65,33 @@ namespace Wrench
 		/// belongs and changes nothing. The text it puts back is the one the
 		/// interrupted save was about to replace, so that save is still owed
 		/// rather than half made.
+		///
+		/// What it cannot do is run beside a save of the same file. The
+		/// no-atomic-replace fallback below leaves the destination missing on
+		/// purpose, for the moment between the two moves of its swap, and
+		/// that moment looks exactly like the crash this recovers from: a
+		/// recovery landing inside it moves the old text back under the
+		/// staged one, and a save whose own move into place then fails has
+		/// neither the old text (consumed) nor the new (never moved), which
+		/// is the one outcome this whole class exists to prevent. So the
+		/// check and the move are taken under the file's save gate, the same
+		/// one a save of it takes. Monitor is reentrant, so the save path's
+		/// own call at the top of a save is taken under it again without
+		/// deadlocking.
 		/// </summary>
 		public static bool RecoverInterruptedSave(string tomlPath)
 		{
-			var files = ModFileSystem.Current;
-			if (files.Exists(tomlPath))
-				return false;
-			var previous = tomlPath + PreviousSuffix;
-			if (!files.Exists(previous))
-				return false;
-			files.Move(previous, tomlPath);
-			return true;
+			lock (SaveGateFor(tomlPath))
+			{
+				var files = ModFileSystem.Current;
+				if (files.Exists(tomlPath))
+					return false;
+				var previous = tomlPath + PreviousSuffix;
+				if (!files.Exists(previous))
+					return false;
+				files.Move(previous, tomlPath);
+				return true;
+			}
 		}
 
 		// A save is a read, a splice into what that read produced, and a
@@ -88,6 +104,17 @@ namespace Wrench
 		// write alone would not stop the two reads from racing.
 		static readonly ConcurrentDictionary<string, object> saveGates =
 			new ConcurrentDictionary<string, object>(StringComparer.Ordinal);
+
+		// One gate object per settings file, so two mods are still saved in
+		// parallel and everything that acts on one file takes the same lock:
+		// the read-modify-write of a save, and the recovery of a save that was
+		// killed mid-swap. GetOrAdd is atomic, so two threads arriving at a
+		// path the table has not seen are handed the one object between them
+		// rather than a gate each.
+		static object SaveGateFor(string tomlPath)
+		{
+			return saveGates.GetOrAdd(tomlPath, _ => new object());
+		}
 
 		// The staging file's name carries the writing process's id, so a
 		// second writer of the same file (a second game, a second thread, a
@@ -235,7 +262,7 @@ namespace Wrench
 		public bool TrySave(TomlSettings.DocEntry entry, string newRaw, out string error)
 		{
 			error = null;
-			lock (saveGates.GetOrAdd(TomlPath, _ => new object()))
+			lock (SaveGateFor(TomlPath))
 			{
 				// A save killed between the two moves of its swap left the file
 				// at its sibling name, so this run is that save's retry and the
