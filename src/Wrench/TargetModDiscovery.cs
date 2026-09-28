@@ -38,6 +38,12 @@ namespace Wrench
 			new Dictionary<string, bool>(StringComparer.Ordinal);
 		static readonly object hotReloadsGate = new object();
 
+		// How many of a partial load's reasons are quoted into the log line
+		// that reports it. A mod whose whole assembly graph is unresolvable
+		// carries one reason per type, and the log is the only place the
+		// count was ever going to be visible.
+		const int MaxLoaderFailuresReported = 3;
+
 		public static bool CachedHasSettingsComponent(Mod mod)
 		{
 			lock (hotReloadsGate)
@@ -155,9 +161,16 @@ namespace Wrench
 					// Null entries are the types whose dependencies could not
 					// be loaded; the rest still answer the question, and a type
 					// that is missing may be the one that was being asked
-					// about, so the answer stops here.
+					// about, so the answer stops here. The loaders' own words
+					// go to the log: the player is told the mod needs a
+					// restart, and the operator is the one who can say which
+					// dependency is missing.
 					types = ex.Types;
 					complete = false;
+					Log.Warning(ModApi.LogPrefix + " could not fully load an assembly of "
+						+ ModTomlPath.ForLog(mod.Name) + " ("
+						+ DescribeLoaderFailures(ex) + "); the mod is reported as "
+						+ "not hot-reloading until an inspection succeeds.");
 					if (types == null)
 						continue;
 				}
@@ -196,6 +209,33 @@ namespace Wrench
 			if (complete)
 				definitive = true;
 			return found;
+		}
+
+		/// <summary>
+		/// What the runtime could not load, in the log's one line. The loader
+		/// exceptions are the only place the missing dependency is named, and
+		/// one line per failed type is a log flood, so they are counted and
+		/// the first few are quoted.
+		/// </summary>
+		static string DescribeLoaderFailures(ReflectionTypeLoadException failure)
+		{
+			var reasons = new List<string>();
+			var failed = 0;
+			if (failure.LoaderExceptions != null)
+			{
+				for (var i = 0; i < failure.LoaderExceptions.Length; i++)
+				{
+					var reason = failure.LoaderExceptions[i];
+					if (reason == null)
+						continue;
+					failed++;
+					if (reasons.Count < MaxLoaderFailuresReported)
+						reasons.Add(reason.GetType().Name + ": " + reason.Message);
+				}
+			}
+			if (failed == 0)
+				return failure.Message;
+			return failed + " type(s) failed to load: " + string.Join("; ", reasons);
 		}
 	}
 }

@@ -167,8 +167,17 @@ namespace Wrench
 				{
 					if (appliedLength < 0 && !startup)
 					{
-						message = "defaults (no " + RelativePath + ")";
-						return false;
+						// A poll has nobody to report to, so "still on the
+						// defaults" is the whole of what it needs to say. A
+						// forced reload is somebody asking what is in force, and
+						// the same state is a success on the path below: a file
+						// that was never written is not a reload that failed.
+						if (!force)
+						{
+							message = "defaults (no " + RelativePath + ")";
+							return false;
+						}
+						return ApplyMissingFileDefaults(out message);
 					}
 					return ApplyMissingFileDefaults(out message);
 				}

@@ -294,16 +294,39 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
     return targets, patch_classes
 
 
+def run_ilspy(argv: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+    """Run ilspycmd, naming every way it can fail as a `RuntimeError`.
+
+    Only the nonzero exit was turned into a report line: a hung decompiler
+    raised `TimeoutExpired` and a missing one `FileNotFoundError`, and both
+    ended the verifier in a traceback from the middle of a report whose
+    header and `OK` lines had already printed.
+    """
+    try:
+        return subprocess.run(argv, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", check=False,
+                              timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            f"ilspycmd did not answer within {timeout}s: {' '.join(argv)}"
+        ) from None
+    except OSError as exc:
+        raise RuntimeError(f"ilspycmd could not run ({exc}): {' '.join(argv)}") from None
+
+
 def decompile(assembly: Path, type_name: str, cache: dict[str, list[str]]) -> list[str]:
     if type_name not in cache:
-        result = subprocess.run(["ilspycmd", "-t", type_name, str(assembly)],
-                                capture_output=True, text=True,
-                                encoding="utf-8", errors="replace", check=False,
-                                timeout=300)
+        result = run_ilspy(["ilspycmd", "-t", type_name, str(assembly)], 300)
         if result.returncode != 0:
-            raise RuntimeError(f"ilspycmd failed for {type_name}: {result.stderr.strip()}")
+            raise RuntimeError(f"ilspycmd failed for {type_name}: {ilspy_reason(result)}")
         cache[type_name] = result.stdout.splitlines()
     return cache[type_name]
+
+
+def ilspy_reason(result: subprocess.CompletedProcess[str]) -> str:
+    """What the decompiler said about its own failure, whichever stream it used."""
+    return (result.stderr.strip() or result.stdout.strip()
+            or f"exited {result.returncode} with no message")
 
 
 def ensure_ilspy_runtime() -> str | None:
@@ -314,9 +337,7 @@ def ensure_ilspy_runtime() -> str | None:
     versioned fallback. It is sufficient for this read-only verifier and is
     preferred over silently treating every target as missing.
     """
-    probe = subprocess.run(["ilspycmd", "--version"], capture_output=True,
-                           text=True, encoding="utf-8", errors="replace",
-                           check=False, timeout=60)
+    probe = run_ilspy(["ilspycmd", "--version"], 60)
     if probe.returncode == 0:
         return None
 
@@ -336,9 +357,7 @@ def ensure_ilspy_runtime() -> str | None:
             continue
         os.environ["DOTNET_ROOT"] = str(runtime_root)
         os.environ["PATH"] = str(runtime_root) + os.pathsep + original_path
-        retry = subprocess.run(["ilspycmd", "--version"], capture_output=True,
-                               text=True, encoding="utf-8", errors="replace",
-                               check=False, timeout=60)
+        retry = run_ilspy(["ilspycmd", "--version"], 60)
         if retry.returncode == 0:
             print(f"ILSPY_RUNTIME {runtime_root}")
             return None
@@ -348,7 +367,7 @@ def ensure_ilspy_runtime() -> str | None:
             os.environ["DOTNET_ROOT"] = original_root
         os.environ["PATH"] = original_path
 
-    return probe.stderr.strip() or probe.stdout.strip() or "unknown ilspycmd runtime error"
+    return ilspy_reason(probe)
 
 
 def declared_signatures(body: list[str], method: str) -> list[str]:
@@ -397,7 +416,14 @@ def main(argv: list[str]) -> int:
             return 2
         os.environ["PATH"] = os.environ.get("PATH", "") + os.pathsep + str(candidate.parent)
 
-    runtime_error = ensure_ilspy_runtime()
+    try:
+        runtime_error = ensure_ilspy_runtime()
+    except RuntimeError as error:
+        # A decompiler that will not start is a broken toolchain, not a mod
+        # whose target failed to resolve, and it gets the tool exit status.
+        print("ERROR: ilspycmd could not be run.", file=sys.stderr)
+        print(str(error), file=sys.stderr)
+        return 2
     if runtime_error is not None:
         print("ERROR: ilspycmd is installed but cannot run.", file=sys.stderr)
         print(runtime_error, file=sys.stderr)

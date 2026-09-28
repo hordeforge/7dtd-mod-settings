@@ -50,21 +50,37 @@ namespace Wrench
 
 			case "reload":
 				string reloadMessage;
-				ModSettings.ReloadNow(out reloadMessage);
+				// The return is the same signal `set` reads: a reload that
+				// could not read the file says so on the log as a warning,
+				// where a reader filtering for warnings sees it. Logging the
+				// refusal on the same line as a successful apply is how a
+				// server runs on defaults without anyone being told.
+				var reloaded = ModSettings.ReloadNow(out reloadMessage);
 				reloadMessage = reloadMessage ?? "no settings file watched.";
 				Output(reloadMessage);
 				// A telnet command changes the running server and the console
 				// it was typed into closes with the session: the game log is
 				// what the next operator reads, so the command and its outcome
 				// are said there, with who ran it.
-				Log.Out(ModApi.LogPrefix + " " + Sender(_senderInfo)
-					+ " ran 'wrench reload': " + reloadMessage);
+				var reloadRecord = ModApi.LogPrefix + " " + Sender(_senderInfo)
+					+ " ran 'wrench reload': " + reloadMessage;
+				if (reloaded)
+					Log.Out(reloadRecord);
+				else
+					Log.Warning(reloadRecord);
 				return;
 
 			case "set":
 				if (_params.Count != 3)
 				{
 					Output("Usage: wrench set <name> <value>");
+					// The usage line is all the console shows, and a telnet
+					// console closes with the session: the one rejected
+					// `wrench set` that said nothing there is the one nobody
+					// finds afterwards.
+					Log.Warning(ModApi.LogPrefix + " " + Sender(_senderInfo)
+						+ " ran 'wrench set' with " + (_params.Count - 1)
+						+ " argument(s) instead of 2 (name and value).");
 					return;
 				}
 				string setMessage;

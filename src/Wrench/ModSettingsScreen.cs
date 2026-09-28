@@ -224,12 +224,17 @@ namespace Wrench
 			else
 				Log.Warning(ModApi.LogPrefix + " could not save " + mod.Name + " " + entry.Name
 					+ " = " + newRaw + " in " + mod.TomlPath + ": " + error);
-			// One save, one watch: a refused save, or one to a mod that only
-			// takes effect on a restart, disarms the watch entirely, so a line
-			// from an earlier save cannot stamp the next mod as "applied live"
-			// or resurrect it over the failure just recorded. The Anvil
-			// component logs the re-read; until that line arrives the status
-			// stays at "saved".
+			// One save, one watch: the save this one replaces is settled as
+			// unconfirmed first, so the log says that its re-read was never
+			// seen instead of the mod it belonged to staying at "saved" with
+			// nothing left that can resolve it. Every other path that takes a
+			// watch (SelectMod, OnOpen, OnClose) ends the old one this way.
+			StopReloadWatch();
+			// A refused save, or one to a mod that only takes effect on a
+			// restart, disarms the watch entirely, so a line from an earlier
+			// save cannot stamp the next mod as "applied live" or resurrect it
+			// over the failure just recorded. The Anvil component logs the
+			// re-read; until that line arrives the status stays at "saved".
 			var watching = saved && mod.HotReloads && !ReloadMarkerShared(mod);
 			ArmReloadWatch(watching ? mod.ReloadLogMarker : null);
 			watchedReloadTarget = watching ? mod : null;
