@@ -314,13 +314,25 @@ def run_ilspy(argv: list[str], timeout: int) -> subprocess.CompletedProcess[str]
         raise RuntimeError(f"ilspycmd could not run ({exc}): {' '.join(argv)}") from None
 
 
-def decompile(assembly: Path, type_name: str, cache: dict[str, list[str]]) -> list[str]:
-    if type_name not in cache:
+def decompile(assembly: Path, type_name: str,
+              cache: dict[tuple[str, str], list[str]]) -> list[str]:
+    """The decompiled body of one type in one assembly, paid for once.
+
+    The assembly is part of the key because a type name is only a name within
+    an assembly: `ModSettings`, `ModApi` and every other name this mod uses are
+    declared by more than one assembly in a 7DTD install, and a table keyed by
+    the name alone hands the second one the first one's decompiled body, so its
+    targets are checked against signatures they do not have. It happens to
+    matter only when a run looks in more than one assembly, and it is silent
+    when it does.
+    """
+    key = (str(assembly), type_name)
+    if key not in cache:
         result = run_ilspy(["ilspycmd", "-t", type_name, str(assembly)], 300)
         if result.returncode != 0:
             raise RuntimeError(f"ilspycmd failed for {type_name}: {ilspy_reason(result)}")
-        cache[type_name] = result.stdout.splitlines()
-    return cache[type_name]
+        cache[key] = result.stdout.splitlines()
+    return cache[key]
 
 
 def ilspy_reason(result: subprocess.CompletedProcess[str]) -> str:
@@ -445,7 +457,7 @@ def main(argv: list[str]) -> int:
     print(f"TARGETS   {len(targets)} attributes across {len(patch_classes)} patch classes")
     print()
 
-    cache: dict[str, list[str]] = {}
+    cache: dict[tuple[str, str], list[str]] = {}
     failures = 0
 
     for target in sorted(targets, key=lambda item: (item.declaring_type, item.method)):
