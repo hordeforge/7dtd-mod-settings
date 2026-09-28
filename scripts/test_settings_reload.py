@@ -143,6 +143,25 @@ def main() -> int:
           and "Thread.Sleep" not in code_of("TargetMod.cs")
           and "Thread.Sleep" not in code_of("ModSettings.cs")
           and "ModClock.Current.Sleep(ReplaceRetryMilliseconds)" in target)
+    # The screen's bounded wait for a hot-reloading mod's reload line is a
+    # wait too, so it is measured on the same clock: summing the frame delta
+    # measures the game's own frame time, and a frame the game does not
+    # advance (a paused or time-scaled one) carries none of it, which leaves
+    # the status promising a reload that is never confirmed.
+    screen_code = code_of("ModSettingsScreen.cs")
+    update = body(screen, "public override void Update(float _dt)")
+    check("the screen's reload-confirm wait runs on the mod's one clock",
+          "ModClock.Current.NowSeconds - reloadStartedAt >= RELOAD_CONFIRM_SECONDS" in update
+          and "ModClock.Current.NowSeconds;" in body(screen, "internal bool SaveEdit(")
+          and "_dt +=" not in screen_code
+          and "reloadWait" not in screen_code)
+    # Negative control: a wait summed from the frame delta fails the gate.
+    frame_sum = screen.replace(
+        "ModClock.Current.NowSeconds - reloadStartedAt", "reloadWait += _dt; if (reloadWait", 1)
+    check("negative control: a frame-delta countdown fails the gate",
+          "ModClock.Current.NowSeconds - reloadStartedAt >= RELOAD_CONFIRM_SECONDS" in screen
+          and "ModClock.Current.NowSeconds - reloadStartedAt >= RELOAD_CONFIRM_SECONDS"
+          not in body(frame_sum, "public override void Update(float _dt)"))
     check("reload resets to defaults then applies the file",
           "ResetToDefaults();" in settings
           and '"reload " + RelativePath' in settings)
@@ -153,20 +172,34 @@ def main() -> int:
           and 'error = ex.GetType().Name + ": " + ex.Message;' in settings
           and "catch (Exception ex)" in settings
           and "catch (Exception)" not in settings)
-    # The staged sibling is named in TryWrite: the temp file is a sibling
-    # of the target, the replace is what puts it in, and the same name is
-    # unlinked on the failure path (TryDeleteTemp) so a failed save leaves
-    # nothing behind. Held against TryWrite's own body, not the whole file,
-    # so a call that reached the target directly cannot hide outside it.
-    write = body(target, "static bool TryWrite(")
+    # TryWrite stages the sibling `path + ".wrench-tmp"` in the same
+    # folder as the target, writes it through the seam, and puts it in place
+    # with an atomic replace that retries while the target's own settings
+    # watch holds the file; the same name is unlinked on the failure path
+    # (TryDeleteTemp), so a failed save leaves nothing behind. The read half
+    # of the same save goes through the seam too, so a simulated run drives
+    # the read and the write of one save on one filesystem. The writer takes
+    # the path it stages beside, so the call site, not the writer, is where
+    # the target's own path is named: that call site is asserted too.
+    write = body(target, "static bool TryWrite(string path, string text, Encoding encoding,"
+                         " out string error)")
     check("a save is staged and swapped in, never written over in place",
-          write != ""
-          and "WriteAllText(path" not in write
+          "WriteAllText(TomlPath" not in target
+          and "TryWrite(TomlPath, newText, currentEncoding, out error)" in target
           and 'var temp = path + ".wrench-tmp";' in write
           and "files.WriteAllText(temp, text, encoding)" in write
           and "files.Replace(temp, path)" in write
-          and "files.Move(temp, path)" in write
-          and "TryDeleteTemp(temp)" in write)
+          and "if (attempt >= ReplaceAttempts)" in write
+          and "ModClock.Current.Sleep(ReplaceRetryMilliseconds)" in write
+          and "TryDeleteTemp(temp)" in write
+          and "TryDeleteTemp(TomlPath" not in target)
+    # Negative control: a writer that truncates the target in place, which is
+    # the outcome every property above exists to prevent.
+    in_place = write.replace("files.WriteAllText(temp, text, encoding)",
+                             "files.WriteAllText(path, text, encoding)", 1)
+    check("negative control: an in-place write fails the gate",
+          "files.WriteAllText(temp, text, encoding)" in write
+          and "files.WriteAllText(temp, text, encoding)" not in in_place)
     # The mod name comes out of another mod's ModInfo.xml, and this screen
     # writes to the file it names: the path must be resolved, not
     # concatenated. scripts/toml_gate exercises the resolver itself.

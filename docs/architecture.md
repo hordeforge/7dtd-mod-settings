@@ -248,7 +248,12 @@ The post-save wait for a hot-reloading mod's reload line is bounded by
 save state becomes `SaveUnconfirmed` and the status says the change was
 saved but not re-read, instead of promising a reload forever. The state
 belongs to the watched mod, not to the selection, so switching mods
-mid-wait cannot move the outcome onto the wrong row.
+mid-wait cannot move the outcome onto the wrong row. The wait is elapsed
+time on `ModClock`, not a sum of the frame delta the update loop is
+handed: that delta is the game's own frame time, and a frame the game
+does not advance carries none of it, so a countdown built from it cannot
+finish while the player sits on the screen. Held by
+`scripts/test_settings_reload.py`.
 
 Both list panes carry an empty-state label (localization keys
 `wrenchNoMods` and `wrenchNoSettings`, bound to `{nomods}` and
@@ -548,6 +553,19 @@ An exception that escapes the settings load at `InitMod` is now caught
 and named rather than aborting the mod's load with a bare stack trace,
 and every caught exception that becomes an error message carries its type
 beside its message, so "access denied" is not read as a parse error.
+
+## Decided 2026-09-28: the save-path gate follows the writer's new shape
+
+`TargetMod.TryWrite` takes the path it stages beside instead of reading
+`TomlPath` itself, so the staged-write assertions in
+`scripts/test_settings_reload.py` were naming locals the writer no longer
+has and the gate was red on a contract the code still met. The gate now
+reads the writer's body and its call site, and holds the same properties
+one step tighter than before: the staging sibling, the seam write, the
+atomic replace, the retry and its wait, the unlink on the failure path,
+and the one call site that names the target's path. A negative control
+turns the staging write into an in-place one and requires the gate to
+reject it.
 
 ## Open questions
 

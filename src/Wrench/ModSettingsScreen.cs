@@ -26,7 +26,7 @@ namespace Wrench
 		// A settings component that polls the file every few seconds should
 		// log its re-read well inside this. Past it the wait is over: the
 		// status must not keep promising a reload that never arrived.
-		const float RELOAD_CONFIRM_SECONDS = 10f;
+		const double RELOAD_CONFIRM_SECONDS = 10d;
 
 		internal List<TargetMod> targets = new List<TargetMod>();
 		internal TargetMod selected;
@@ -46,7 +46,13 @@ namespace Wrench
 		// between the save and the mod's reload, and that other mod is the one
 		// that never re-read.
 		TargetMod watchedReloadTarget;
-		float reloadWait;
+		// The wait is measured on the mod's one clock (ModClock), not by
+		// summing the frame delta the update loop is handed: that delta is the
+		// game's own frame time, and a frame the game does not advance (a
+		// paused or time-scaled one, and the options screen is opened from the
+		// pause menu) carries none of it, so a countdown built from it never
+		// reaches its own end while the player is reading the screen.
+		double reloadStartedAt;
 
 		// Log.LogCallbacks is a static event, so a subscription keeps this
 		// screen (and every TargetMod and parsed entry it holds) alive until
@@ -125,8 +131,7 @@ namespace Wrench
 			}
 			else if (IsWatchingReload())
 			{
-				reloadWait += _dt;
-				if (reloadWait >= RELOAD_CONFIRM_SECONDS)
+				if (ModClock.Current.NowSeconds - reloadStartedAt >= RELOAD_CONFIRM_SECONDS)
 				{
 					DisarmReloadWatch();
 					SetWatchedSaveState(TargetMod.ESaveState.SaveUnconfirmed);
@@ -203,7 +208,7 @@ namespace Wrench
 			var watching = saved && mod.HotReloads;
 			ArmReloadWatch(watching ? mod.ReloadLogMarker : null);
 			watchedReloadTarget = watching ? mod : null;
-			reloadWait = 0f;
+			reloadStartedAt = ModClock.Current.NowSeconds;
 			// Spans moved with the edit: rebind rows to the re-parsed
 			// entries (also restores the file value after a refused edit).
 			PopulateSettingRows();
