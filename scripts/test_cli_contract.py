@@ -51,7 +51,6 @@ ENTRYPOINTS = (
     "verify-package.sh",
     "verify-patch-targets.py",
     "verify-patched-config.py",
-    "verify-package.sh",
 )
 SOURCED = frozenset({"cli.sh", "local-env.sh", "server-common.sh"})
 NOT_ENTRYPOINTS = SOURCED | {

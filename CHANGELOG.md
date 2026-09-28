@@ -132,6 +132,11 @@ its own numbered heading when the version it ships under is declared.
 - The DLL build maps its source paths out of the output
   (`ContinuousIntegrationBuild=true`), so the checkout's absolute directory
   no longer reaches the shipped binary.
+- `deploy-server.sh --rollback` re-run after an interrupted rollback no
+  longer deletes the only copy of the mod the server was running. The
+  deployment a killed rollback left in `.wrench-deploy/discarded` is put
+  back before the retry swaps again, in either direction, so a retry that
+  fails to land leaves the mod deployed rather than nothing.
 
 ### Removed
 

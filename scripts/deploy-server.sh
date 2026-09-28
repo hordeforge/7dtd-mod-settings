@@ -48,6 +48,18 @@ remove_tree() {
 	fi
 }
 
+# A run killed between its two renames leaves nothing at $TARGET and the
+# deployment it was replacing under $DISCARD. Both directions recover from
+# that before they touch anything: the folder there is the only copy of the
+# mod the server was running, and the rollback that deletes it before it
+# knows its own move will land takes it away on the failure path too.
+recover_discarded() {
+	if [[ ! -e "$TARGET" && -d "$DISCARD" ]]; then
+		mv "$DISCARD" "$TARGET"
+		echo "     recovered the deployment an interrupted run left at $DISCARD"
+	fi
+}
+
 rollback() {
 	if [[ ! -d "$PREVIOUS" ]]; then
 		echo "ERROR: no previous deployment at $PREVIOUS to roll back to." >&2
@@ -57,6 +69,7 @@ rollback() {
 	# rollback's own move has landed: a run killed between the two renames
 	# (or a second rename that fails) leaves the mod on disk under $DISCARD,
 	# and the run after that puts it back.
+	recover_discarded
 	remove_tree "$DISCARD"
 	if [[ -d "$TARGET" ]] && ! mv "$TARGET" "$DISCARD"; then
 		echo "ERROR: could not move the current $TARGET aside; nothing was changed." >&2
@@ -66,7 +79,7 @@ rollback() {
 		if [[ -d "$DISCARD" ]] && mv "$DISCARD" "$TARGET"; then
 			echo "ERROR: rollback failed; the current $TARGET was restored." >&2
 		else
-			echo "ERROR: rollback failed; the deployment it replaced is at $DISCARD." >&2
+			echo "ERROR: rollback failed; nothing is deployed and the rollback point is at $PREVIOUS." >&2
 		fi
 		exit 1
 	fi
@@ -108,14 +121,11 @@ if [[ ! -x "$SERVER_DIR/7DaysToDieServer.x86_64" ]]; then
 	exit 1
 fi
 
-# A rollback killed between its two renames leaves nothing at $TARGET and the
-# deployment it was replacing under $DISCARD. Put it back before replacing it
-# again, so a run after an interrupted run converges instead of deploying over
-# a hole.
-if [[ ! -e "$TARGET" && -d "$DISCARD" ]]; then
-	mv "$DISCARD" "$TARGET"
-	echo "     recovered the deployment an interrupted rollback left at $DISCARD"
-fi
+# A run killed between its two renames leaves nothing at $TARGET and the
+# deployment it was replacing under $DISCARD. recover_discarded puts it back
+# before this run replaces it again, so a run after an interrupted run
+# converges instead of deploying over a hole.
+recover_discarded
 
 "$ROOT/scripts/build.sh"
 

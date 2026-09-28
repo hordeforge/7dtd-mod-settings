@@ -77,7 +77,7 @@ package, which is how CI exercises packaging without the game assemblies.
 `.local.env`); set it when the world lives under a second prefix or a
 non-Steam launcher, where that derivation does not hold.
 
-`new-mod.sh` writes this file at scaffold time. On a machine where it is
+On a machine where `.local.env` is
 missing, blank, or invalid: **ask the user for the absolute path before
 doing any game-file work.** Do not guess a platform path or reuse one from
 docs, chat history, or another machine. Validate a client path by checking
