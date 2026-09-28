@@ -22,7 +22,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check
+from gate_report import check, result
 
 PASS_BODY = "#!/usr/bin/env python3\nprint('ok')\n"
 FAIL_BODY = "#!/usr/bin/env python3\nimport sys\nprint('boom')\nsys.exit(3)\n"
@@ -96,8 +96,7 @@ def main() -> int:
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return result()
 
 
 if __name__ == "__main__":

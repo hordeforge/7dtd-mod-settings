@@ -9,7 +9,7 @@ between copies.
 Import it with:
 
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-    from gate_report import FAILURES, check
+    from gate_report import check, result
 """
 
 from __future__ import annotations
@@ -28,3 +28,14 @@ def check(name: str, ok: bool, detail: str = "") -> None:
         return
     FAILURES.append(name)
     print("FAIL " + name + (": " + detail if detail else ""))
+
+
+def result() -> int:
+    """The run's verdict: the report's last two lines and the exit status.
+
+    Every gate ends with `return result()`, so the shape of a gate's report
+    is defined here rather than copied into each one.
+    """
+    print(f"{len(FAILURES)} failures.")
+    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
+    return 1 if FAILURES else 0

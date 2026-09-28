@@ -26,7 +26,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check
+from gate_report import check, result
 from local_env import mod_dir
 
 MOD_DIR = str(mod_dir())
@@ -131,17 +131,14 @@ def split_arguments(source: str, start: int) -> list[str]:
     raise ValueError("unbalanced argument list")
 
 
-def english_fallback(argument: str) -> str | None:
-    """The English text of a WrenchText call's second argument, or None
-    when it is not a plain string literal (optionally split across
-    lines with `+`). A non-literal fallback would hide the catalog's
-    english column from this gate, so it is a failure, not a pass."""
-    return join_literals(argument)
-
-
 def join_literals(argument: str) -> str | None:
     """The text a `+`-joined run of C# string literals spells, or None
-    when any operand is not a plain literal."""
+    when any operand is not a plain literal.
+
+    A WrenchText call's English fallback is read through this: a
+    non-literal fallback would hide the catalog's english column from
+    this gate, so it is a failure, not a pass.
+    """
     parts = [part.strip() for part in argument.split("+")]
     if not parts:
         return None
@@ -180,9 +177,7 @@ def main() -> int:
     check("catalog-header", bool(raw) and raw[0] == EXPECTED_HEADER,
           "header is " + ",".join(raw[0]) if raw else "catalog is empty")
     if not raw or raw[0] != EXPECTED_HEADER:
-        print(f"{len(FAILURES)} failures.")
-        print("RESULT FAIL")
-        return 1
+        return result()
 
     seen: set[str] = set()
     for row in raw[1:]:
@@ -226,7 +221,7 @@ def main() -> int:
             check(f"code-key-in-catalog:{rel}:{line}:{catalog_key}",
                   catalog_key in english_by_key,
                   "no Config/Localization.csv row")
-            fallback = english_fallback(arguments[1])
+            fallback = join_literals(arguments[1])
             check(f"fallback-is-literal:{rel}:{line}",
                   fallback is not None,
                   "keep the English fallback a plain string literal so this "
@@ -258,20 +253,18 @@ def main() -> int:
     check("negative-control:unknown-key",
           unknown not in english_by_key,
           "an unknown key must fail the catalog lookup")
-    drifted = english_fallback(
+    drifted = join_literals(
         fixture_arguments('WrenchText.Get("wrenchModSettingsTab", "Not the tab");')[1])
     check("negative-control:drifted-english",
           drifted != english_by_key["wrenchModSettingsTab"],
           "a fallback that disagrees with the catalog must fail")
-    not_literal = english_fallback(
+    not_literal = join_literals(
         fixture_arguments('WrenchText.Get("wrenchNoMods", SOME_CONSTANT);')[1])
     check("negative-control:non-literal-fallback",
           not_literal is None,
           "a non-literal fallback must fail the extraction")
 
-    print(f"{len(FAILURES)} failures.")
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return result()
 
 
 if __name__ == "__main__":

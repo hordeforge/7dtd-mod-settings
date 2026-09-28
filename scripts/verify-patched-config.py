@@ -58,6 +58,10 @@ CONTAINER_EXPECTATIONS: tuple[tuple[str, str, str, str], ...] = ()
 
 APPENDED_BY = re.compile(r'appended by:\s*"([^"]+)"')
 
+# 7 Days To Die's Steam app id, the compatdata directory the Proton prefix
+# keeps its saves in.
+STEAM_APP_ID = "251570"
+
 
 class VerifyError(RuntimeError):
     pass

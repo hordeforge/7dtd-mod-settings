@@ -24,7 +24,7 @@ MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RUNNER = os.path.join(MOD_DIR, "scripts", "run-offline-tests.sh")
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check  # noqa: E402
+from gate_report import check, result  # noqa: E402
 
 
 def pyproject_floor(text: str) -> tuple[int, ...]:
@@ -94,8 +94,7 @@ def main() -> int:
         floor = pyproject_floor(handle.read())
     check("pyproject.toml states a Python floor for mypy", bool(floor))
     if not floor:
-        print(f"{len(FAILURES)} failures.")
-        return 1
+        return result()
 
     needed = f"{floor[0]}.{floor[1]}"
     check("the interpreter running the suite is the stated floor or newer",
@@ -130,8 +129,7 @@ def main() -> int:
 
     check_dotnet_resolution()
 
-    print(f"{len(FAILURES)} failures.")
-    return 1 if FAILURES else 0
+    return result()
 
 
 if __name__ == "__main__":

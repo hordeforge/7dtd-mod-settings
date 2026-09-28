@@ -31,7 +31,7 @@ import threading
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
 from game_telnet import GameTelnet, TelnetError
-from gate_report import FAILURES, check
+from gate_report import check, result
 
 
 def serve_on_ending(peer: socket.socket, reply: bytes, close_after: bool) -> list[str]:
@@ -149,8 +149,7 @@ def main() -> int:
     test_run_survives_a_session_ending_command()
     test_send_before_connect_raises()
     test_close_sends_exit()
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return result()
 
 
 if __name__ == "__main__":

@@ -49,6 +49,19 @@ failed=()
 ran=0
 overall_start=$(now_seconds)
 
+# The one place a test's verdict is printed and counted, so the serial and
+# parallel walks cannot report it differently.
+report_result() {
+	local name=$1 status=$2 secs=$3
+	if (( status == 0 )); then
+		printf 'PASS %s (%ss)\n' "$name" "$secs"
+	else
+		printf 'FAIL %s (exit %s, %ss)\n' "$name" "$status" "$secs"
+		failed+=("$name")
+	fi
+	ran=$((ran + 1))
+}
+
 tests=()
 for test_script in "$SCRIPT_DIR"/test_*.py; do
 	name="$(basename "$test_script")"
@@ -91,13 +104,11 @@ run_serial() {
 		name="$(basename "$test_script")"
 		start=$(now_seconds)
 		if python3 "$test_script"; then
-			printf 'PASS %s (%ss)\n' "$name" "$(( $(now_seconds) - start ))"
+			status=0
 		else
 			status=$?
-			printf 'FAIL %s (exit %s, %ss)\n' "$name" "$status" "$(( $(now_seconds) - start ))"
-			failed+=("$name")
 		fi
-		ran=$((ran + 1))
+		report_result "$name" "$status" "$(( $(now_seconds) - start ))"
 	done
 }
 
@@ -142,13 +153,7 @@ run_parallel() {
 			cat "$tmpdir/$name.err" >&2
 			continue
 		fi
-		ran=$((ran + 1))
-		if (( status == 0 )); then
-			printf 'PASS %s (%ss)\n' "$name" "$secs"
-		else
-			printf 'FAIL %s (exit %s, %ss)\n' "$name" "$status" "$secs"
-			failed+=("$name")
-		fi
+		report_result "$name" "$status" "$secs"
 		cat "$tmpdir/$name.out"
 		cat "$tmpdir/$name.err" >&2
 	done

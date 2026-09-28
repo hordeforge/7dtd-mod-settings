@@ -23,7 +23,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check
+from gate_report import check, result
 from local_env import mod_dir
 
 MOD_DIR = str(mod_dir())
@@ -88,14 +88,14 @@ def main() -> int:
          "from gate_report import check; check('probe', False, 'detail')",
          os.path.join(SCRIPTS, "lib")],
         capture_output=True, check=False, text=True,
+        encoding="utf-8", errors="replace",
         cwd=os.path.dirname(SCRIPTS))
     check("gate-report-on-stdout",
           failing.returncode == 0 and "FAIL probe: detail" in failing.stdout
           and failing.stderr == "",
           "a failed check must print its report to stdout, not stderr")
 
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return result()
 
 
 if __name__ == "__main__":

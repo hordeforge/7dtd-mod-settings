@@ -23,6 +23,7 @@ Standard library only — no telnetlib, which was removed in Python 3.13.
 from __future__ import annotations
 
 import contextlib
+import select
 import socket
 import time
 
@@ -30,6 +31,15 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8081
 # The server prints this once the console is ready to take commands.
 READY_MARKERS = ("Press 'help' to get a list of all commands", "Logon successful")
+
+# How long `select` waits for readability, and how long an idle poll waits
+# before looking again. Both are one poll step, not timeouts.
+POLL_SECONDS = 0.2
+IDLE_SECONDS = 0.05
+# The drain window's recv timeout, kept above POLL_SECONDS so a poll that
+# says readable is not immediately followed by a recv timeout.
+RECV_SECONDS = 0.3
+CONNECT_RETRY_SECONDS = 2.0
 
 
 class TelnetError(RuntimeError):
@@ -75,7 +85,7 @@ class GameTelnet:
                 break
             except OSError as exc:
                 last = exc
-                time.sleep(2.0)
+                time.sleep(CONNECT_RETRY_SECONDS)
         else:
             raise TelnetError(
                 f"could not connect to the telnet console at {self.host}:{self.port} "
@@ -146,7 +156,7 @@ class GameTelnet:
         collected = ""
         sock = self._sock
         if sock is not None:
-            sock.settimeout(0.3)
+            sock.settimeout(RECV_SECONDS)
             while time.monotonic() < end:
                 try:
                     chunk = self._recv() if self._readable() else ""
@@ -157,29 +167,19 @@ class GameTelnet:
                     collected += chunk
                     end = time.monotonic() + seconds
                 else:
-                    time.sleep(0.05)
+                    time.sleep(IDLE_SECONDS)
             if not self.closed_by_server:
                 sock.settimeout(self.timeout)
         self._buffer += collected
         return collected
 
     def _readable(self) -> bool:
-        import select
         if self._sock is None:
             return False
-        return bool(select.select([self._sock], [], [], 0.2)[0])
+        return bool(select.select([self._sock], [], [], POLL_SECONDS)[0])
 
     def _read_until(self, marker: str, timeout: float) -> str:
-        deadline = time.monotonic() + timeout
-        seen = ""
-        while time.monotonic() < deadline:
-            if self._readable():
-                seen += self._recv()
-                if marker in seen:
-                    return seen
-            else:
-                time.sleep(0.05)
-        raise TelnetError(f"timed out waiting for {marker!r}; saw {seen[-300:]!r}")
+        return self._read_until_any((marker,), timeout)
 
     def _read_until_any(self, markers: tuple[str, ...], timeout: float,
                         required: bool = True) -> str:
@@ -191,7 +191,7 @@ class GameTelnet:
                 if any(marker in seen for marker in markers):
                     return seen
             else:
-                time.sleep(0.05)
+                time.sleep(IDLE_SECONDS)
         if required:
             raise TelnetError(f"timed out waiting for any of {markers}; saw {seen[-300:]!r}")
         return seen

@@ -22,7 +22,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check
+from gate_report import check, result
 
 SCRIPTS = Path(__file__).resolve().parent
 LOADER = SCRIPTS / "local-env.sh"
@@ -46,7 +46,8 @@ def load_env_file(directory: Path, body: str) -> Path:
 def run_probe(env_file: Path, env: dict[str, str] | None = None) -> list[str]:
     result = subprocess.run(
         ["bash", "-c", PROBE, "bash", str(LOADER), str(env_file)],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        check=True,
         env={**os.environ, **(env or {})},
     )
     return result.stdout.rstrip("\n").split("|")
@@ -94,8 +95,7 @@ def main() -> int:
               and 'source "$ROOT/.local.env"' not in
               (SCRIPTS / "build.sh").read_text(encoding="utf-8"))
 
-    print(f"{len(FAILURES)} failures.")
-    return 1 if FAILURES else 0
+    return result()
 
 
 if __name__ == "__main__":

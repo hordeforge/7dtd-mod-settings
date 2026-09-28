@@ -24,7 +24,7 @@ import sys
 from itertools import pairwise
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check
+from gate_report import check, result
 from local_env import mod_dir
 
 MOD_DIR = str(mod_dir())
@@ -69,21 +69,61 @@ def findings(source: str) -> list[str]:
     return [f"{line}: {kind}" for line, kind in sorted(found)]
 
 
+SUBPROCESS_CALLS = {"run", "Popen", "check_output"}
+TEXT_ARGUMENTS = {"text", "universal_newlines"}
+
+
+def is_text_flag(value: ast.expr | None) -> bool:
+    """Whether a keyword argument is the literal `True`."""
+    return isinstance(value, ast.Constant) and value.value is True
+
+
+def undecoded_text_calls(source: str) -> list[str]:
+    """The subprocess calls decoding text without naming an encoding.
+
+    `text=True` decodes with the locale's encoding, which is ASCII under a
+    bare LANG, so a subprocess that prints one non-ASCII byte then raises
+    UnicodeDecodeError. The call site has to say which encoding it means.
+    """
+    tree = ast.parse(source)
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr not in SUBPROCESS_CALLS:
+            continue
+        keywords = {keyword.arg: keyword.value for keyword in node.keywords}
+        if not any(is_text_flag(keywords.get(name)) for name in TEXT_ARGUMENTS):
+            continue
+        encoding = keywords.get("encoding")
+        if encoding is None or (isinstance(encoding, ast.Constant) and encoding.value is None):
+            found.append((node.lineno,
+                          f"{node.func.attr}() decodes text with the locale's encoding"))
+    return [f"{line}: {kind}" for line, kind in sorted(found)]
+
+
 def tracked_files_stay_clean() -> None:
-    problems: list[str] = []
+    unreachable: list[str] = []
+    undecoded: list[str] = []
     for relpath in tracked_py():
         path = os.path.join(MOD_DIR, relpath)
         with open(path, encoding="utf-8") as handle:
             source = handle.read()
         try:
-            problems += [f"{relpath}:{item}" for item in findings(source)]
+            unreachable += [f"{relpath}:{item}" for item in findings(source)]
+            undecoded += [f"{relpath}:{item}" for item in undecoded_text_calls(source)]
         except SyntaxError:
             # A parse error is ruff's E999 to report, not this gate's.
             continue
     check(
         "no unreachable statements in tracked *.py",
-        not problems,
-        "; ".join(problems),
+        not unreachable,
+        "; ".join(unreachable),
+    )
+    check(
+        "no subprocess text output without an explicit encoding in tracked *.py",
+        not undecoded,
+        "; ".join(undecoded),
     )
 
 
@@ -124,7 +164,7 @@ def negative_controls() -> None:
         not tail_ok,
         str(tail_ok),
     )
-    encoded = findings(
+    encoded = undecoded_text_calls(
         "import subprocess\n"
         "subprocess.run(['x'], text=True, encoding='utf-8', errors='replace')\n"
         "subprocess.run(['x'], capture_output=True)\n"
@@ -134,13 +174,22 @@ def negative_controls() -> None:
         not encoded,
         str(encoded),
     )
+    implicit = undecoded_text_calls(
+        "import subprocess\n"
+        "subprocess.run(['x'], text=True)\n"
+        "subprocess.check_output(['x'], universal_newlines=True)\n"
+    )
+    check(
+        "negative control rejects text decoded with the locale's encoding",
+        len(implicit) == 2,
+        f"{len(implicit)} of 2 undecoded calls slipped through: {implicit!r}",
+    )
 
 
 def main() -> int:
     tracked_files_stay_clean()
     negative_controls()
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return result()
 
 
 if __name__ == "__main__":

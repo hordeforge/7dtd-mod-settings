@@ -13,7 +13,7 @@ stdlib ElementTree speaks a useful XPath subset (child paths, wildcards,
 for manual verification, never silently passed.
 
 Ops that create content (`append` to an existing parent, `setattribute`)
-are checked against their parent path; `set`/`remove`/`csv` must match.
+name that parent in their xpath, so the same xpath check covers them.
 """
 
 from __future__ import annotations
@@ -28,8 +28,12 @@ from local_env import configured_game_dir, mod_dir
 
 MOD_DIR = str(mod_dir())
 
-CHECK_PARENT_ONLY = {"append", "insertBefore", "insertAfter", "setattribute"}
-CHECK_FULL = {"set", "remove", "removeattribute", "csv"}
+# The patch ops whose xpath must resolve. An op that creates content
+# (append, insertBefore/After, setattribute) names the parent it is created
+# under in its xpath, so that is the same node that has to resolve as for
+# the ops that change a node in place.
+KNOWN_OPS = {"append", "insertBefore", "insertAfter", "setattribute",
+             "set", "remove", "removeattribute", "csv"}
 
 
 def game_dir(override: str = "") -> str:
@@ -98,14 +102,13 @@ def main() -> int:
             xpath = op.get("xpath")
             if xpath is None:
                 continue
-            target = xpath
-            if op.tag in CHECK_PARENT_ONLY:
-                pass  # the xpath itself is the parent that must exist
-            elif op.tag not in CHECK_FULL:
+            if op.tag not in KNOWN_OPS:
                 print(f"SKIP {name}: unknown op <{op.tag}>")
                 skips += 1
                 continue
-            resolved = find(vanilla, target)
+            # For an op that creates content the xpath is the parent it is
+            # created under, so it is the same node that has to resolve.
+            resolved = find(vanilla, xpath)
             if resolved is None:
                 print(f"SKIP {name}: xpath beyond checker subset: {xpath}")
                 skips += 1

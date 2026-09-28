@@ -27,7 +27,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check
+from gate_report import check, result
 from local_env import mod_dir
 
 MOD_DIR = str(mod_dir())
@@ -148,9 +148,7 @@ def main() -> int:
                         re.MULTILINE) is not None,
               ".gitattributes must pin " + pattern + " to LF")
 
-    print(f"{len(FAILURES)} failures.")
-    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
-    return 1 if FAILURES else 0
+    return result()
 
 
 if __name__ == "__main__":

@@ -209,6 +209,21 @@ def add_target(targets: list[Target], source: Path, lines: list[str], entry_line
                           argument_types, injected_parameters(lines, entry_line)))
 
 
+def flush_targets(targets: list[Target], source: Path, lines: list[str],
+                  pending: list[tuple[int, str | None, str | None, list[str] | None]],
+                  patch_class: str | None, class_type: str | None) -> str | None:
+    """Record the buffered attributes, returning the class type they settled on.
+
+    An attribute that names its own type settles the type for the attributes
+    that follow it and do not, which is why the settled value is returned.
+    """
+    for entry_line, declaring_type, method, argument_types in pending:
+        class_type = declaring_type or class_type
+        add_target(targets, source, lines, entry_line, patch_class,
+                   declaring_type or class_type, method, argument_types)
+    return class_type
+
+
 def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
     targets: list[Target] = []
     patch_classes: set[str] = set()
@@ -231,19 +246,16 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
             if declaration and pending:
                 class_name = declaration.group(1)
                 patch_classes.add(class_name)
-                for entry_line, declaring_type, method, argument_types in pending:
-                    class_type = declaring_type or class_type
-                    add_target(targets, source, lines, entry_line, class_name,
-                               declaring_type or class_type, method, argument_types)
-                pending = []
+                class_type = flush_targets(targets, source, lines, pending,
+                                           class_name, class_type)
+                pending.clear()
                 continue
 
             if pending and line.strip() and not line.strip().startswith("["):
                 # A method-level attribute inside an already-opened patch class.
-                for entry_line, declaring_type, method, argument_types in pending:
-                    add_target(targets, source, lines, entry_line, class_name,
-                               declaring_type or class_type, method, argument_types)
-                pending = []
+                class_type = flush_targets(targets, source, lines, pending,
+                                           class_name, class_type)
+                pending.clear()
 
     return targets, patch_classes
 
