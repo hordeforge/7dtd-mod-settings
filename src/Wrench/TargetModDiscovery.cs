@@ -19,17 +19,34 @@ namespace Wrench
 		// so the answer is paid once per mod rather than on every opening of
 		// the screen. The only cost of being wrong about that is the live
 		// reload label, as it is for the probe itself (ADR 0001).
+		//
+		// The table is static state shared by every caller, and the screen is
+		// not the only one that can reach it: the lookup and the fill are one
+		// check-then-act, so two threads discovering at once would both
+		// probe and then both write the same dictionary, which is what
+		// corrupts it. One lock around the whole sequence, with the probe
+		// inside it, so a miss is filled before the next lookup sees it.
 		static readonly Dictionary<string, bool> hotReloadsByModPath =
 			new Dictionary<string, bool>(StringComparer.Ordinal);
+		static readonly object hotReloadsGate = new object();
 
 		public static bool CachedHasSettingsComponent(Mod mod)
 		{
-			bool known;
-			if (hotReloadsByModPath.TryGetValue(mod.Path, out known))
-				return known;
-			var found = HasSettingsComponent(mod);
-			hotReloadsByModPath[mod.Path] = found;
-			return found;
+			lock (hotReloadsGate)
+			{
+				bool known;
+				if (hotReloadsByModPath.TryGetValue(mod.Path, out known))
+					return known;
+				bool definitive;
+				var found = HasSettingsComponent(mod, out definitive);
+				// An assembly the runtime could not fully load leaves the
+				// answer unknown rather than no. Caching that would pin the
+				// mod to "restart required" for the rest of the session over
+				// a load failure that may never happen again.
+				if (definitive)
+					hotReloadsByModPath[mod.Path] = found;
+				return found;
+			}
 		}
 
 		/// <summary>Every loaded mod with a Config/&lt;Mod&gt;.toml, load order preserved.</summary>
@@ -82,15 +99,26 @@ namespace Wrench
 		/// One assembly the runtime cannot fully load must not take the whole
 		/// screen down: it only decides this mod's status line, and the other
 		/// mods in the list still have settings to edit.
+		///
+		/// <paramref name="definitive"/> says whether every assembly was fully
+		/// inspected. A partial pass can only answer "not hot-reloading", and
+		/// caching that would label a live-reloading mod as restart-only for
+		/// the rest of the session over a type that would not load once.
 		/// </summary>
-		public static bool HasSettingsComponent(Mod mod)
+		public static bool HasSettingsComponent(Mod mod, out bool definitive)
 		{
+			definitive = false;
 			if (mod.AllAssemblies == null)
 				return false;
+			var complete = true;
+			var found = false;
 			foreach (var assembly in mod.AllAssemblies)
 			{
 				if (assembly == null)
+				{
+					complete = false;
 					continue;
+				}
 				Type[] types;
 				try
 				{
@@ -101,23 +129,37 @@ namespace Wrench
 					// Null entries are the types whose dependencies could not
 					// be loaded; the rest still answer the question.
 					types = ex.Types;
+					complete = false;
 				}
 				catch (Exception)
 				{
 					Log.Warning(ModApi.LogPrefix + " could not inspect an assembly of "
 						+ mod.Name + "; the mod is treated as not hot-reloading.");
+					complete = false;
 					continue;
 				}
 				foreach (var type in types)
 				{
-					if (type == null || type.Name != "ModSettings")
+					if (type == null)
+					{
+						complete = false;
+						continue;
+					}
+					if (type.Name != "ModSettings")
 						continue;
 					if (type.GetField("FilePollIntervalSeconds",
 						BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static) != null)
-						return true;
+					{
+						found = true;
+						break;
+					}
 				}
+				if (found)
+					break;
 			}
-			return false;
+			if (complete)
+				definitive = true;
+			return found;
 		}
 	}
 }

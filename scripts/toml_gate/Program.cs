@@ -103,6 +103,23 @@ static class Program
 		Console.WriteLine("seed " + Simulation.Seed + ": " + Simulation.StepsPerSeed
 			+ " steps, deterministic; trace follows");
 		Console.Write(first);
+		TestMidSaveRace();
+	}
+
+	// The seeded runs above put faults in front of a save; this one puts a
+	// second writer inside it, in the window between the save's read and
+	// its staging write. There is no seed for it: there is one interleaving
+	// and it either holds or the save is clobbering another program's.
+	static void TestMidSaveRace()
+	{
+		try
+		{
+			Console.Write(Simulation.RunMidSaveRace());
+		}
+		catch (Exception ex)
+		{
+			Check("a save keeps the other program's save made mid-save", false, ex.Message);
+		}
 	}
 
 	static string FirstDifference(string left, string right)

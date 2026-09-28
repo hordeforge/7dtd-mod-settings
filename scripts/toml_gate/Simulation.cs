@@ -60,6 +60,10 @@ sealed class MemoryFileSystem : IFileSystem
 	public int PendingWriteFaults;
 	/// <summary>Reads still to be failed.</summary>
 	public int PendingReadFaults;
+	/// <summary>Staging writes still to be raced by an outside writer.</summary>
+	public int PendingMidSaveWrites;
+	/// <summary>The file that outside writer saves to.</summary>
+	public string RacingPath;
 
 	public MemoryFileSystem(VirtualClock clock)
 	{
@@ -98,6 +102,20 @@ sealed class MemoryFileSystem : IFileSystem
 	public string Listing()
 	{
 		return string.Join(",", names);
+	}
+
+	/// <summary>
+	/// Names beginning with the prefix, ordered. A save stages under a name
+	/// carrying its writing process's id, so the leftover check is by
+	/// prefix and not against one name.
+	/// </summary>
+	public List<string> NamesStartingWith(string prefix)
+	{
+		var found = new List<string>();
+		foreach (var name in names)
+			if (name.StartsWith(prefix, StringComparison.Ordinal))
+				found.Add(name);
+		return found;
 	}
 
 	public bool Exists(string path)
@@ -157,6 +175,16 @@ sealed class MemoryFileSystem : IFileSystem
 		}
 		// A write lands whole or not at all, which is what the staging file
 		// buys; a fault throws before anything is stored.
+		if (PendingMidSaveWrites > 0)
+		{
+			PendingMidSaveWrites--;
+			// Another program saves the file in the window between this
+			// save's read and this staging write, so the text about to be
+			// staged describes a file that no longer exists. Nothing
+			// reports the save but its bytes.
+			Seed(RacingPath, Peek(RacingPath) + OtherWriterLine,
+				new UTF8Encoding(false));
+		}
 		Store(path, encoding, text);
 	}
 
@@ -234,7 +262,8 @@ static class Simulation
 	public const int StepsPerSeed = 24;
 
 	const string TomlPath = "/sim/Mods/Example/Config/Example.toml";
-	const string TempPath = TomlPath + ".wrench-tmp";
+	/// <summary>Every name a save stages under, whatever process staged it.</summary>
+	const string TempPrefix = TomlPath + ".wrench-tmp";
 	const string CountKey = "Count";
 
 	const string Pristine =
@@ -242,6 +271,9 @@ static class Simulation
 		"Count = 12\n" +
 		"Chance = 0.001\n" +
 		"Label = \"hi\"\n";
+
+	/// <summary>What the outside writer's save leaves behind.</summary>
+	const string OtherWriterLine = "# written by another program\n";
 
 	/// <summary>Runs one seed and returns its trace; throws on a broken invariant.</summary>
 	public static string Run(int seed)
@@ -280,6 +312,53 @@ static class Simulation
 				.Append(" slept ").Append(clock.SleptMilliseconds.ToString("0.###")).Append("ms")
 				.Append(" at ").Append(clock.NowSeconds.ToString("0.###")).Append('\n');
 			return trace.ToString();
+		}
+		finally
+		{
+			ModFileSystem.Current = savedFiles;
+			ModClock.Current = savedClock;
+		}
+	}
+
+	/// <summary>
+	/// One run in which another program saves the file in the window between
+	/// this save's read and its staging write: the interleaving two game
+	/// processes on one mod folder can reach, and the one a config tool in
+	/// the player's editor reaches. The two saves are independent, so the
+	/// file has to end up holding both. A save that staged its own
+	/// whole-file copy of what it read would report success having written
+	/// the other program's save back where it was.
+	/// </summary>
+	public static string RunMidSaveRace()
+	{
+		var clock = new VirtualClock();
+		var files = new MemoryFileSystem(clock);
+		files.Seed(TomlPath, Pristine, new UTF8Encoding(false));
+
+		var savedFiles = ModFileSystem.Current;
+		var savedClock = ModClock.Current;
+		ModFileSystem.Current = files;
+		ModClock.Current = clock;
+		try
+		{
+			var target = new TargetMod("Example", "Example", TomlPath, true);
+			var entry = FindCount(target);
+			Check(entry != null, "the fixture has " + CountKey + " to edit");
+			files.RacingPath = TomlPath;
+			files.PendingMidSaveWrites = 1;
+
+			string error;
+			var saved = target.TrySave(entry, "77", out error);
+			Check(saved, "the save reported failure: " + error);
+
+			var text = files.Peek(TomlPath);
+			Check(text.Contains(OtherWriterLine.TrimEnd('\n')),
+				"the save wrote its stale copy over the other program's save: " + text);
+			Check(text.Contains(CountKey + " = 77"),
+				"the save did not land its own value: " + text);
+			Check(files.NamesStartingWith(TempPrefix).Count == 0,
+				"a staging file outlived the save that staged it");
+			return "mid-save race: " + text.Replace("\n", " / ") + "\n";
 		}
 		finally
 		{
@@ -386,7 +465,7 @@ static class Simulation
 		Check(target.Text == null
 				|| TomlSettings.TryReadDocument(target.Text, out cached, out cachedError),
 			"step " + step + ": the cached text is not a whole document");
-		Check(!files.Has(TempPath),
+		Check(files.NamesStartingWith(TempPrefix).Count == 0,
 			"step " + step + ": a staging file outlived the save that staged it");
 		Check(clock.Sleeps == 0 || clock.SleptMilliseconds > 0d,
 			"step " + step + ": the clock waited without advancing");

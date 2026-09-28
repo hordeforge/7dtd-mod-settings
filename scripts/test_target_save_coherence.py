@@ -128,14 +128,14 @@ def main() -> int:
 
     # The two memoization rules above, proven able to fail against mutated
     # copies of the real source rather than asserted by their own passing.
-    ungated = target.replace("if (definitive)", "if (true)", 1)
+    ungated = discovery.replace("if (definitive)", "if (true)", 1)
     check("negative control: a probe cached whatever it found fails the gate",
-          "if (definitive)" in target
+          "if (definitive)" in discovery
           and "if (definitive)"
           not in body(ungated, "static bool CachedHasSettingsComponent("))
-    unlocked = target.replace("lock (hotReloadsGate)", "", 1)
+    unlocked = discovery.replace("lock (hotReloadsGate)", "", 1)
     check("negative control: an unlocked memo table fails the gate",
-          "lock (hotReloadsGate)" in target
+          "lock (hotReloadsGate)" in discovery
           and "lock (hotReloadsGate)"
           not in body(unlocked, "static bool CachedHasSettingsComponent("))
 
@@ -152,7 +152,8 @@ def main() -> int:
           "catch (Exception)" in probe and "continue;" in probe)
     check("an assembly that could not be inspected leaves the answer "
           "incomplete",
-          "static bool HasSettingsComponent(Mod mod, out bool definitive)" in target
+          "static bool HasSettingsComponent(Mod mod, out bool definitive)"
+          in discovery
           and "definitive = false;" in probe
           and "definitive = true;" in probe)
 
@@ -268,12 +269,33 @@ def main() -> int:
     atomic = write
     check("a save is staged in a temp file and swapped in, never truncated "
           "in place",
-          'var temp = path + ".wrench-tmp";' in atomic
+          'var temp = path + ".wrench-tmp." + stagingOwner;' in atomic
           and "files.WriteAllText(temp," in atomic
           and "files.Replace(temp, path);" in atomic
           and "TryDeleteTemp(temp)" in atomic
           and "File.WriteAllText(" not in atomic
           and "WriteAllText(TomlPath" not in save)
+    # The staging name is shared state too: one name for every writer means
+    # two savers of one file truncate and rename each other's staging file,
+    # and the file ends up carrying one save's text under the other save's
+    # name, with both reporting success.
+    check("each writing process stages under a name of its own",
+          'path + ".wrench-tmp." + stagingOwner' in atomic
+          and "static readonly int stagingOwner = StagingOwnerId();" in target
+          and "Process.GetCurrentProcess()" in target)
+    # Two savers of one file that overlap anywhere in the read-modify-write
+    # lose an edit silently: the second write carries the file as the first
+    # read it. The gate is keyed by path so two mods still save in parallel,
+    # and it is taken around the read and not only around the write.
+    check("a save of one file is serialized against every other save of it",
+          "lock (saveGates.GetOrAdd(TomlPath" in save
+          and "saveGates.GetOrAdd(TomlPath" in target)
+    check("a writer that lands between the read and the write is spliced "
+          "around, not written over",
+          "StampMoved(writeUtc, length)" in save
+          and "if (StampMoved(writeUtc, length))" in save
+          and "continue;" in save
+          and "SpliceAttempts" in save)
 
     # What an operator reads is the game log, and it is all that is left once
     # the screen is closed: a write, and the re-read or the silence that

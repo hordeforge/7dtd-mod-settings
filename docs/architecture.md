@@ -192,7 +192,8 @@ The file is the whole integration surface (ADR 0001), so a save must never
 be able to destroy it. Two properties, both held by
 `scripts/test_target_save_coherence.py`:
 
-- `TargetMod.TryWrite` writes a sibling `.wrench-tmp` and puts it in with
+- `TargetMod.TryWrite` writes a sibling `.wrench-tmp.<process id>` and puts
+  it in with
   `File.Replace`, with a bounded retry because the target mod's own settings
   watch holds the file for the milliseconds it takes to read it and a
   replace needs delete access. `File.WriteAllText` on the target truncates
@@ -408,9 +409,27 @@ dedicated server runs the console command on its telnet thread, and
 - the screen's reload latch is marker and flag under one lock, not a
   `volatile` flag beside a plain field: a log line arriving between the
   marker swap and the flag clear would otherwise be dropped.
-- `TrySave` writes through `<path>.wrench-tmp` and renames it over the
-  destination, as the save-replacement decision above sets out; that
-  record carries the reasoning and the staging-name hazard.
+- a save is a whole read-modify-write of one file, so it runs under a
+  per-path lock, and the file's write time and length are re-read just
+  before the staging write: an outside writer that landed in between is
+  re-spliced around (`SpliceAttempts` bounds it) instead of being written
+  over by a whole-file copy of what the save read. The staging name
+  carries the writing process's id, so two writers of one file never
+  truncate or rename each other's staging file. Two programs saving one
+  file in the same instant are still last-writer-wins; the signature
+  re-read narrows that window, it does not close it.
+- the assembly probe's memo table is filled under its own lock, and an
+  inconclusive probe is not memoized: the lookup and the fill are one
+  check-then-act, and caching a partial answer would pin a live-reloading
+  mod to "restart required" for the rest of the session.
+- `TrySave` writes through `<path>.wrench-tmp.<process id>` and renames it
+  over the destination, as the save-replacement decision above sets out;
+  that record carries the reasoning and the staging-name hazard. Writing
+  in place truncates first, so a hot-reloading mod polling the file (or a
+  config tool reading it) can read a half-written settings file, and a
+  crash in that window loses the old text with no rollback path.
+  `File.Replace` is the rename; where a runtime does not implement it,
+  the fallback is delete plus move.
 
 Enforced by `scripts/test_settings_reload.py` and
 `scripts/test_target_save_coherence.py`.

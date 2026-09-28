@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 
@@ -32,6 +34,42 @@ namespace Wrench
 		/// </summary>
 		public const int ReplaceAttempts = 3;
 		public const int ReplaceRetryMilliseconds = 40;
+
+		/// <summary>
+		/// How often the splice is redone when the file changed underneath it
+		/// between the read and the write. One program saving at a time is the
+		/// normal case, so this bounds an in-flight clash, not a shared
+		/// folder: see <see cref="TrySave"/>.
+		/// </summary>
+		public const int SpliceAttempts = 4;
+
+		// A save is a read, a splice into what that read produced, and a
+		// whole-file write. Two savers of one file that overlap anywhere in
+		// that lose an edit: the second write carries the file as the first
+		// read it, so whichever lands second undoes the other, and both
+		// report success. The gate is keyed by path, so two mods are still
+		// saved in parallel, and it is held around the whole
+		// read-modify-write rather than around the write alone: a lock on the
+		// write alone would not stop the two reads from racing.
+		static readonly ConcurrentDictionary<string, object> saveGates =
+			new ConcurrentDictionary<string, object>(StringComparer.Ordinal);
+
+		// The staging file's name carries the writing process's id, so a
+		// second writer of the same file (a second game, a second thread, a
+		// second copy of the mod folder) stages under a name of its own. One
+		// shared name corrupts both saves: the second writer to stage
+		// truncates and rewrites the first's bytes, and the first's rename
+		// then moves the *second* save's text into the destination, so the
+		// first save reports success having written the other's text. The
+		// gate above already serializes writers inside this process; the
+		// process id is what separates the ones it cannot.
+		static readonly int stagingOwner = StagingOwnerId();
+
+		static int StagingOwnerId()
+		{
+			using (var process = Process.GetCurrentProcess())
+				return process.Id;
+		}
 
 		public enum ESaveState
 		{
@@ -136,37 +174,108 @@ namespace Wrench
 		/// The write is in the encoding the file is in right now, so every
 		/// byte outside the edited value span survives, byte order mark
 		/// included.
+		///
+		/// The whole read-modify-write runs under the file's save gate, and
+		/// the file's signature is re-read just before the staging write: an
+		/// outside writer that landed in between is spliced around rather
+		/// than written over. That closes the window for a writer this
+		/// process cannot lock against (a second game, a config tool) as far
+		/// as the file's own signature can show it; two programs saving one
+		/// file at the same instant are not made safe by it, and the last
+		/// writer still wins.
 		/// </summary>
 		public bool TrySave(TomlSettings.DocEntry entry, string newRaw, out string error)
 		{
-			string currentText;
-			Encoding currentEncoding;
-			if (!TryRead(out currentText, out currentEncoding, out error))
-				return Fail(error);
-			if (currentText != Text)
+			error = null;
+			lock (saveGates.GetOrAdd(TomlPath, _ => new object()))
 			{
-				Reload();
-				TomlSettings.DocEntry fresh;
-				if (!TryRelocate(entry, out fresh, out error))
-					return Fail(error);
-				entry = fresh;
-			}
+				for (var attempt = 1; ; attempt++)
+				{
+					string currentText;
+					Encoding currentEncoding;
+					DateTime writeUtc;
+					long length;
+					string statError;
+					if (!TryRead(out currentText, out currentEncoding, out error))
+						return Fail(error);
+					if (!TryStamp(out writeUtc, out length, out statError))
+						return Fail(statError);
+					if (currentText != Text)
+					{
+						Reload();
+						TomlSettings.DocEntry fresh;
+						if (!TryRelocate(entry, out fresh, out error))
+							return Fail(error);
+						entry = fresh;
+					}
 
-			string newText;
-			List<TomlSettings.DocEntry> newEntries;
-			if (!TomlEdit.TryReplaceValue(Text, Entries, entry, newRaw, out newText, out newEntries, out error))
-				return Fail(error);
-			if (!TryWrite(TomlPath, newText, currentEncoding, out error))
-				return Fail(error);
-			SaveState = ESaveState.Saved;
-			SaveError = null;
-			// The write put exactly the text the writer verified, and the
-			// verified parse of it is already in hand: re-reading the file here
-			// would only parse the same bytes a second time.
-			Text = newText;
-			Entries = newEntries;
-			Error = null;
-			return true;
+					string newText;
+					List<TomlSettings.DocEntry> newEntries;
+					if (!TomlEdit.TryReplaceValue(Text, Entries, entry, newRaw,
+						out newText, out newEntries, out error))
+						return Fail(error);
+					if (StampMoved(writeUtc, length))
+					{
+						// The file moved on while this splice was being made,
+						// so the text above describes a file that no longer
+						// exists: staging it would put the other save back
+						// where it was. Re-splice into the file as it is now.
+						if (attempt >= SpliceAttempts)
+							return Fail(TomlFileName + " is being written to by another "
+								+ "program; the edit was not saved.");
+						continue;
+					}
+					if (!TryWrite(TomlPath, newText, currentEncoding, out error))
+						return Fail(error);
+					SaveState = ESaveState.Saved;
+					SaveError = null;
+					// The write put exactly the text the writer verified, and the
+					// verified parse of it is already in hand: re-reading the file here
+					// would only parse the same bytes a second time.
+					Text = newText;
+					Entries = newEntries;
+					Error = null;
+					return true;
+				}
+			}
+		}
+
+		/// <summary>
+		/// The file's write time and length, the pair every change of this
+		/// file is recognised by elsewhere in the mod as well.
+		/// </summary>
+		bool TryStamp(out DateTime writeUtc, out long length, out string error)
+		{
+			error = null;
+			try
+			{
+				writeUtc = ModFileSystem.Current.GetLastWriteTimeUtc(TomlPath);
+				length = ModFileSystem.Current.GetLength(TomlPath);
+				return true;
+			}
+			catch (Exception ex)
+			{
+				writeUtc = default(DateTime);
+				length = -1;
+				error = "could not stat " + TomlFileName + " (" + ex.Message + ").";
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Whether the file's signature is no longer the one a splice was made
+		/// against. A file that cannot be stat counts as moved: the retry's
+		/// own read is what reports a file that is gone or unreadable, with
+		/// the cause, rather than this one guessing it.
+		/// </summary>
+		bool StampMoved(DateTime writeUtc, long length)
+		{
+			DateTime nowUtc;
+			long nowLength;
+			string statError;
+			if (!TryStamp(out nowUtc, out nowLength, out statError))
+				return true;
+			return nowUtc != writeUtc || nowLength != length;
 		}
 
 		/// <summary>
@@ -180,7 +289,7 @@ namespace Wrench
 		/// </summary>
 		static bool TryWrite(string path, string text, Encoding encoding, out string error)
 		{
-			var temp = path + ".wrench-tmp";
+			var temp = path + ".wrench-tmp." + stagingOwner;
 			var files = ModFileSystem.Current;
 			try
 			{
