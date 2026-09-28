@@ -10,8 +10,10 @@ the shared one with:
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
     from local_env import game_dir
 
-The file is parsed as plain `KEY="value"` lines, which is the whole
-documented format: no expansion, no `export`, no line continuations.
+The file is read as plain `KEY="value"` lines: no expansion and no line
+continuations. The grammar below is the one `scripts/local-env.sh` accepts,
+so both halves of the inventory answer the same question about the same
+file (scripts/test_local_env_precedence.py holds the two to it).
 """
 
 from __future__ import annotations
@@ -52,26 +54,49 @@ def mod_name(root: Path | None = None) -> str:
 
 
 def local_env_value(key: str, root: Path | None = None) -> str:
-    """*key*'s value from `.local.env`, or "" when unset or unreadable."""
+    """*key*'s value from `.local.env`, or "" when unset or unreadable.
+
+    One `KEY="value"` assignment per line, an optional `export ` prefix
+    (the shell loader accepts it, so this reader does too), blank and `#`
+    lines ignored, and the last assignment of a repeated key winning the
+    way a later shell assignment does.
+    """
     env_file = (root or mod_dir()) / ".local.env"
     try:
         lines = env_file.read_text(encoding="utf-8").splitlines()
     except OSError:
         return ""
+    value = ""
     for line in lines:
-        name, separator, value = line.partition("=")
-        if not separator or name.strip() != key:
+        name, separator, raw = line.partition("=")
+        if not separator:
             continue
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
-            value = value[1:-1]
-        return value
-    return ""
+        fields = name.strip().split(None, 1)
+        if len(fields) == 2 and fields[0] == "export":
+            fields = fields[1:]
+        if fields and fields[0] == key:
+            value = raw.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+                value = value[1:-1]
+    return value
+
+
+def env_or_file(key: str, root: Path | None = None) -> str:
+    """*key* from the environment when it is set there, else from `.local.env`.
+
+    Set, not non-empty: the shell loader restores an exported value even
+    when it is empty, so an exported `SEVEN_DAYS_TO_DIE_DIR=` blanks the
+    inventory instead of silently handing back the path in the file, and
+    the caller says the key is unset.
+    """
+    if key in os.environ:
+        return os.environ[key]
+    return local_env_value(key, root)
 
 
 def configured_game_dir(root: Path | None = None) -> str:
     """`SEVEN_DAYS_TO_DIE_DIR` from the environment, else from `.local.env`."""
-    return os.environ.get(GAME_DIR_KEY) or local_env_value(GAME_DIR_KEY, root)
+    return env_or_file(GAME_DIR_KEY, root)
 
 
 def game_dir() -> Path | None:
@@ -91,7 +116,7 @@ def dotnet_executable(root: Path | None = None) -> Path | None:
     on_path = shutil.which("dotnet")
     if on_path:
         return Path(on_path)
-    home = os.environ.get(DOTNET_ROOT_KEY) or local_env_value(DOTNET_ROOT_KEY, root)
+    home = env_or_file(DOTNET_ROOT_KEY, root)
     if not home:
         return None
     candidate = Path(home) / "dotnet"

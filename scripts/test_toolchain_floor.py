@@ -59,7 +59,7 @@ def check_dotnet_resolution() -> None:
     check("the shared reader takes dotnet from PATH, then $DOTNET_ROOT",
           "def dotnet_executable(" in reader
           and reader.index('shutil.which("dotnet")')
-          < reader.index("local_env_value(DOTNET_ROOT_KEY"))
+          < reader.index("env_or_file(DOTNET_ROOT_KEY"))
 
     # Every gate that shells out to the SDK goes through that reader, so none
     # of them can fall back to PATH-only resolution again.

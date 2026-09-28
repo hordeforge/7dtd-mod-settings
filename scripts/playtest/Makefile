@@ -3,7 +3,10 @@ WRENCH_ROOT := $(abspath $(ROOT)/../..)
 MOD_NAME := WrenchPlaytest
 DIST := $(ROOT)/dist/$(MOD_NAME)
 
-GAME ?= $(shell if [ -f "$(WRENCH_ROOT)/.local.env" ]; then set -a; . "$(WRENCH_ROOT)/.local.env"; set +a; printf '%s' "$$SEVEN_DAYS_TO_DIE_DIR"; fi)
+# The shared loader, not a second reader: sourcing the file here ignored an
+# exported SEVEN_DAYS_TO_DIE_DIR, so `make build` in the mod root could pick
+# one game install while the playtest provider compiled against another.
+GAME ?= $(shell WRENCH_ROOT="$(WRENCH_ROOT)" bash -c 'source "$$WRENCH_ROOT/scripts/local-env.sh" && load_local_env "$$WRENCH_ROOT/.local.env" && printf "%s" "$${SEVEN_DAYS_TO_DIE_DIR:-}"')
 PLAYTEST_ROOT ?=
 HARNESS_DLL ?= $(if $(PLAYTEST_ROOT),$(PLAYTEST_ROOT)/dist/7dtd-playtest/7dtd-playtest.dll)
 WRENCH_DLL ?= $(WRENCH_ROOT)/dist/Wrench/Wrench.dll

@@ -40,6 +40,22 @@ EXIT STATUS
   2  unknown option" "$@"
 
 MOD_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=cli.sh
+source "$SCRIPT_DIR/cli.sh"
+
+reject_options "Usage: scripts/verify-package.sh
+
+Package the modlet and prove the zip extracts where a player expects
+and is byte-reproducible. Runs the same two checks as the make check
+package steps and as .github/workflows/ci.yml.
+
+OPTIONS
+  -h, --help   this text
+
+EXIT STATUS
+  0  the package extracts correctly and two builds are the same bytes
+  1  packaging, a missing tool, or a reproducibility check failed
+  2  unknown option" "$@"
 
 for tool in make zip unzip sha256sum; do
 	command -v "$tool" >/dev/null 2>&1 || {

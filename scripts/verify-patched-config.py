@@ -28,7 +28,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from local_env import game_dir, local_env_value, mod_dir, mod_name
+from local_env import env_or_file, game_dir, mod_dir, mod_name
 
 # The Proton prefix layout, from docs/reference/environment.md. Steam AppID
 # 251570 is 7 Days to Die; the user directory name is Steam's own default.
@@ -104,7 +104,7 @@ def saves_dir(game_dir: str) -> str:
     `SEVEN_DAYS_TO_DIE_SAVES_DIR` wins, then the same key in `.local.env`,
     then the Proton prefix derived from the game install.
     """
-    configured = os.environ.get(SAVES_DIR_KEY) or local_env_value(SAVES_DIR_KEY)
+    configured = env_or_file(SAVES_DIR_KEY)
     if configured:
         return configured
     marker = os.path.join("steamapps", "common") + os.sep

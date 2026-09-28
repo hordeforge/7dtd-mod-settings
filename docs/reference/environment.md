@@ -35,6 +35,18 @@ shell still gets its `SEVEN_DAYS_TO_DIE_STEAMCMD` from the file. A missing
 `.local.env` is not an error; each caller then names the value it could
 not find. `scripts/test_local_env_precedence.py` holds this rule.
 
+An exported value is a value even when it is empty, so
+`SEVEN_DAYS_TO_DIE_DIR=` in a CI job blanks the key instead of handing back
+the path in a developer's file.
+
+Both readers accept one grammar, so the same file answers the same question
+to a shell script and to a Python one: a `KEY="value"` assignment per key, an
+optional `export ` prefix, blank and `#` lines ignored, and the last
+assignment of a repeated key winning the way a later shell assignment does.
+`scripts/playtest/Makefile` resolves its game install through the shell
+loader rather than sourcing the file a second time, because the mod DLL and
+the playtest provider have to be built against the same install.
+
 `DOTNET_ROOT` is resolved the same way by everything that needs the .NET
 SDK: `scripts/build.sh` and the offline gates (through
 `dotnet_executable()` in `scripts/lib/local_env.py`) take `dotnet` from
