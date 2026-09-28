@@ -1,6 +1,12 @@
 # Developer and CI tools, pinned, installed with:
 #
-#   python3 -m pip install -r requirements-dev.txt
+#   uv pip install -r requirements-dev.txt
+#
+# uv is this project's only Python toolchain (AGENTS.md, "Python Toolchain"),
+# and it resolves this file in a project environment rather than into the
+# system interpreter. A second installer here is a second answer to "how do I
+# get the toolchain", which is the drift
+# scripts/test_lint_toolchain_declared.py exists to prevent.
 #
 # scripts/lint-python.sh runs both, and .github/workflows/ci.yml installs
 # this file, so a local green run and a remote green run mean the same thing.
@@ -8,12 +14,12 @@
 # scripts/test_lint_toolchain_declared.py fails if a pin is repeated in
 # README, the workflow or any other tracked file, where it would drift.
 #
-# The closure is pinned too, not just the two tools. `pip install mypy`
-# resolves five more distributions on its own, and an unpinned one of those
-# is a release this repository never reviewed entering the CI lint lane
-# (and every contributor's machine) on the day it is published. The
-# versions below are the ones the toolchain is verified against; the two
-# mypy needs only below 3.11 carry the marker that scopes them.
+# The closure is pinned too, not just the two tools. mypy alone resolves six
+# more distributions, and an unpinned one of those is a release this
+# repository never reviewed entering the CI lint lane (and every
+# contributor's machine) on the day it is published. The versions below are
+# the ones the toolchain is verified against; the one mypy needs only below
+# 3.11 carries the marker that scopes it.
 ruff==0.16.4
 mypy==2.3.1
 mypy_extensions==1.1.0

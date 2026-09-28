@@ -67,7 +67,7 @@ order, as `.github/workflows/ci.yml`, and the workflow's package step calls
 
 Host tools: Python 3.10+ (the floor `pyproject.toml` and `make test` both
 enforce), `git`, `make`, `zip` and `unzip`; the pinned `ruff` and `mypy` that `make lint`
-runs, installed with `python3 -m pip install -r requirements-dev.txt` (the
+runs, installed with `uv pip install -r requirements-dev.txt` (the
 one place their versions are written down, and what CI installs, so a green
 local run and a green remote run mean the same thing); `shellcheck`; the .NET
 SDK, not just the runtime, for the net48 build and for the two TOML

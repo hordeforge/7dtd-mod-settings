@@ -20,6 +20,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # The same installer the README and requirements-dev.txt name, so the
+      # lint lane resolves the pinned file through one resolver in CI and on
+      # a contributor's machine. Named by tag, not by commit, because the
+      # tag is the reference AGENTS.md records; a commit pin belongs here and
+      # needs the digest fetched from the registry, which no gate can do
+      # offline.
+      - uses: astral-sh/setup-uv@v5
       - name: Offline gates
         run: make test
       - name: Python static analysis (ruff, mypy --strict)
@@ -27,7 +34,7 @@ jobs:
         # are written down, so a green local run and a green remote run mean
         # the same thing.
         run: |
-          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          uv pip install --system -r requirements-dev.txt
           make lint-python
       - name: Shellcheck
         run: make lint-shell

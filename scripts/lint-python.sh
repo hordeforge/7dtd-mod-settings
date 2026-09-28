@@ -36,7 +36,7 @@ EXIT STATUS
 for tool in ruff mypy; do
 	command -v "$tool" >/dev/null 2>&1 || {
 		echo "ERROR: $tool not found. Install the pinned toolchain first:" >&2
-		echo "  python3 -m pip install -r requirements-dev.txt" >&2
+		echo "  uv pip install -r requirements-dev.txt" >&2
 		exit 1
 	}
 done
