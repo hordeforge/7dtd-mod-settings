@@ -466,6 +466,26 @@ static class Program
 		Check("accept a comment after a value", TomlSettings.TryReadDocument("A = 1 # note\nB = 2\n", out doc, out error) && doc.Count == 2, error ?? "");
 
 		Check("reject a table file", !TomlSettings.TryReadDocument("[table]\nA = 1\n", out doc, out error));
+		// A file cut off mid-save is the ordinary way a reader is handed a
+		// broken document, and the reason reaches a player on the status
+		// line. It has to name the line it gave up on, not the cursor's
+		// IndexOutOfRangeException, which is the one thing a player can do
+		// nothing with.
+		var truncated = new[]
+		{
+			"A", "A   ", "A = 1\nB", "A = [1, 2", "A = [1, 2 # note", "A = [",
+		};
+		var truncationNamed = true;
+		foreach (var sample in truncated)
+		{
+			if (TomlSettings.TryReadDocument(sample, out doc, out error)
+				|| error == null || !error.StartsWith("line ", StringComparison.Ordinal))
+			{
+				Console.WriteLine("  truncation of \"" + sample + "\" reported: " + error);
+				truncationNamed = false;
+			}
+		}
+		Check("a truncated file is refused with the line that stopped it", truncationNamed);
 		Check("reject a duplicate key", !TomlSettings.TryReadDocument("A = 1\nA = 2\n", out doc, out error));
 		Check("reject a dotted key", !TomlSettings.TryReadDocument("a.b = 1\n", out doc, out error));
 		// Bare keys are case-sensitive, so two keys differing only in case are

@@ -44,6 +44,12 @@ MOD_NAME = mod_name()
 
 APPENDED_BY = re.compile(r'appended by:\s*"([^"]+)"')
 
+# The ops that put a new element into the vanilla file. An insertBefore or
+# insertAfter element is annotated in the dump exactly as an appended one is,
+# so counting only <append> would expect fewer elements than the dump
+# attributes to this mod and report a mismatch that is not there.
+INSERT_OPS = frozenset({"append", "insertBefore", "insertAfter"})
+
 
 class VerifyError(RuntimeError):
     pass
@@ -65,7 +71,8 @@ def expected_elements() -> dict[str, int]:
         # Counting the children as they come, not `len(list(append))`: the
         # list is a full copy of every appended element's children, held for
         # nothing.
-        total = sum(1 for append in tree.getroot().iter("append") for _ in append)
+        total = sum(1 for op in tree.getroot().iter()
+                    if op.tag in INSERT_OPS for _ in op)
         if total:
             counts[os.path.relpath(path, config_dir).replace(os.sep, "/")] = total
     return counts

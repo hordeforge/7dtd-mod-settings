@@ -341,7 +341,10 @@ namespace Wrench
 				_value = (targets.Count == 0).ToString();
 				return true;
 			case "noentries":
-				_value = (selected == null || selected.Entries != null
+				// Not when no mod is selected: `nomods` already says, on
+				// both sides, that there is nothing here, and "this mod's
+				// settings file has no keys in it" is false of no mod at all.
+				_value = (selected != null && selected.Entries != null
 					&& selected.Entries.Count == 0).ToString();
 				return true;
 			// A file that will not parse is a different dead end from a file

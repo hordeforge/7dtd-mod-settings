@@ -129,7 +129,11 @@ namespace Wrench
 					if (!ReadBareKey(out name, out error))
 						return false;
 					SkipSpaces();
-					if (Peek != '=')
+					// A file cut off after the name reads as a truncated save,
+					// and is named as one: a parse error carrying its line
+					// reaches the player on the status line, where an
+					// IndexOutOfRange from the cursor would not.
+					if (AtEnd || Peek != '=')
 					{
 						error = "line " + line + ": expected '=' after '" + name + "'.";
 						return false;
@@ -408,12 +412,12 @@ namespace Wrench
 						return false;
 					parts.Add(item);
 					SkipIgnorable();
-					if (Peek == ',')
+					if (!AtEnd && Peek == ',')
 					{
 						index++;
 						SkipIgnorable();
 					}
-					else if (Peek != ']')
+					else if (AtEnd || Peek != ']')
 					{
 						error = "line " + line + ": expected ',' or ']' in array.";
 						return false;
