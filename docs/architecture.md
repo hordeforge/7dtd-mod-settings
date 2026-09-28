@@ -106,6 +106,28 @@ discovered mod as saved-and-applied. A save that is refused, or to a mod
 that only applies on a restart, disarms the latch rather than leaving the
 previous mod's marker armed.
 
+## Decided 2026-09-28: a save is replaced in atomically, in the file's own encoding
+
+The file is the whole integration surface (ADR 0001), so a save must never
+be able to destroy it. Two properties, both held by
+`scripts/test_target_save_coherence.py`:
+
+- `TargetMod.TryWrite` writes a sibling `.wrench-tmp` and puts it in with
+  `File.Replace`, with a bounded retry because the target mod's own settings
+  watch holds the file for the milliseconds it takes to read it and a
+  replace needs delete access. `File.WriteAllText` on the target truncates
+  first, so a crash, a shutdown, or a full disk between the truncate and
+  the last byte would leave the mod with an unparsable settings file, or
+  with none, which is the one outcome the file-as-surface rule exists to
+  prevent. A runtime with no atomic replace falls back to delete-then-move,
+  which still never writes over the target in place.
+- `TargetMod.TryRead` reads bytes, not text, and reports the encoding it
+  decoded (UTF-8 with or without byte order mark, UTF-16 either way); the
+  save writes that same encoding back. `File.ReadAllText` decodes a mark
+  away and keeps no record of it, so a plain UTF-8 write stripped a mark
+  the file was carrying: an edit that changed one value token had silently
+  changed the file's first three bytes as well.
+
 ## Decided 2026-09-28: bounded reload wait, empty-state labels
 
 The post-save wait for a hot-reloading mod's reload line is bounded by

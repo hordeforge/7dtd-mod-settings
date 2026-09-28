@@ -3,18 +3,23 @@
 
 The screen keeps each mod's file text and its parsed entries in memory
 (`TargetMod.Text` / `TargetMod.Entries`) and edits them in place by byte
-offset. Two things must hold for that to be safe:
+offset. Three things must hold for that to be safe:
 
 - a save is spliced into the file as it is *now*, not into the copy parsed
   when the screen opened, or a save made elsewhere in the meantime is
   silently overwritten (and a shifted file puts the edit on a neighbouring
   key);
+- the save reaches the file without destroying it first: a truncating write
+  leaves the mod with an unparsable or missing settings file if anything goes
+  wrong between the truncate and the last byte, and a save made in the
+  file's own encoding keeps every byte outside the edited value span, byte
+  order mark included;
 - the "the mod re-read the file" observation is a one-shot latch scoped to
   the opening it was made in, or a line seen while the screen was closed
   stamps a freshly discovered mod as applied-live for a save that never
   happened.
 
-Both are source-level contracts here: the behavior is proven live by the
+All three are source-level contracts here: the behavior is proven live by the
 `wrench-mod-settings` suite, and the C# cannot be executed offline. This gate
 holds the shape of the fix so a refactor cannot quietly drop it.
 
@@ -103,6 +108,32 @@ def main() -> int:
     probe = body(target, "static bool HasSettingsComponent(")
     check("one unloadable assembly does not take the settings list down",
           "catch (Exception)" in probe and "continue;" in probe)
+
+    write = body(target, "static bool TryWrite(")
+    check("a save is written to a temp file, never over the target",
+          "File.WriteAllText(temp," in write and "File.WriteAllText(path" not in write)
+    check("the temp file is replaced in, so the target is never half-written",
+          "File.Replace(temp, path, null);" in write)
+    check("a target holding the file for its own read is retried, not failed",
+          "catch (IOException)" in write and "ReplaceAttempts" in write
+          and "Thread.Sleep(ReplaceRetryMilliseconds)" in write)
+    check("a failed replace leaves no temp file behind",
+          "TryDeleteTemp(temp);" in write)
+
+    read_body = body(target, "bool TryRead(")
+    check("a read takes the file's bytes and its encoding, not just its text",
+          "File.ReadAllBytes(" in read_body
+          and "Decode(bytes, out encoding)" in read_body)
+    check("a save writes the encoding the file is in",
+          "out currentEncoding" in save
+          and "TryWrite(TomlPath, newText, currentEncoding" in save)
+
+    decode = body(target, "static string Decode(")
+    check("a byte order mark is decoded away and written back",
+          "0xEF" in decode and "0xBB" in decode and "0xBF" in decode
+          and "new UTF8Encoding(true)" in decode
+          and "Encoding.Unicode" in decode
+          and "new UTF8Encoding(false)" in decode)
 
     opened = body(screen, "public override void OnOpen()")
     check("the reload latch does not survive the closing it was set in",

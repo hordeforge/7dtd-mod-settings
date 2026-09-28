@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 
 namespace Wrench
 {
@@ -12,12 +13,20 @@ namespace Wrench
 	/// that makes it read-only), whether the mod hot-reloads a save (the
 	/// Anvil settings component in any of its assemblies), and the outcome
 	/// of the last save. The file itself is the whole integration surface
-	/// (ADR 0001); nothing outside that one file is ever written.
+	/// (ADR 0001); no other file is ever kept, and a save only ever lands
+	/// through a short-lived temp sibling of that same file.
 	/// </summary>
 	internal sealed class TargetMod
 	{
-		/// <summary>Staging name a save is written to before it is swapped in.</summary>
-		const string TempSuffix = ".wrench-save";
+		/// <summary>
+		/// How often the in-place replace is retried, and how long it waits
+		/// between tries. A target mod's own settings watch holds the file
+		/// open for the few milliseconds it takes to read, and a replace
+		/// needs delete access, so one attempt can lose to a poll that was
+		/// never going to be there on the next one.
+		/// </summary>
+		const int ReplaceAttempts = 3;
+		const int ReplaceRetryMilliseconds = 40;
 
 		public enum ESaveState
 		{
@@ -73,7 +82,7 @@ namespace Wrench
 			Error = null;
 			string text;
 			string error;
-			if (!TryRead(out text, out error))
+			if (!TryRead(out text, out _, out error))
 			{
 				Text = null;
 				Error = error;
@@ -99,11 +108,16 @@ namespace Wrench
 		/// that save. When the file has moved on, the key is located again by
 		/// name; one that is gone or now ambiguous refuses the edit rather
 		/// than guessing which span the row meant.
+		///
+		/// The write is in the encoding the file is in right now, so every
+		/// byte outside the edited value span survives, byte order mark
+		/// included.
 		/// </summary>
 		public bool TrySave(TomlSettings.DocEntry entry, string newRaw, out string error)
 		{
 			string currentText;
-			if (!TryRead(out currentText, out error))
+			Encoding currentEncoding;
+			if (!TryRead(out currentText, out currentEncoding, out error))
 				return Fail(error);
 			if (currentText != Text)
 			{
@@ -116,36 +130,78 @@ namespace Wrench
 
 			string newText;
 			if (!TomlEdit.TryReplaceValue(Text, entry, newRaw, out newText, out error))
-			{
-				SaveState = ESaveState.SaveFailed;
-				SaveError = error;
-				return false;
-			}
-			// The new text goes to a sibling temp file that is then swapped in,
-			// so a write that dies midway (disk full, killed process) leaves
-			// the original file whole rather than truncated at the failure
-			// point. The temp file is removed on every failing path.
-			string tempPath = TomlPath + TempSuffix;
-			try
-			{
-				TomlFile.WriteAllText(tempPath, newText, encoding);
-				if (File.Exists(TomlPath))
-					File.Replace(tempPath, TomlPath, null);
-				else
-					File.Move(tempPath, TomlPath);
-			}
-			catch (Exception ex)
-			{
-				error = ex.Message;
-				SaveState = ESaveState.SaveFailed;
-				SaveError = error;
-				DeleteTemp(tempPath);
-				return false;
-			}
+				return Fail(error);
+			if (!TryWrite(TomlPath, newText, currentEncoding, out error))
+				return Fail(error);
 			SaveState = ESaveState.Saved;
 			SaveError = null;
 			Reload();
 			return true;
+		}
+
+		/// <summary>
+		/// Writes the file through a sibling temp file and an atomic replace.
+		/// Writing in place truncates the target first, so a crash, a
+		/// shutdown, or a full disk between the truncate and the last byte
+		/// leaves the mod with a settings file it cannot read at all, or
+		/// with none. The file is the whole integration surface (ADR 0001);
+		/// the one outcome that must never happen is losing it.
+		/// </summary>
+		static bool TryWrite(string path, string text, Encoding encoding, out string error)
+		{
+			var temp = path + ".wrench-tmp";
+			try
+			{
+				File.WriteAllText(temp, text, encoding);
+				for (var attempt = 1; ; attempt++)
+				{
+					try
+					{
+						File.Replace(temp, path, null);
+						break;
+					}
+					catch (NotSupportedException)
+					{
+						// A runtime with no atomic replace: the file goes away
+						// for an instant instead of being half-written, which
+						// is the closest this platform gets.
+						File.Delete(path);
+						File.Move(temp, path);
+						break;
+					}
+					catch (IOException)
+					{
+						// The target's own settings watch holds the file for
+						// the few milliseconds it takes to read it, and a
+						// replace needs delete access. Retry: the reader is
+						// gone before the next one starts.
+						if (attempt >= ReplaceAttempts)
+							throw;
+						Thread.Sleep(ReplaceRetryMilliseconds);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				TryDeleteTemp(temp);
+				error = ex.Message;
+				return false;
+			}
+			error = null;
+			return true;
+		}
+
+		static void TryDeleteTemp(string temp)
+		{
+			try
+			{
+				File.Delete(temp);
+			}
+			catch (Exception)
+			{
+				// A temp file nobody could delete is one stray file beside the
+				// target, and the next save writes over the same name.
+			}
 		}
 
 		bool Fail(string message)
@@ -192,33 +248,54 @@ namespace Wrench
 			return true;
 		}
 
-		bool TryRead(out string text, out string error)
+		bool TryRead(out string text, out Encoding encoding, out string error)
 		{
 			try
 			{
-				text = TomlFile.ReadAllText(TomlPath, out encoding);
+				var bytes = File.ReadAllBytes(TomlPath);
+				text = Decode(bytes, out encoding);
 				error = null;
 				return true;
 			}
 			catch (Exception ex)
 			{
 				text = null;
+				encoding = new UTF8Encoding(false);
 				error = ex.Message;
 				return false;
 			}
 		}
 
-		static void DeleteTemp(string tempPath)
+		/// <summary>
+		/// Decodes the file and reports the encoding it is in, byte order mark
+		/// included, so a save can write the same one back. <c>File.ReadAllText</c>
+		/// decodes a mark away and keeps no record of it, and a plain
+		/// UTF-8 write then drops it: an edit that changed one value token
+		/// would have silently changed the file's first three bytes too.
+		/// Anything with no recognizable mark is decoded as UTF-8, which is
+		/// what the file would be read as before; a file in some other
+		/// encoding then fails the TOML parse and is listed unreadable
+		/// rather than written back unreadable bytes.
+		/// </summary>
+		static string Decode(byte[] bytes, out Encoding encoding)
 		{
-			try
+			if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
 			{
-				if (File.Exists(tempPath))
-					File.Delete(tempPath);
+				encoding = new UTF8Encoding(true);
+				return encoding.GetString(bytes, 3, bytes.Length - 3);
 			}
-			catch (Exception ex)
+			if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
 			{
-				Log.Warning(ModApi.LogPrefix + " could not remove " + tempPath + ": " + ex.Message);
+				encoding = Encoding.Unicode;
+				return encoding.GetString(bytes, 2, bytes.Length - 2);
 			}
+			if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
+			{
+				encoding = Encoding.BigEndianUnicode;
+				return encoding.GetString(bytes, 2, bytes.Length - 2);
+			}
+			encoding = new UTF8Encoding(false);
+			return encoding.GetString(bytes);
 		}
 
 		/// <summary>Every loaded mod with a Config/&lt;Mod&gt;.toml, load order preserved.</summary>
