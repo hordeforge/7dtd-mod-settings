@@ -18,6 +18,11 @@ rather than all interfaces (`TelnetConsole`'s constructor:
 so a passwordless local console is not exposed off the machine.
 
 Standard library only — no telnetlib, which was removed in Python 3.13.
+
+Import it with:
+
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+    from game_telnet import GameTelnet, TelnetError
 """
 
 from __future__ import annotations
