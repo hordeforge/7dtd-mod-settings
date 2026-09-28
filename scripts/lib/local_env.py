@@ -48,9 +48,7 @@ def mod_name(root: Path | None = None) -> str:
     (test_static_checks.py holds it to the build tooling).
     """
     path = (root or mod_dir()) / "ModInfo.xml"
-    return next(node.get("value") or ""
-                for node in ET.parse(path).getroot()
-                if node.tag == "Name")
+    return next(node.get("value") or "" for node in ET.parse(path).getroot() if node.tag == "Name")
 
 
 def local_env_value(key: str, root: Path | None = None) -> str:
@@ -132,19 +130,28 @@ def require_dotnet_sdk(root: Path | None = None) -> Path | None:
     """
     dotnet = dotnet_executable(root)
     if dotnet is None:
-        print("FAIL dotnet SDK not found (required, same as make build): "
-              f"install the .NET SDK (https://aka.ms/dotnet/download), put it on "
-              f"PATH, or set {DOTNET_ROOT_KEY}",
-              file=sys.stderr)
+        print(
+            "FAIL dotnet SDK not found (required, same as make build): "
+            f"install the .NET SDK (https://aka.ms/dotnet/download), put it on "
+            f"PATH, or set {DOTNET_ROOT_KEY}",
+            file=sys.stderr,
+        )
         return None
-    sdks = subprocess.run([str(dotnet), "--list-sdks"],
-                          capture_output=True, text=True, encoding="utf-8",
-                          errors="replace", timeout=SDK_LIST_TIMEOUT_SECONDS,
-                          check=False)
+    sdks = subprocess.run(
+        [str(dotnet), "--list-sdks"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=SDK_LIST_TIMEOUT_SECONDS,
+        check=False,
+    )
     if sdks.returncode != 0 or not sdks.stdout.strip():
-        print(f"FAIL dotnet SDK not found: `{dotnet}` lists no SDKs. Install the "
-              f".NET SDK (https://aka.ms/dotnet/download) and put it on PATH, "
-              f"or set {DOTNET_ROOT_KEY}",
-              file=sys.stderr)
+        print(
+            f"FAIL dotnet SDK not found: `{dotnet}` lists no SDKs. Install the "
+            f".NET SDK (https://aka.ms/dotnet/download) and put it on PATH, "
+            f"or set {DOTNET_ROOT_KEY}",
+            file=sys.stderr,
+        )
         return None
     return dotnet

@@ -4,8 +4,9 @@
 # scripts/test_stdlib_only.py holds the "no third-party import" claim, so a
 # dependency arrives in the manifest rather than on one contributor's disk.
 #
-# No formatter is configured: `ruff format` would rewrite most of the tree, and
-# reformatting is not a gate. Add it in one pass with the reformat it implies.
+# `ruff format` owns the layout of the tree, and `ruff format --check` is part
+# of the lint gate, so formatting is a property of the checkout rather than of
+# whoever last touched a file.
 
 # The manifest, so `uv lock` resolves against the interpreter floor the suite
 # runs on. Without it uv falls back to its own default and writes
@@ -55,6 +56,12 @@ select = [
     "BLE",              # blind except: an except that swallows a name it
                          # did not raise
     "A",                # builtins shadowed by a module-level name
+    "ERA",              # commented-out code left behind by an edit
+    "DTZ",              # naive datetime where the tz is a real value
+    "T10",              # a debugger breakpoint left in a gate
+    "TRY300",           # a return inside try, so the except swallows cleanup
+    "TRY400",           # logging.error where logging.exception belongs
+    "PLR1711",          # a bare return at the end of a function
 ]
 # FBT: the gate suite shares one `check(name, ok, detail)` helper across every
 # test script; keyword-only booleans there would be churn, not clarity.

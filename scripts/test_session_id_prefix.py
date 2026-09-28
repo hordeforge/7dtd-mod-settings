@@ -36,14 +36,21 @@ def main() -> int:
     # The scanner is only worth anything while it still sees call sites: a
     # renamed wrapper leaves nothing to find and the gate would report a
     # clean run for a rule nobody enforces.
-    check("negative control: a hardcoded family is caught",
-          any(argument.strip('"').strip("'") in FAMILIES
-              for argument in CALL.findall('x = "new-session-id.sh" "claude"\n')),
-          "CALL/FAMILIES no longer detect a hardcoded prefix")
-    check("negative control: an env-derived prefix is allowed",
-          not any(argument.strip('"').strip("'") in FAMILIES
-                  for argument in CALL.findall(
-                      'x = "new-session-id.sh" "${PLAYTEST_AGENT:-agent}"\n')))
+    check(
+        "negative control: a hardcoded family is caught",
+        any(
+            argument.strip('"').strip("'") in FAMILIES
+            for argument in CALL.findall('x = "new-session-id.sh" "claude"\n')
+        ),
+        "CALL/FAMILIES no longer detect a hardcoded prefix",
+    )
+    check(
+        "negative control: an env-derived prefix is allowed",
+        not any(
+            argument.strip('"').strip("'") in FAMILIES
+            for argument in CALL.findall('x = "new-session-id.sh" "${PLAYTEST_AGENT:-agent}"\n')
+        ),
+    )
 
     call_sites = 0
     for name in sorted(os.listdir(SCRIPTS)):
@@ -61,9 +68,11 @@ def main() -> int:
                 "hardcodes " + repr(bare) + "; the lock would name that family "
                 'whoever is actually running. Use "${PLAYTEST_AGENT:-agent}".',
             )
-    check("new-session-id.sh has at least one caller to check",
-          call_sites > 0,
-          "no scripts/*.sh calls new-session-id.sh; the scan above is vacuous")
+    check(
+        "new-session-id.sh has at least one caller to check",
+        call_sites > 0,
+        "no scripts/*.sh calls new-session-id.sh; the scan above is vacuous",
+    )
 
     return result()
 

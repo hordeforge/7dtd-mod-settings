@@ -56,10 +56,11 @@ def check_dotnet_resolution() -> None:
     scripts_dir = os.path.join(MOD_DIR, "scripts")
     with open(os.path.join(scripts_dir, "lib", "local_env.py"), encoding="utf-8") as handle:
         reader = handle.read()
-    check("the shared reader takes dotnet from PATH, then $DOTNET_ROOT",
-          "def dotnet_executable(" in reader
-          and reader.index('shutil.which("dotnet")')
-          < reader.index("env_or_file(DOTNET_ROOT_KEY"))
+    check(
+        "the shared reader takes dotnet from PATH, then $DOTNET_ROOT",
+        "def dotnet_executable(" in reader
+        and reader.index('shutil.which("dotnet")') < reader.index("env_or_file(DOTNET_ROOT_KEY"),
+    )
 
     # Every gate that shells out to the SDK goes through that reader, so none
     # of them can fall back to PATH-only resolution again.
@@ -77,16 +78,19 @@ def check_dotnet_resolution() -> None:
     for name in ("test_toml_document.py", "test_toml_fuzz.py"):
         with open(os.path.join(scripts_dir, name), encoding="utf-8") as handle:
             source = handle.read()
-        check(f"{name} builds and runs its harness through the shared host",
-              "from dotnet_host import run_harness" in source
-              and "run_harness(" in source
-              and "subprocess" not in source)
+        check(
+            f"{name} builds and runs its harness through the shared host",
+            "from dotnet_host import run_harness" in source
+            and "run_harness(" in source
+            and "subprocess" not in source,
+        )
 
     with open(os.path.join(scripts_dir, "build.sh"), encoding="utf-8") as handle:
         build = handle.read()
-    check("scripts/build.sh resolves dotnet the same way, PATH then DOTNET_ROOT",
-          "command -v dotnet" in build
-          and '"$DOTNET_ROOT/dotnet"' in build)
+    check(
+        "scripts/build.sh resolves dotnet the same way, PATH then DOTNET_ROOT",
+        "command -v dotnet" in build and '"$DOTNET_ROOT/dotnet"' in build,
+    )
 
 
 def main() -> int:
@@ -97,19 +101,24 @@ def main() -> int:
         return result()
 
     needed = f"{floor[0]}.{floor[1]}"
-    check("the interpreter running the suite is the stated floor or newer",
-          sys.version_info[:2] >= floor,
-          f"need Python {needed}+, running "
-          f"{sys.version_info[0]}.{sys.version_info[1]}")
+    check(
+        "the interpreter running the suite is the stated floor or newer",
+        sys.version_info[:2] >= floor,
+        f"need Python {needed}+, running {sys.version_info[0]}.{sys.version_info[1]}",
+    )
 
     with open(RUNNER, encoding="utf-8") as handle:
         runner = handle.read()
-    check("the test runner refuses to start below the floor, by name",
-          re.search(r'^MIN_PY="(\d+\.\d+)"$', runner, re.MULTILINE) is not None
-          and "Python $MIN_PY+ required" in runner)
-    check("the runner's floor is the one pyproject states",
-          f'MIN_PY="{needed}"' in runner,
-          f'run-offline-tests.sh must pin MIN_PY="{needed}"')
+    check(
+        "the test runner refuses to start below the floor, by name",
+        re.search(r'^MIN_PY="(\d+\.\d+)"$', runner, re.MULTILINE) is not None
+        and "Python $MIN_PY+ required" in runner,
+    )
+    check(
+        "the runner's floor is the one pyproject states",
+        f'MIN_PY="{needed}"' in runner,
+        f'run-offline-tests.sh must pin MIN_PY="{needed}"',
+    )
 
     with open(os.path.join(MOD_DIR, "README.md"), encoding="utf-8") as handle:
         readme = handle.read()
@@ -120,12 +129,16 @@ def main() -> int:
     # runtime-only .NET install fails two of the twenty-four gates part way
     # through the run. Both lists a contributor reads first have to say so.
     makefile = makefile_text("Makefile")
-    check("make help states the .NET SDK the offline suite needs",
-          ".NET SDK" in line_matching(makefile, r'^.*"  test .*$'),
-          "the `test` line of make help must name the .NET SDK")
-    check("README states the .NET SDK the offline suite needs",
-          ".NET SDK" in line_matching(readme, r"^make test .*$"),
-          "the `make test` line in README must name the .NET SDK")
+    check(
+        "make help states the .NET SDK the offline suite needs",
+        ".NET SDK" in line_matching(makefile, r'^.*"  test .*$'),
+        "the `test` line of make help must name the .NET SDK",
+    )
+    check(
+        "README states the .NET SDK the offline suite needs",
+        ".NET SDK" in line_matching(readme, r"^make test .*$"),
+        "the `make test` line in README must name the .NET SDK",
+    )
 
     check_dotnet_resolution()
 

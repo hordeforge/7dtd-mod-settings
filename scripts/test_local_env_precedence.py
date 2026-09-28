@@ -36,16 +36,17 @@ PLAYTEST_MAKEFILE = SCRIPTS / "playtest" / "Makefile"
 # The keys both readers are asked for, in the order the shell probe prints
 # them. The Python side asks env_or_file for the same three, so a triple
 # from either side is comparable.
-PROBE_KEYS = ("SEVEN_DAYS_TO_DIE_DIR", "SEVEN_DAYS_TO_DIE_STEAMCMD",
-              "WRENCH_ATOMIC_MOD_DIR")
+PROBE_KEYS = ("SEVEN_DAYS_TO_DIE_DIR", "SEVEN_DAYS_TO_DIE_STEAMCMD", "WRENCH_ATOMIC_MOD_DIR")
 
 # The keys the probe reads. An exported one outranks the file, so the probe
 # must not inherit the contributor's own.
-PROBED_KEYS = frozenset({
-    "SEVEN_DAYS_TO_DIE_DIR",
-    "SEVEN_DAYS_TO_DIE_STEAMCMD",
-    "WRENCH_ATOMIC_MOD_DIR",
-})
+PROBED_KEYS = frozenset(
+    {
+        "SEVEN_DAYS_TO_DIE_DIR",
+        "SEVEN_DAYS_TO_DIE_STEAMCMD",
+        "WRENCH_ATOMIC_MOD_DIR",
+    }
+)
 
 PROBE = """
 set -u
@@ -63,22 +64,25 @@ PROBE_TIMEOUT_SECONDS = 60
 # SEVEN_DAYS_TO_DIE_DIR must have in both readers. The single-key forms
 # stand alone so a disagreement names the form that drifted.
 GRAMMAR_CASES = (
-    ("a quoted value", 'SEVEN_DAYS_TO_DIE_DIR="/games/7dtd"\n',
-     "/games/7dtd"),
-    ("an unquoted value", "SEVEN_DAYS_TO_DIE_DIR=/games/7dtd\n",
-     "/games/7dtd"),
-    ("a single-quoted value", "SEVEN_DAYS_TO_DIE_DIR='/games/7dtd'\n",
-     "/games/7dtd"),
-    ("an export prefix", 'export SEVEN_DAYS_TO_DIE_DIR="/games/7dtd"\n',
-     "/games/7dtd"),
-    ("a blank and a comment around the value",
-     '\n# SEVEN_DAYS_TO_DIE_DIR="elsewhere"\n'
-     'SEVEN_DAYS_TO_DIE_DIR="/games/7dtd"\n', "/games/7dtd"),
-    ("a repeated key, the last assignment winning",
-     'SEVEN_DAYS_TO_DIE_DIR="/first"\n'
-     'SEVEN_DAYS_TO_DIE_DIR="/second"\n', "/second"),
-    ("a path with a space in it",
-     'SEVEN_DAYS_TO_DIE_DIR="/games/7 Days To Die"\n', "/games/7 Days To Die"),
+    ("a quoted value", 'SEVEN_DAYS_TO_DIE_DIR="/games/7dtd"\n', "/games/7dtd"),
+    ("an unquoted value", "SEVEN_DAYS_TO_DIE_DIR=/games/7dtd\n", "/games/7dtd"),
+    ("a single-quoted value", "SEVEN_DAYS_TO_DIE_DIR='/games/7dtd'\n", "/games/7dtd"),
+    ("an export prefix", 'export SEVEN_DAYS_TO_DIE_DIR="/games/7dtd"\n', "/games/7dtd"),
+    (
+        "a blank and a comment around the value",
+        '\n# SEVEN_DAYS_TO_DIE_DIR="elsewhere"\nSEVEN_DAYS_TO_DIE_DIR="/games/7dtd"\n',
+        "/games/7dtd",
+    ),
+    (
+        "a repeated key, the last assignment winning",
+        'SEVEN_DAYS_TO_DIE_DIR="/first"\nSEVEN_DAYS_TO_DIE_DIR="/second"\n',
+        "/second",
+    ),
+    (
+        "a path with a space in it",
+        'SEVEN_DAYS_TO_DIE_DIR="/games/7 Days To Die"\n',
+        "/games/7 Days To Die",
+    ),
 )
 
 
@@ -93,11 +97,13 @@ def run_probe(env_file: Path, env: dict[str, str] | None = None) -> list[str]:
     # whole rule under test is that an exported variable wins over the file
     # and a file-only key still applies, so a contributor who exports them
     # would otherwise fail the checks that assert nothing is exported.
-    inherited = {name: value for name, value in os.environ.items()
-                 if name not in PROBED_KEYS}
+    inherited = {name: value for name, value in os.environ.items() if name not in PROBED_KEYS}
     result = subprocess.run(
         ["bash", "-c", PROBE, "bash", str(LOADER), str(env_file)],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=PROBE_TIMEOUT_SECONDS,
         check=True,
         env={**inherited, **(env or {})},
@@ -129,41 +135,53 @@ def main() -> int:
     check("the shared loader exists", LOADER.is_file())
     with tempfile.TemporaryDirectory() as raw:
         tmp = Path(raw)
-        env_file = load_env_file(tmp, (
-            'SEVEN_DAYS_TO_DIE_DIR="/games/7dtd"\n'
-            'SEVEN_DAYS_TO_DIE_STEAMCMD="/opt/steamcmd/steamcmd.sh"\n'
-            'WRENCH_ATOMIC_MOD_DIR="/checkouts/AtomicDoomsday"\n'
-        ))
+        env_file = load_env_file(
+            tmp,
+            (
+                'SEVEN_DAYS_TO_DIE_DIR="/games/7dtd"\n'
+                'SEVEN_DAYS_TO_DIE_STEAMCMD="/opt/steamcmd/steamcmd.sh"\n'
+                'WRENCH_ATOMIC_MOD_DIR="/checkouts/AtomicDoomsday"\n'
+            ),
+        )
 
         loaded = run_probe(env_file)
-        check("file-only keys apply when nothing is exported",
-              loaded == ["/games/7dtd", "/opt/steamcmd/steamcmd.sh",
-                         "/checkouts/AtomicDoomsday"],
-              f"got {loaded!r}")
+        check(
+            "file-only keys apply when nothing is exported",
+            loaded == ["/games/7dtd", "/opt/steamcmd/steamcmd.sh", "/checkouts/AtomicDoomsday"],
+            f"got {loaded!r}",
+        )
 
-        overridden = run_probe(
-            env_file, {"SEVEN_DAYS_TO_DIE_DIR": "/elsewhere/7dtd"})
-        check("an exported value wins over the file",
-              overridden[0] == "/elsewhere/7dtd", f"got {overridden[0]!r}")
-        check("overriding one key does not drop the file's other keys",
-              overridden[1:] == ["/opt/steamcmd/steamcmd.sh",
-                                 "/checkouts/AtomicDoomsday"],
-              f"got {overridden[1:]!r}")
+        overridden = run_probe(env_file, {"SEVEN_DAYS_TO_DIE_DIR": "/elsewhere/7dtd"})
+        check(
+            "an exported value wins over the file",
+            overridden[0] == "/elsewhere/7dtd",
+            f"got {overridden[0]!r}",
+        )
+        check(
+            "overriding one key does not drop the file's other keys",
+            overridden[1:] == ["/opt/steamcmd/steamcmd.sh", "/checkouts/AtomicDoomsday"],
+            f"got {overridden[1:]!r}",
+        )
 
         # An exported empty value is a value: it blanks the inventory rather
         # than handing back the path in the file, which is how a CI runner
         # unsets a key the developer's file sets.
         blanked = run_probe(env_file, {"SEVEN_DAYS_TO_DIE_DIR": ""})
-        check("an exported empty value blanks the file's value",
-              blanked[0] == "", f"got {blanked[0]!r}")
+        check(
+            "an exported empty value blanks the file's value",
+            blanked[0] == "",
+            f"got {blanked[0]!r}",
+        )
         with environment({"SEVEN_DAYS_TO_DIE_DIR": ""}):
             blanked_python = configured_game_dir(tmp)
-        check("the Python reader blanks it the same way",
-              blanked_python == "", f"got {blanked_python!r}")
+        check(
+            "the Python reader blanks it the same way",
+            blanked_python == "",
+            f"got {blanked_python!r}",
+        )
 
         missing = run_probe(tmp / "absent.env")
-        check("a missing file is not an error", missing == ["", "", ""],
-              f"got {missing!r}")
+        check("a missing file is not an error", missing == ["", "", ""], f"got {missing!r}")
 
         # One grammar, two readers: a form one of them answers differently
         # is a build that reads a different install from the tooling.
@@ -171,29 +189,42 @@ def main() -> int:
             case_file = load_env_file(tmp, body)
             shell = run_probe(case_file)[0]
             python = run_reader(tmp)[0]
-            check(f"the shell loader reads {name}", shell == expected,
-                  f"got {shell!r}, want {expected!r}")
-            check(f"the Python reader reads {name}", python == expected,
-                  f"got {python!r}, want {expected!r}")
-            check(f"both readers agree on {name}", shell == python,
-                  f"shell {shell!r} against Python {python!r}")
+            check(
+                f"the shell loader reads {name}",
+                shell == expected,
+                f"got {shell!r}, want {expected!r}",
+            )
+            check(
+                f"the Python reader reads {name}",
+                python == expected,
+                f"got {python!r}, want {expected!r}",
+            )
+            check(
+                f"both readers agree on {name}",
+                shell == python,
+                f"shell {shell!r} against Python {python!r}",
+            )
 
-        check("every shell caller goes through the shared loader",
-              all("load_local_env" in (SCRIPTS / name).read_text(encoding="utf-8")
-                  for name in ("server-common.sh", "build.sh", "playtest-maci.sh"))
-              and 'source "$ROOT/.local.env"' not in
-              (SCRIPTS / "build.sh").read_text(encoding="utf-8"))
+        check(
+            "every shell caller goes through the shared loader",
+            all(
+                "load_local_env" in (SCRIPTS / name).read_text(encoding="utf-8")
+                for name in ("server-common.sh", "build.sh", "playtest-maci.sh")
+            )
+            and 'source "$ROOT/.local.env"'
+            not in (SCRIPTS / "build.sh").read_text(encoding="utf-8"),
+        )
         # The playtest provider compiles against the same game install the
         # mod DLL was built from, so its Makefile resolves the game dir the
         # way every other consumer does rather than sourcing the file a
         # second time and ignoring an export.
         playtest_makefile = PLAYTEST_MAKEFILE.read_text(encoding="utf-8")
-        check("the playtest Makefile resolves the game dir through the "
-              "shared loader",
-              "load_local_env" in playtest_makefile
-              and "local-env.sh" in playtest_makefile
-              and 'set -a; . "$(WRENCH_ROOT)/.local.env"' not in
-              playtest_makefile)
+        check(
+            "the playtest Makefile resolves the game dir through the shared loader",
+            "load_local_env" in playtest_makefile
+            and "local-env.sh" in playtest_makefile
+            and 'set -a; . "$(WRENCH_ROOT)/.local.env"' not in playtest_makefile,
+        )
 
     return result()
 

@@ -92,7 +92,7 @@ def subprocess_calls(tree: ast.Module) -> list[tuple[ast.Call, str]]:
         if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
             continue
         target = node.func.value
-        names_subprocess = (isinstance(target, ast.Name) and target.id == "subprocess")
+        names_subprocess = isinstance(target, ast.Name) and target.id == "subprocess"
         if isinstance(target, ast.Attribute):
             names_subprocess = target.attr == "subprocess"
         if names_subprocess:
@@ -121,8 +121,7 @@ def _undecoded_text_calls(tree: ast.Module) -> list[str]:
             continue
         encoding = keywords.get("encoding")
         if encoding is None or (isinstance(encoding, ast.Constant) and encoding.value is None):
-            found.append((node.lineno,
-                          f"{call}() decodes text with the locale's encoding"))
+            found.append((node.lineno, f"{call}() decodes text with the locale's encoding"))
     return [f"{line}: {kind}" for line, kind in sorted(found)]
 
 
@@ -144,8 +143,7 @@ def _untimed_subprocess_calls(tree: ast.Module) -> list[str]:
         if call not in TIMED_SUBPROCESS_CALLS:
             continue
         if not any(keyword.arg == "timeout" for keyword in node.keywords):
-            found.append((node.lineno,
-                          f"{call}() can wait for a wedged child forever"))
+            found.append((node.lineno, f"{call}() can wait for a wedged child forever"))
     return [f"{line}: {kind}" for line, kind in sorted(found)]
 
 
@@ -187,25 +185,16 @@ def tracked_files_stay_clean() -> None:
 
 def negative_controls() -> None:
     """Prove the detector can fail, without breaking the shared tree."""
-    clean = findings(
-        "def f(x):\n"
-        "    if x is None:\n"
-        "        return 0\n"
-        "    return 1\n"
-    )
+    clean = findings("def f(x):\n    if x is None:\n        return 0\n    return 1\n")
     check("negative control: clean source raises nothing", not clean, str(clean))
     cases = (
         (
             "unreachable statement after return",
-            "def f(x):\n"
-            "    return x\n"
-            "    print('dead')\n",
+            "def f(x):\n    return x\n    print('dead')\n",
         ),
         (
             "unreachable statement after raise",
-            "def f(x):\n"
-            "    raise ValueError(x)\n"
-            "    return x\n",
+            "def f(x):\n    raise ValueError(x)\n    return x\n",
         ),
     )
     for kind, snippet in cases:

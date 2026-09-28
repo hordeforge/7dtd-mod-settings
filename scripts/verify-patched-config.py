@@ -35,8 +35,17 @@ from local_env import env_or_file, game_dir, mod_dir, mod_name
 GAME_STEAM_APP_ID = "251570"
 STEAM_USER = "steamuser"
 PREFIX_SAVES = os.path.join(
-    "compatdata", GAME_STEAM_APP_ID, "pfx", "drive_c", "users", STEAM_USER,
-    "AppData", "Roaming", "7DaysToDie", "Saves")
+    "compatdata",
+    GAME_STEAM_APP_ID,
+    "pfx",
+    "drive_c",
+    "users",
+    STEAM_USER,
+    "AppData",
+    "Roaming",
+    "7DaysToDie",
+    "Saves",
+)
 SAVES_DIR_KEY = "SEVEN_DAYS_TO_DIE_SAVES_DIR"
 
 MOD_DIR = str(mod_dir())
@@ -71,8 +80,7 @@ def expected_elements() -> dict[str, int]:
         # Counting the children as they come, not `len(list(append))`: the
         # list is a full copy of every appended element's children, held for
         # nothing.
-        total = sum(1 for op in tree.getroot().iter()
-                    if op.tag in INSERT_OPS for _ in op)
+        total = sum(1 for op in tree.getroot().iter() if op.tag in INSERT_OPS for _ in op)
         if total:
             counts[os.path.relpath(path, config_dir).replace(os.sep, "/")] = total
     return counts
@@ -90,8 +98,9 @@ def applied_elements(dump_dir: str) -> dict[str, int]:
         # which this mod's are a handful. `finditer` is the same scan without
         # that list.
         with open(path, encoding="utf-8", errors="replace") as handle:
-            hits = sum(1 for match in APPENDED_BY.finditer(handle.read())
-                       if match.group(1) == MOD_NAME)
+            hits = sum(
+                1 for match in APPENDED_BY.finditer(handle.read()) if match.group(1) == MOD_NAME
+            )
         if hits:
             counts[os.path.relpath(path, dump_dir).replace(os.sep, "/")] = hits
     return counts
@@ -111,7 +120,8 @@ def saves_dir(game_dir: str) -> str:
     if marker not in game_dir:
         raise VerifyError(
             f"cannot derive the saves directory from {game_dir}; set "
-            f"{SAVES_DIR_KEY} to the saves root (see .local.env.example).")
+            f"{SAVES_DIR_KEY} to the saves root (see .local.env.example)."
+        )
     return os.path.join(game_dir.split(marker)[0], PREFIX_SAVES)
 
 
@@ -137,18 +147,27 @@ def main() -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="Exit status: 0 every shipped patch element is present, 1 one is "
-               "missing or the dump is unreadable, 2 bad command line or the "
-               "saves directory cannot be resolved.",
+        "missing or the dump is unreadable, 2 bad command line or the "
+        "saves directory cannot be resolved.",
     )
     parser.add_argument(
-        "--configs-dump", default="", metavar="DIR",
-        help="ConfigsDump directory to check (default: the newest one found)")
+        "--configs-dump",
+        default="",
+        metavar="DIR",
+        help="ConfigsDump directory to check (default: the newest one found)",
+    )
     parser.add_argument(
-        "--save-name", default="", metavar="NAME",
-        help="save whose ConfigsDump to check (default: the newest one found)")
+        "--save-name",
+        default="",
+        metavar="NAME",
+        help="save whose ConfigsDump to check (default: the newest one found)",
+    )
     parser.add_argument(
-        "--game-dir", default=game_dir() or "", metavar="PATH",
-        help="game install holding the saves (default: SEVEN_DAYS_TO_DIE_DIR)")
+        "--game-dir",
+        default=game_dir() or "",
+        metavar="PATH",
+        help="game install holding the saves (default: SEVEN_DAYS_TO_DIE_DIR)",
+    )
     args = parser.parse_args()
 
     dump = args.configs_dump or find_dump(args.game_dir, args.save_name)

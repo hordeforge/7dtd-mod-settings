@@ -40,11 +40,10 @@ def body(source: str, signature: str) -> str:
         elif source[index] == "}":
             depth -= 1
             if depth == 0:
-                return source[brace:index + 1]
+                return source[brace : index + 1]
     return ""
 
 
 def code_of(source: str) -> str:
     """The file without its comment-only lines, so a check reads the code."""
-    return "\n".join(line for line in source.splitlines()
-                     if not line.strip().startswith("//"))
+    return "\n".join(line for line in source.splitlines() if not line.strip().startswith("//"))

@@ -80,8 +80,7 @@ def xui_bindings() -> dict[str, set[str]]:
 def answered_bindings() -> set[str]:
     """Every binding name a controller answers, from the mod's own C#."""
     answered: set[str] = set()
-    case_re = re.compile(r'^\s*case\s+"([A-Za-z_][A-Za-z0-9_]*)"\s*:',
-                         re.MULTILINE)
+    case_re = re.compile(r'^\s*case\s+"([A-Za-z_][A-Za-z0-9_]*)"\s*:', re.MULTILINE)
     src = os.path.join(MOD_DIR, "src")
     for base, dirs, names in os.walk(src):
         dirs[:] = sorted(dirs)
@@ -104,8 +103,7 @@ def check_ci_local_parity() -> None:
     makefile_path = os.path.join(MOD_DIR, "Makefile")
     with open(makefile_path, encoding="utf-8") as handle:
         makefile = handle.read()
-    with open(os.path.join(MOD_DIR, ".github", "workflows", "ci.yml"),
-              encoding="utf-8") as handle:
+    with open(os.path.join(MOD_DIR, ".github", "workflows", "ci.yml"), encoding="utf-8") as handle:
         workflow = handle.read()
 
     def prerequisites(target: str) -> set[str]:
@@ -117,28 +115,36 @@ def check_ci_local_parity() -> None:
     local = set()
     for target in prerequisites("check"):
         local |= prerequisites(target) or {target}
-    remote = set(re.findall(r"^\s*(?:run: )*make ([A-Za-z0-9_-]+)\s*$", workflow,
-                            re.MULTILINE))
-    check("make check exists", bool(prerequisites("check")),
-          "the Makefile has no `check:` target naming the local CI sequence")
-    check("CI runs exactly what make check runs", remote == local,
-          f"CI runs {sorted(remote)}, make check runs {sorted(local)}")
+    remote = set(re.findall(r"^\s*(?:run: )*make ([A-Za-z0-9_-]+)\s*$", workflow, re.MULTILINE))
+    check(
+        "make check exists",
+        bool(prerequisites("check")),
+        "the Makefile has no `check:` target naming the local CI sequence",
+    )
+    check(
+        "CI runs exactly what make check runs",
+        remote == local,
+        f"CI runs {sorted(remote)}, make check runs {sorted(local)}",
+    )
     # The package lane is the one check CI used to spell out inline, which is
     # how it ended up unrunnable locally. Held to the target that wraps the
     # one script both sides call.
-    check("the package lane is the shared target, not inline CI shell",
-          re.search(r"^\s*run: make verify-package\s*$", workflow,
-                    re.MULTILINE) is not None
-          and "sha256sum dist/Wrench.zip" not in workflow)
+    check(
+        "the package lane is the shared target, not inline CI shell",
+        re.search(r"^\s*run: make verify-package\s*$", workflow, re.MULTILINE) is not None
+        and "sha256sum dist/Wrench.zip" not in workflow,
+    )
 
     # Negative control: a workflow that checks something `make check` does
     # not has to be rejected, or the comparison above proves nothing.
-    drifted = workflow.replace("run: make test",
-                               "run: make test\n        run: make validate-patch-targets")
-    check("negative-control-a-ci-only-step-is-rejected",
-          set(re.findall(r"^\s*(?:run: )*make ([A-Za-z0-9_-]+)\s*$", drifted,
-                         re.MULTILINE)) != local,
-          "the comparison accepted a CI step `make check` does not run")
+    drifted = workflow.replace(
+        "run: make test", "run: make test\n        run: make validate-patch-targets"
+    )
+    check(
+        "negative-control-a-ci-only-step-is-rejected",
+        set(re.findall(r"^\s*(?:run: )*make ([A-Za-z0-9_-]+)\s*$", drifted, re.MULTILINE)) != local,
+        "the comparison accepted a CI step `make check` does not run",
+    )
 
 
 def check_contributing_commands() -> None:
@@ -157,10 +163,14 @@ def check_contributing_commands() -> None:
     with open(os.path.join(MOD_DIR, "Makefile"), encoding="utf-8") as handle:
         makefile = handle.read()
     named = set(re.findall(r"`make ([a-z][a-z-]*)", contributing))
-    missing = sorted(name for name in named
-                     if re.search(rf"^{name}:", makefile, re.MULTILINE) is None)
-    check("every make target CONTRIBUTING.md names exists", not missing,
-          "no such target: " + ", ".join(missing))
+    missing = sorted(
+        name for name in named if re.search(rf"^{name}:", makefile, re.MULTILINE) is None
+    )
+    check(
+        "every make target CONTRIBUTING.md names exists",
+        not missing,
+        "no such target: " + ", ".join(missing),
+    )
 
 
 def main() -> int:
@@ -185,14 +195,16 @@ def main() -> int:
     for rel in files:
         if not rel.startswith("Config" + os.sep) or not roots.get(rel):
             continue
-        check("configs-root:" + rel, roots[rel] == "configs",
-              f"root is <{roots[rel]}>, patch files use <configs>")
+        check(
+            "configs-root:" + rel,
+            roots[rel] == "configs",
+            f"root is <{roots[rel]}>, patch files use <configs>",
+        )
 
     modinfo = os.path.join(MOD_DIR, "ModInfo.xml")
     check("modinfo-exists", os.path.isfile(modinfo))
     if os.path.isfile(modinfo) and modinfo_root is not None:
-        values = {p.tag: (p.get("value") or "").strip()
-                  for p in modinfo_root}
+        values = {p.tag: (p.get("value") or "").strip() for p in modinfo_root}
         for field in ("Name", "DisplayName", "Description", "Author", "Version"):
             check("modinfo-field:" + field, bool(values.get(field)), "empty or missing")
         # The checkout is named after the repo slug, so the directory name
@@ -201,51 +213,65 @@ def main() -> int:
         # mismatch there ships a modlet whose folder disagrees with its
         # ModInfo.
         name = values.get("Name", "")
-        with open(os.path.join(MOD_DIR, "scripts", "build.sh"),
-                  encoding="utf-8") as handle:
-            build_names = re.findall(r'^MOD_NAME="([^"]+)"$', handle.read(),
-                                     re.MULTILINE)
-        check("modinfo-name-matches-build",
-              build_names == [name],
-              f"Name={name!r} but scripts/build.sh MOD_NAME={build_names!r}")
+        with open(os.path.join(MOD_DIR, "scripts", "build.sh"), encoding="utf-8") as handle:
+            build_names = re.findall(r'^MOD_NAME="([^"]+)"$', handle.read(), re.MULTILINE)
+        check(
+            "modinfo-name-matches-build",
+            build_names == [name],
+            f"Name={name!r} but scripts/build.sh MOD_NAME={build_names!r}",
+        )
         if os.path.isdir(os.path.join(MOD_DIR, "src")):
-            check("modinfo-name-matches-csproj",
-                  os.path.isfile(os.path.join(MOD_DIR, "src", name,
-                                              name + ".csproj")),
-                  f"src/{name}/{name}.csproj is missing")
+            check(
+                "modinfo-name-matches-csproj",
+                os.path.isfile(os.path.join(MOD_DIR, "src", name, name + ".csproj")),
+                f"src/{name}/{name}.csproj is missing",
+            )
 
     answered = answered_bindings()
     for rel, bindings in xui_bindings().items():
         for name in sorted(bindings):
-            check(f"binding-answered:{rel}:{name}", name in answered,
-                  "no controller answers this binding, so it renders as the "
-                  f"literal {{{name}}} in the game")
+            check(
+                f"binding-answered:{rel}:{name}",
+                name in answered,
+                "no controller answers this binding, so it renders as the "
+                f"literal {{{name}}} in the game",
+            )
 
-    check("release-readme-exists",
-          os.path.isfile(os.path.join(MOD_DIR, "README.txt")),
-          "README.txt is the player-facing release readme the package ships")
+    check(
+        "release-readme-exists",
+        os.path.isfile(os.path.join(MOD_DIR, "README.txt")),
+        "README.txt is the player-facing release readme the package ships",
+    )
 
-    check("localization-inside-config",
-          not os.path.isfile(os.path.join(MOD_DIR, "Localization.csv")),
-          "move it to Config/Localization.csv; the engine ignores a root-level file")
+    check(
+        "localization-inside-config",
+        not os.path.isfile(os.path.join(MOD_DIR, "Localization.csv")),
+        "move it to Config/Localization.csv; the engine ignores a root-level file",
+    )
     # Every Localization.txt, not just the ones the .xml walk above turned
     # up: a Config/Localization.txt is the exact shape the engine silently
     # ignores, and the old check only ever saw the root one.
     stray_txt = walk("Localization.txt")
-    check("no-localization-txt",
-          not stray_txt,
-          "V3 uses Localization.csv; delete " + ", ".join(stray_txt))
+    check(
+        "no-localization-txt",
+        not stray_txt,
+        "V3 uses Localization.csv; delete " + ", ".join(stray_txt),
+    )
 
-    check("no-legacy-xui-dir",
-          not os.path.isdir(os.path.join(MOD_DIR, "Config", "XUi")),
-          "V3 path is Config/XUi_InGame/ (plus XUi_Menu/, XUi_Common/)")
+    check(
+        "no-legacy-xui-dir",
+        not os.path.isdir(os.path.join(MOD_DIR, "Config", "XUi")),
+        "V3 path is Config/XUi_InGame/ (plus XUi_Menu/, XUi_Common/)",
+    )
     binding = re.compile(r"\{binding\b|\{#")
     for rel in files:
         if os.sep + "XUi" in rel or rel.startswith("Config" + os.sep + "XUi"):
             with open(os.path.join(MOD_DIR, rel), encoding="utf-8") as handle:
-                check("no-legacy-binding-syntax:" + rel,
-                      not binding.search(handle.read()),
-                      "use V3 {% expression %} bindings")
+                check(
+                    "no-legacy-binding-syntax:" + rel,
+                    not binding.search(handle.read()),
+                    "use V3 {% expression %} bindings",
+                )
 
     # Shipped mod content pins LF in the working tree, so the modlet
     # `make package` zips is the same bytes on every machine: without it a
@@ -254,10 +280,11 @@ def main() -> int:
     with open(os.path.join(MOD_DIR, ".gitattributes"), encoding="utf-8") as handle:
         attributes = handle.read()
     for pattern in ("*.csv", "*.xml", "*.toml", "*.txt"):
-        check("shipped-content-line-endings:" + pattern,
-              re.search(rf"^{re.escape(pattern)} text eol=lf$", attributes,
-                        re.MULTILINE) is not None,
-              ".gitattributes must pin " + pattern + " to LF")
+        check(
+            "shipped-content-line-endings:" + pattern,
+            re.search(rf"^{re.escape(pattern)} text eol=lf$", attributes, re.MULTILINE) is not None,
+            ".gitattributes must pin " + pattern + " to LF",
+        )
 
     check_ci_local_parity()
     check_contributing_commands()

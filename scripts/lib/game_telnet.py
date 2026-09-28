@@ -58,8 +58,13 @@ def _encode(line: str) -> bytes:
 class GameTelnet:
     """A minimal client for the 7DTD telnet console."""
 
-    def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT,
-                 password: str = "", timeout: float = 10.0):
+    def __init__(
+        self,
+        host: str = DEFAULT_HOST,
+        port: int = DEFAULT_PORT,
+        password: str = "",
+        timeout: float = 10.0,
+    ):
         self.host = host
         self.port = port
         self.password = password
@@ -211,8 +216,9 @@ class GameTelnet:
     def _read_until(self, marker: str, timeout: float) -> str:
         return self._read_until_any((marker,), timeout)
 
-    def _read_until_any(self, markers: tuple[str, ...], timeout: float,
-                        required: bool = True) -> str:
+    def _read_until_any(
+        self, markers: tuple[str, ...], timeout: float, required: bool = True
+    ) -> str:
         deadline = time.monotonic() + timeout
         seen = ""
         while time.monotonic() < deadline:
@@ -254,8 +260,8 @@ def clean_output(output: str, command: str) -> str:
     """
     lines = [line.rstrip("\r") for line in output.splitlines()]
     cleaned = [
-        line for line in lines
-        if line.strip() and line.strip() != command
-        and "Executing command" not in line
+        line
+        for line in lines
+        if line.strip() and line.strip() != command and "Executing command" not in line
     ]
     return "\n".join(cleaned)

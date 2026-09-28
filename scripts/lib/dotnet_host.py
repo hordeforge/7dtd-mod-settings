@@ -55,20 +55,41 @@ def run_harness(project: str, run_failure: str, *run_args: str) -> int:
     # writes alongside it.
     out_dir = root / ".tmp" / project / "bin" / "harness"
     build = subprocess.run(
-        [dotnet, "build", str(project_dir / f"{project}.csproj"),
-         "-c", "Release", "-o", str(out_dir), "-v", "quiet", "--nologo"],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-        timeout=BUILD_TIMEOUT_SECONDS, check=False)
+        [
+            dotnet,
+            "build",
+            str(project_dir / f"{project}.csproj"),
+            "-c",
+            "Release",
+            "-o",
+            str(out_dir),
+            "-v",
+            "quiet",
+            "--nologo",
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=BUILD_TIMEOUT_SECONDS,
+        check=False,
+    )
     if build.returncode != 0:
         sys.stdout.write(build.stdout)
         sys.stderr.write(build.stderr)
         print(f"FAIL {project} build")
         return 1
 
-    run = subprocess.run([dotnet, str(Path(out_dir) / f"{project}.dll"), *run_args],
-                         capture_output=True, text=True, encoding="utf-8",
-                         errors="replace", timeout=RUN_TIMEOUT_SECONDS,
-                         cwd=str(root), check=False)
+    run = subprocess.run(
+        [dotnet, str(Path(out_dir) / f"{project}.dll"), *run_args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=RUN_TIMEOUT_SECONDS,
+        cwd=str(root),
+        check=False,
+    )
     sys.stdout.write(run.stdout)
     sys.stderr.write(run.stderr)
     if run.returncode != 0:

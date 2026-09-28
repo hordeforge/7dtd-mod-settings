@@ -45,8 +45,12 @@ def tracked_paths(patterns: str = "*", root: Path | None = None) -> list[str]:
     try:
         done = subprocess.run(
             ["git", "-C", str(root or mod_dir()), "ls-files", "-z", "--", *patterns.split()],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-            timeout=LIST_TIMEOUT_SECONDS, check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=LIST_TIMEOUT_SECONDS,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         raise SystemExit(
@@ -57,7 +61,5 @@ def tracked_paths(patterns: str = "*", root: Path | None = None) -> list[str]:
         # No git on PATH, or the directory is not a repository.
         raise SystemExit(f"ERROR: {listing} could not run: {exc}") from None
     if done.returncode != 0:
-        raise SystemExit(
-            f"ERROR: {listing} exited {done.returncode}: {done.stderr.strip()}"
-        )
+        raise SystemExit(f"ERROR: {listing} exited {done.returncode}: {done.stderr.strip()}")
     return sorted(path for path in done.stdout.split("\0") if path)

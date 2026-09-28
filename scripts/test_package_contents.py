@@ -39,19 +39,23 @@ ZIP_NAME = "Wrench.zip"
 # Everything the modlet is made of. Listed here rather than derived from the
 # staged tree, so a file added under Config/ is a change this gate rejects
 # until it is decided on, not a silent extra in every install.
-EXPECTED_FILES = frozenset({
-    "Wrench/ModInfo.xml",
-    "Wrench/README.txt",
-    "Wrench/Config/Localization.csv",
-    "Wrench/Config/Wrench.toml",
-    "Wrench/Config/XUi_Menu/windows.xml",
-    "Wrench/Config/XUi_Menu/xui.xml",
-})
-EXPECTED_DIRS = frozenset({
-    "Wrench/",
-    "Wrench/Config/",
-    "Wrench/Config/XUi_Menu/",
-})
+EXPECTED_FILES = frozenset(
+    {
+        "Wrench/ModInfo.xml",
+        "Wrench/README.txt",
+        "Wrench/Config/Localization.csv",
+        "Wrench/Config/Wrench.toml",
+        "Wrench/Config/XUi_Menu/windows.xml",
+        "Wrench/Config/XUi_Menu/xui.xml",
+    }
+)
+EXPECTED_DIRS = frozenset(
+    {
+        "Wrench/",
+        "Wrench/Config/",
+        "Wrench/Config/XUi_Menu/",
+    }
+)
 
 DIR_MODE = 0o755
 FILE_MODE = 0o644
@@ -102,8 +106,11 @@ def main() -> int:
     try:
         tree = stage_modlet(root, "Wrench-src")
         built = build_package(tree)
-        check("package-builds", built.returncode == 0,
-              f"exit={built.returncode} stderr={built.stderr[-300:]!r}")
+        check(
+            "package-builds",
+            built.returncode == 0,
+            f"exit={built.returncode} stderr={built.stderr[-300:]!r}",
+        )
         archive = os.path.join(tree, "dist", ZIP_NAME)
         if not os.path.isfile(archive):
             check("package-archive-exists", False, f"{ZIP_NAME} was not produced")
@@ -116,13 +123,17 @@ def main() -> int:
         # A directory entry per folder the zip holds, whatever the extractor
         # chooses to do with it: a mode recorded on a folder the player
         # extracts is a mode the player's game writes into.
-        check("package-contains-only-mod-content",
-              files == EXPECTED_FILES,
-              f"unexpected {sorted(files - EXPECTED_FILES)}, "
-              f"missing {sorted(EXPECTED_FILES - files)}")
-        check("package-folders-are-the-mod-content-folders",
-              dirs == EXPECTED_DIRS,
-              f"unexpected {sorted(dirs ^ EXPECTED_DIRS)}")
+        check(
+            "package-contains-only-mod-content",
+            files == EXPECTED_FILES,
+            f"unexpected {sorted(files - EXPECTED_FILES)}, "
+            f"missing {sorted(EXPECTED_FILES - files)}",
+        )
+        check(
+            "package-folders-are-the-mod-content-folders",
+            dirs == EXPECTED_DIRS,
+            f"unexpected {sorted(dirs ^ EXPECTED_DIRS)}",
+        )
 
         # The high 16 bits of external_attr are the unix mode, and the low
         # permission bits of it are what the extractor restores; the file-type
@@ -130,22 +141,26 @@ def main() -> int:
         modes = [(i.filename, (i.external_attr >> 16) & 0o7777) for i in infos]
         problems = mode_problems(modes)
         check("package-entry-modes", not problems, "; ".join(problems[:6]))
-        check("no-package-entry-is-group-or-world-writable",
-              not [(n, m) for n, m in modes if m & 0o022],
-              "; ".join(f"{n} is {m:04o}" for n, m in modes if m & 0o022))
-        check("no-package-file-is-executable",
-              not [(n, m) for n, m in modes
-                   if not n.endswith("/") and m & 0o111],
-              "; ".join(f"{n} is {m:04o}" for n, m in modes
-                        if not n.endswith("/") and m & 0o111))
+        check(
+            "no-package-entry-is-group-or-world-writable",
+            not [(n, m) for n, m in modes if m & 0o022],
+            "; ".join(f"{n} is {m:04o}" for n, m in modes if m & 0o022),
+        )
+        check(
+            "no-package-file-is-executable",
+            not [(n, m) for n, m in modes if not n.endswith("/") and m & 0o111],
+            "; ".join(f"{n} is {m:04o}" for n, m in modes if not n.endswith("/") and m & 0o111),
+        )
 
         # Negative control: the check this gate rests on is proven able to
         # fail, on the modes the tree used to be staged with. A control that
         # only ever passes is not evidence the real run means anything.
         read_only = [("Wrench/Config/", 0o555), ("Wrench/Config/Wrench.toml", 0o444)]
-        check("negative-control-read-only-tree-is-rejected",
-              bool(mode_problems(read_only)),
-              "the mode check accepted the read-only tree it exists to reject")
+        check(
+            "negative-control-read-only-tree-is-rejected",
+            bool(mode_problems(read_only)),
+            "the mode check accepted the read-only tree it exists to reject",
+        )
 
         # Every entry's timestamp, with no override supplied. The staged tree
         # is not a git checkout, so this is the Makefile's own answer, and a
@@ -153,14 +168,19 @@ def main() -> int:
         # same source packaged twice was two archives. Nothing here reads a
         # clock, so the check is the fixed epoch, not an elapsed time.
         unoverridden = build_package(tree, epoch=None)
-        check("package-builds-with-no-timestamp-override",
-              unoverridden.returncode == 0,
-              f"exit={unoverridden.returncode} stderr={unoverridden.stderr[-300:]!r}")
+        check(
+            "package-builds-with-no-timestamp-override",
+            unoverridden.returncode == 0,
+            f"exit={unoverridden.returncode} stderr={unoverridden.stderr[-300:]!r}",
+        )
         if unoverridden.returncode == 0:
             with zipfile.ZipFile(archive) as zf:
                 stamps = sorted({i.date_time for i in zf.infolist()})
-            check("package-timestamps-are-the-fixed-epoch", stamps == [DOS_EPOCH],
-                  f"recorded {stamps[:3]}, expected only {DOS_EPOCH}")
+            check(
+                "package-timestamps-are-the-fixed-epoch",
+                stamps == [DOS_EPOCH],
+                f"recorded {stamps[:3]}, expected only {DOS_EPOCH}",
+            )
 
         # Negative control: the same comparison on a package built with a
         # timestamp of its own, so the check above is known to read the
@@ -169,15 +189,19 @@ def main() -> int:
         if control.returncode == 0:
             with zipfile.ZipFile(archive) as zf:
                 control_stamps = sorted({i.date_time for i in zf.infolist()})
-            check("negative-control-an-epoch-of-its-own-is-rejected",
-                  control_stamps != [DOS_EPOCH],
-                  "the timestamp check accepted an archive built from another epoch")
+            check(
+                "negative-control-an-epoch-of-its-own-is-rejected",
+                control_stamps != [DOS_EPOCH],
+                "the timestamp check accepted an archive built from another epoch",
+            )
 
         with open(os.path.join(MOD_DIR, "Makefile"), encoding="utf-8") as handle:
             makefile = handle.read()
-        check("the Makefile does not take a timestamp from the wall clock",
-              "date +%s" not in makefile,
-              "SOURCE_DATE_EPOCH must fall back to a fixed value, not `date`")
+        check(
+            "the Makefile does not take a timestamp from the wall clock",
+            "date +%s" not in makefile,
+            "SOURCE_DATE_EPOCH must fall back to a fixed value, not `date`",
+        )
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
