@@ -55,7 +55,7 @@ def main() -> int:
     if build.returncode != 0:
         sys.stdout.write(build.stdout)
         sys.stderr.write(build.stderr)
-        print("FAIL toml_gate build", file=sys.stderr)
+        print("FAIL toml_gate build")
         return 1
 
     run = subprocess.run([dotnet, os.path.join(out_dir, "toml_gate.dll")],
@@ -64,7 +64,7 @@ def main() -> int:
     sys.stdout.write(run.stdout)
     sys.stderr.write(run.stderr)
     if run.returncode != 0:
-        print("FAIL toml document round trip", file=sys.stderr)
+        print("FAIL toml document round trip")
         return 1
     return 0
 

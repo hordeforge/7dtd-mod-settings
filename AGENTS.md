@@ -90,6 +90,13 @@ Corollaries; the first two are enforced by
 - Every gate is **deterministic** — no clock, iteration-order, or
   random-seed dependence; the meta-gate runs each gate twice and requires
   byte-identical output.
+- A script's **report is stdout**, PASS and FAIL alike, through
+  `scripts/lib/gate_report.py` (one definition, not a copy per gate), so a
+  redirected or piped run keeps the failures; stderr is only for a script
+  that produced no report at all. Exit status: 0 pass, 1 a check failed,
+  2 a bad command line or a missing install, and any unknown option is an
+  error rather than a silently skipped argument. Enforced by
+  `scripts/test_rules_have_gates.py`.
 - **Prove a gate can fail** before trusting it — against a fixture or a
   scratchpad copy, never by breaking the shared tree.
 

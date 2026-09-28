@@ -18,6 +18,7 @@ are checked against their parent path; `set`/`remove`/`csv` must match.
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 import xml.etree.ElementTree as ET
@@ -31,11 +32,14 @@ CHECK_PARENT_ONLY = {"append", "insertBefore", "insertAfter", "setattribute"}
 CHECK_FULL = {"set", "remove", "removeattribute", "csv"}
 
 
-def game_dir() -> str:
-    """The configured game install, or exit: the xpaths have nothing to check against."""
-    path = configured_game_dir()
+def game_dir(override: str = "") -> str:
+    """The game install to check, or exit: the xpaths have nothing to check against."""
+    path = override or configured_game_dir()
     if not path or not os.path.isdir(os.path.join(path, "Data", "Config")):
-        sys.exit("ERROR: set SEVEN_DAYS_TO_DIE_DIR or .local.env to a valid game install.")
+        print("ERROR: no game install to check against. Set SEVEN_DAYS_TO_DIE_DIR"
+              " (or .local.env) to a valid install, or pass --game-dir PATH.",
+              file=sys.stderr)
+        raise SystemExit(2)
     return str(path)
 
 
@@ -59,7 +63,19 @@ def find(root: ET.Element, xpath: str) -> bool | None:
 
 
 def main() -> int:
-    config_dir = os.path.join(game_dir(), "Data", "Config")
+    parser = argparse.ArgumentParser(
+        prog="validate-xml-targets.py",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Exit status: 0 every xpath resolves, 1 an xpath matches nothing, "
+               "2 bad command line or no game install.",
+    )
+    parser.add_argument(
+        "--game-dir", default="", metavar="PATH",
+        help="game install to check against (default: SEVEN_DAYS_TO_DIE_DIR)")
+    args = parser.parse_args()
+
+    config_dir = os.path.join(game_dir(args.game_dir), "Data", "Config")
     failures = 0
     skips = 0
     mod_config = os.path.join(MOD_DIR, "Config")
@@ -96,8 +112,7 @@ def main() -> int:
             elif resolved:
                 print(f"PASS {name}: {xpath}")
             else:
-                print(f"FAIL {name}: xpath matches nothing in vanilla: {xpath}",
-                      file=sys.stderr)
+                print(f"FAIL {name}: xpath matches nothing in vanilla: {xpath}")
                 failures += 1
     print(f"{failures} failures, {skips} skipped (verify skips manually).")
     return 1 if failures else 0

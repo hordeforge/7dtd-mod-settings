@@ -24,6 +24,7 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import TextIO
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 import local_env
@@ -57,20 +58,59 @@ def is_method_signature(line: str) -> bool:
     return assignment < 0 or parenthesis < assignment
 
 
-def usage() -> None:
-    print("USAGE")
-    print("  verify-patch-targets.py [--game-dir PATH]")
-    print()
-    print("Decompile each Harmony patch target's declaring type out of the")
-    print("selected 7 Days To Die client and confirm the patched method is")
-    print("still declared there with the expected signature.")
-    print()
-    print("REQUIRES")
-    print("  ilspycmd    dotnet tool install -g ilspycmd")
-    print()
-    print("EXAMPLES")
-    print("  scripts/verify-patch-targets.py")
-    print("  scripts/verify-patch-targets.py --game-dir /path/to/7dtd")
+USAGE = """USAGE
+  verify-patch-targets.py [--game-dir PATH]
+
+Decompile each Harmony patch target's declaring type out of the
+selected 7 Days To Die client and confirm the patched method is
+still declared there with the expected signature.
+
+OPTIONS
+  --game-dir PATH   client install to check (default: SEVEN_DAYS_TO_DIE_DIR)
+  -h, --help        this text
+
+REQUIRES
+  ilspycmd    dotnet tool install -g ilspycmd
+
+EXAMPLES
+  scripts/verify-patch-targets.py
+  scripts/verify-patch-targets.py --game-dir /path/to/7dtd
+
+EXIT STATUS
+  0  every target resolves
+  1  a target did not resolve
+  2  bad command line, or no game install to check
+"""
+
+
+def usage(stream: TextIO = sys.stdout) -> None:
+    print(USAGE.rstrip(), file=stream)
+
+
+class UsageError(Exception):
+    """A bad command line; the message names the option at fault."""
+
+
+def parse_args(argv: list[str]) -> Path | None:
+    """The --game-dir to check, or None to use the configured install.
+
+    An unrecognized argument is an error, not something to skip: a
+    mistyped --game-dir would otherwise check a different install and
+    still report every target green.
+    """
+    chosen: Path | None = None
+    index = 0
+    while index < len(argv):
+        arg = argv[index]
+        if arg == "--game-dir":
+            index += 1
+            if index >= len(argv):
+                raise UsageError("--game-dir needs a path argument")
+            chosen = Path(argv[index])
+        elif arg not in ("-h", "--help"):
+            raise UsageError(f"unknown option {arg}")
+        index += 1
+    return chosen
 
 
 def source_dir(root: Path) -> Path:
@@ -311,46 +351,46 @@ def parameter_types(signature: str) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
-    if "--help" in argv or "-h" in argv:
+    if "-h" in argv or "--help" in argv:
         usage()
         return 0
 
+    try:
+        override = parse_args(argv)
+    except UsageError as exc:
+        print(f"ERROR: {exc}.", file=sys.stderr)
+        usage(sys.stderr)
+        return 2
+
     root = local_env.mod_dir()
-    game_dir: Path | None
-    if "--game-dir" in argv:
-        index = argv.index("--game-dir")
-        if index + 1 >= len(argv):
-            print("ERROR: --game-dir needs a path argument.")
-            usage()
-            return 2
-        game_dir = Path(argv[index + 1])
-    else:
-        game_dir = configured_game_dir()
+    game_dir = override if override is not None else configured_game_dir()
 
     if game_dir is None:
-        print("ERROR: no game directory. Set SEVEN_DAYS_TO_DIE_DIR or pass --game-dir.")
+        print("ERROR: no game directory. Set SEVEN_DAYS_TO_DIE_DIR or pass"
+              " --game-dir.", file=sys.stderr)
         return 2
 
     assembly = game_dir / MANAGED_SUBDIR / ASSEMBLY_NAME
     if not assembly.is_file():
-        print(f"ERROR: {assembly} not found.")
+        print(f"ERROR: {assembly} not found.", file=sys.stderr)
         return 2
 
     # `ilspycmd` installs to ~/.dotnet/tools, which is not always on PATH.
     if shutil.which("ilspycmd") is None:
         candidate = Path.home() / ".dotnet" / "tools" / "ilspycmd"
         if not candidate.is_file():
-            print("ERROR: ilspycmd not found. Install it with:")
-            print("  dotnet tool install -g ilspycmd")
+            print("ERROR: ilspycmd not found. Install it with:", file=sys.stderr)
+            print("  dotnet tool install -g ilspycmd", file=sys.stderr)
             return 2
         os.environ["PATH"] = os.environ.get("PATH", "") + os.pathsep + str(candidate.parent)
 
     runtime_error = ensure_ilspy_runtime()
     if runtime_error is not None:
-        print("ERROR: ilspycmd is installed but cannot run.")
-        print(runtime_error)
+        print("ERROR: ilspycmd is installed but cannot run.", file=sys.stderr)
+        print(runtime_error, file=sys.stderr)
         print("Install its target .NET runtime, or install Unity Hub with an"
-              " editor SDK so this verifier can use its local fallback.")
+              " editor SDK so this verifier can use its local fallback.",
+              file=sys.stderr)
         return 2
 
     sources = root / source_dir(root)

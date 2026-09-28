@@ -80,6 +80,20 @@ def main() -> int:
               runs[0].stdout == runs[1].stdout and runs[0].returncode == runs[1].returncode,
               "two runs on an unchanged tree differed")
 
+    # The report is data, and a redirected run must keep the failures;
+    # stderr is for a gate that produced no report at all.
+    failing = subprocess.run(
+        [sys.executable, "-c",
+         "import sys; sys.path.insert(0, sys.argv[1]);"
+         "from gate_report import check; check('probe', False, 'detail')",
+         os.path.join(SCRIPTS, "lib")],
+        capture_output=True, check=False, text=True,
+        cwd=os.path.dirname(SCRIPTS))
+    check("gate-report-on-stdout",
+          failing.returncode == 0 and "FAIL probe: detail" in failing.stdout
+          and failing.stderr == "",
+          "a failed check must print its report to stdout, not stderr")
+
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0
 

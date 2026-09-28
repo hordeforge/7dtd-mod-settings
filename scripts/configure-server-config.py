@@ -18,14 +18,36 @@ from pathlib import Path
 EAC_PROPERTY = "EACEnabled"
 EAC_VALUE = "false"
 
+USAGE = """USAGE
+  configure-server-config.py SOURCE_CONFIG TARGET_CONFIG
+
+Copy the vanilla server configuration, with EAC disabled, to the
+server's own serverconfig.xml.
+
+  SOURCE_CONFIG  vanilla serverconfig.xml to read
+  TARGET_CONFIG  serverconfig.xml to write (replaced atomically)
+
+OPTIONS
+  -h, --help      this text
+
+EXIT STATUS
+  0  target written
+  1  source missing, malformed, or target unwritable
+  2  bad command line
+"""
+
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print("Usage: configure-server-config.py SOURCE_CONFIG TARGET_CONFIG", file=sys.stderr)
+    argv = sys.argv[1:]
+    if "-h" in argv or "--help" in argv:
+        print(USAGE.rstrip())
+        return 0
+    if len(argv) != 2:
+        print(USAGE.rstrip(), file=sys.stderr)
         return 2
 
-    source = Path(sys.argv[1])
-    target = Path(sys.argv[2])
+    source = Path(argv[0])
+    target = Path(argv[1])
     if not source.is_file():
         print(f"ERROR: no server configuration at {source}.", file=sys.stderr)
         return 1

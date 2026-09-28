@@ -11,11 +11,22 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=server-common.sh
 source "$SCRIPT_DIR/server-common.sh"
 
-load_server_environment
+usage() {
+	cat <<'HELP'
+Usage: scripts/deploy-server.sh [--rollback]
 
-TARGET="$SERVER_DIR/Mods/Wrench"
-STAGING="$SERVER_DIR/.wrench-deploy/staging"
-PREVIOUS="$SERVER_DIR/.wrench-deploy/previous"
+Replace the dedicated server's Mods/Wrench/ with the staged package.
+
+OPTIONS
+  --rollback   put the previous deployment back instead
+  -h, --help   this text
+
+EXIT STATUS
+  0  deployment swapped in (or rolled back)
+  1  server install missing, or nothing to roll back to
+  2  unknown option
+HELP
+}
 
 rollback() {
 	if [[ ! -d "$PREVIOUS" ]]; then
@@ -27,7 +38,23 @@ rollback() {
 	echo "OK: rolled back to the previous $TARGET"
 }
 
-if [[ "${1:-}" == "--rollback" ]]; then
+ROLLBACK=0
+while (($#)); do
+	case "$1" in
+		--rollback) ROLLBACK=1; shift ;;
+		-h | --help) usage; exit 0 ;;
+		*) echo "ERROR: unknown option $1" >&2; usage >&2; exit 2 ;;
+	esac
+done
+
+# After the flags: --help must work on a machine with no server install.
+load_server_environment
+
+TARGET="$SERVER_DIR/Mods/Wrench"
+STAGING="$SERVER_DIR/.wrench-deploy/staging"
+PREVIOUS="$SERVER_DIR/.wrench-deploy/previous"
+
+if ((ROLLBACK)); then
 	mkdir -p "$SERVER_DIR/Mods"
 	rollback
 	exit 0
