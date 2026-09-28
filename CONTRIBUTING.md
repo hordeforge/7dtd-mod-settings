@@ -41,6 +41,17 @@ by name when the install is missing.
   `ModInfo.xml`, the same number in `README.txt` and
   `scripts/playtest/ModInfo.xml`, and a `## [x.y.z]` heading in the changelog
   naming that version. A published number is never reused.
+- The release heading's body is part of the contract and is held too: it says
+  which 7 Days to Die version the release needs, and it carries a
+  `### Compatibility` section. A patch release may not carry a `### Changed`
+  group, because a behaviour change for a player or a mod author is a minor
+  bump. A change that refuses something a previous release loaded is breaking
+  even when it is written under **Fixed**; say so in the entry, and ship it as
+  a minor.
+- Tag the commit that sets the version, from the same commit, once it is
+  pushed: `git tag -a v<x.y.z> -m "v<x.y.z>"` and `git push origin v<x.y.z>`.
+  Nothing checks that the tag exists, so a release without one is invisible to
+  anybody looking for the download of that number.
 - Keep a gate green rather than relaxing it. If a gate is genuinely wrong,
   say so in the PR and make it stricter about the new truth.
 

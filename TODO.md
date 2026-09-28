@@ -89,6 +89,21 @@ Adds a Mod Settings screen to the in-game options menu, listing every loaded mod
       mod DLL here, so the atomic replace, the mark round trip and the
       shared-access open need one real save on the client.
 
+## Release
+
+- [ ] Cut the two release tags that were never cut, from the commits that
+      set the versions: `v0.2.0` at `db6930a` and `v0.3.0` at `4ee39c1`
+      (`git tag -a v0.2.0 db6930a`, then the same for `v0.3.0`, then
+      `git push origin v0.2.0 v0.3.0`). Both numbers are published: they are
+      the newest heading in `CHANGELOG.md` and the version in `ModInfo.xml`
+      when they were declared, and `git tag` lists only `v0.1.0`, so a
+      player asking for "the 0.3.0 download" finds nothing. The tag cannot
+      be cut from a later commit: the release is that tree.
+- [ ] Say in the next release heading that the strict marked-encoding read
+      refuses a file 0.3.0 loaded, so the release is a minor. The entry
+      already describes the change; the bump is decided when the heading is
+      written.
+
 ## Open questions
 
 - (none yet)

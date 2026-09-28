@@ -90,7 +90,9 @@ its own numbered heading when the version it ships under is declared.
   decoders were lenient where the unmarked UTF-8 one is strict; a save
   after such a read wrote the replacement characters back into a file
   this mod does not own. A marked file is now read under the same rule
-  as every other one.
+  as every other one. A file that 0.3.0 loaded is refused from here on,
+  so whatever release this entry lands under is a minor one, the same
+  break 0.3.0 shipped a minor release for.
 
 - The packaged modlet is no longer staged read-only, so saving a setting
   works on an install whose extractor restored the modes the zip records.

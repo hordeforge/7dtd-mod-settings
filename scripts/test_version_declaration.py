@@ -13,9 +13,11 @@ This gate makes `ModInfo.xml` the declaration and the other two
 declarations of it. The playtest provider mod moves with the mod it
 exercises and carries the same number.
 
-It also holds the two shapes a changelog decays into: an entry for the
-declared version that never says what it breaks, and a doc that keeps
-naming the build it was written against after the next bump.
+It also holds the four shapes a changelog decays into: an entry for the
+declared version that never says what it breaks, an entry that never says
+which game version it needs, a patch release that carries a behaviour
+change, and a doc that keeps naming the build it was written against after
+the next bump.
 
 `scripts/test_rules_have_gates.py` runs every gate twice, so this one
 reads files and nothing else: no clock, no git, no iteration order.
@@ -51,6 +53,11 @@ COMPATIBILITY = re.compile(r"^### Compatibility$", re.M)
 # against. A doc that names a version and is not the shipped one reads
 # as an assessment of a build nobody installs.
 DOC_VERSION = re.compile(r"mod version `(\d+\.\d+\.\d+\.\d+)`")
+# "Requires 7 Days to Die V3.2, the same as 0.2.0.", the game version a
+# release states it needs.
+REQUIRES_GAME = re.compile(r"^Requires 7 Days to Die ", re.M)
+# "### Changed", the group a behaviour change is written under.
+CHANGED_GROUP = re.compile(r"^### Changed$", re.M)
 
 MODINFOS = ("ModInfo.xml", os.path.join("scripts", "playtest", "ModInfo.xml"))
 # Docs that name the build they were written against. Each is one line
@@ -87,6 +94,13 @@ def main() -> int:
     check("negative control: a changelog heading is found",
           CHANGELOG_VERSION.search("## [0.1.0] - 2026-09-11\n") is not None,
           "CHANGELOG_VERSION no longer matches a release heading")
+    check("negative control: a Changed group is found",
+          CHANGED_GROUP.search("### Fixed\n\n- one\n\n### Changed\n\n- two\n") is not None,
+          "CHANGED_GROUP no longer matches a Changed group")
+    check("negative control: a required game version is found",
+          REQUIRES_GAME.search("Requires 7 Days to Die V3.2, the same as 0.1.0.\n")
+          is not None,
+          "REQUIRES_GAME no longer matches the line naming the game version")
 
     declared = version_in_modinfo("ModInfo.xml")
     check("ModInfo.xml declares a four-part version", bool(VERSION.match(declared)),
@@ -157,6 +171,33 @@ def main() -> int:
           CHANGELOG_GROUP.search(newest) is not None,
           f"the {semver} entry has no Added/Changed/Fixed/Compatibility "
           "group under it")
+
+    # What a published release says about itself is fixed with the
+    # number, so every release that follows another is held to it for as
+    # long as the changelog is read: the game version it needs, which is
+    # the minimum a player has to know before installing, and a number
+    # that matches what the entry describes. The oldest release is exempt
+    # from the second: it is the one with no predecessor to be compatible
+    # with.
+    releases: list[tuple[str, str]] = []
+    for heading, body in entries:
+        matched = CHANGELOG_VERSION.match(heading)
+        if matched is not None:
+            releases.append((matched.group(1), body))
+    for index, (version, body) in enumerate(releases[:-1]):
+        check(f"the {version} entry names the game version it requires",
+              REQUIRES_GAME.search(body) is not None,
+              "it never says which 7 Days to Die version it needs, so "
+              "somebody on another game version cannot tell whether it "
+              "will load there")
+        earlier = releases[index + 1][0]
+        same_minor = (version.split(".")[:2] == earlier.split(".")[:2])
+        check(f"the {version} entry's bump matches what it describes",
+              not (same_minor and CHANGED_GROUP.search(body)),
+              f"it is a patch over {earlier} and carries a Changed group; a "
+              "behaviour change for a player or a mod author is a minor "
+              "bump, and a patch release that changes behaviour breaks the "
+              "number the player installed")
 
     # Work in progress is written above the newest release, so it reads
     # as not shipped, and it is never left as a heading with nothing
