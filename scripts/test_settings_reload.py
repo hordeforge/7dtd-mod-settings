@@ -16,6 +16,7 @@ A mod without src/ has no settings reader; the gate passes with a note.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -114,16 +115,16 @@ def main() -> int:
           and "error = ex.Message;" in settings
           and "catch (Exception ex)" in settings
           and "catch (Exception)" not in settings)
-    # The staged sibling is named `temp` in TryWrite: the temp file is a
-    # sibling of the target, the replace is what puts it in, and the same
-    # name is unlinked on the failure path (TryDeleteTemp) so a failed save
-    # leaves nothing behind.
+    # The staged sibling is `TomlPath + ".wrench-tmp"` in TryWrite: the
+    # temp file is a sibling of the target, the replace is what puts it
+    # in, and the same name is unlinked on the failure path (TryDeleteTemp)
+    # so a failed save leaves nothing behind.
     check("a save is staged and swapped in, never written over in place",
           "WriteAllText(TomlPath" not in target
-          and 'var temp = path + ".wrench-tmp";' in target
-          and "files.WriteAllText(temp, text, encoding)" in target
-          and "files.Replace(temp, path)" in target
-          and "TryDeleteTemp(temp)" in target)
+          and 'var tempPath = TomlPath + ".wrench-tmp";' in target
+          and "files.WriteAllText(tempPath, newText, encoding)" in target
+          and "files.Replace(tempPath, TomlPath)" in target
+          and "TryDeleteTemp(tempPath)" in target)
     # The mod name comes out of another mod's ModInfo.xml, and this screen
     # writes to the file it names: the path must be resolved, not
     # concatenated. scripts/toml_gate exercises the resolver itself.
@@ -157,12 +158,18 @@ def main() -> int:
           and "handlers = Applied;" in body(settings, "static bool Apply(")
           and "Invoke()" not in body(settings, "static bool ReloadLocked(")
           and "Invoke()" not in body(settings, "static bool ApplyMissingFileDefaults("))
+    # `File.` is the static call, not every type name that ends in it:
+    # TomlFile.ReadAllText is this mod's own reader. Anchor the match to a
+    # member access so the gate still fires on System.IO.File.WriteAllText.
+    def calls_static_file(name: str) -> bool:
+        return re.search(r"(?<!\w)File\.", code_of(name)) is not None
+
     check("the shipped sources touch a disk only through the two seams",
           "interface IFileSystem" in files
           and "class SystemFileSystem : IFileSystem" in files
           and "static IFileSystem Current { get; set; }" in files
-          and "File." not in code_of("ModSettings.cs")
-          and "File." not in code_of("TargetMod.cs"))
+          and not calls_static_file("ModSettings.cs")
+          and not calls_static_file("TargetMod.cs"))
 
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0

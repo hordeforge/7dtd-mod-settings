@@ -127,7 +127,7 @@ class GameTelnet:
             raise TelnetError("not connected")
         try:
             data = self._sock.recv(65536)
-        except socket.timeout:
+        except TimeoutError:
             return ""
         except OSError as exc:
             raise TelnetError(f"reading from the console failed: {exc}") from exc
@@ -144,8 +144,9 @@ class GameTelnet:
         """
         end = time.monotonic() + seconds
         collected = ""
-        if self._sock is not None:
-            self._sock.settimeout(0.3)
+        sock = self._sock
+        if sock is not None:
+            sock.settimeout(0.3)
             while time.monotonic() < end:
                 try:
                     chunk = self._recv() if self._readable() else ""
@@ -157,8 +158,8 @@ class GameTelnet:
                     end = time.monotonic() + seconds
                 else:
                     time.sleep(0.05)
-            if self._sock is not None and not self.closed_by_server:
-                self._sock.settimeout(self.timeout)
+            if not self.closed_by_server:
+                sock.settimeout(self.timeout)
         self._buffer += collected
         return collected
 

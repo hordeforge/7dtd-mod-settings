@@ -19,6 +19,7 @@ reads files and nothing else: no clock, no git, no iteration order.
 
 from __future__ import annotations
 
+import itertools
 import os
 import re
 import sys
@@ -105,7 +106,7 @@ def main() -> int:
     order = [tuple(int(part) for part in version.split("."))
              for version, _ in changelog]
     check("CHANGELOG.md is newest first",
-          all(later > earlier for later, earlier in zip(order, order[1:])),
+          all(later > earlier for later, earlier in itertools.pairwise(order)),
           "a release heading is out of order")
 
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
