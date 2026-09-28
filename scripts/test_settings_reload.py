@@ -142,20 +142,20 @@ def main() -> int:
           and "error = ex.Message;" in settings
           and "catch (Exception ex)" in settings
           and "catch (Exception)" not in settings)
-    # TryWrite stages the sibling `TomlPath + ".wrench-tmp"` in the same
-    # folder as the target, writes it through the seam, and puts it in place
-    # with an atomic replace that retries while the target's own settings
-    # watch holds the file; the same name is unlinked on the failure path
-    # (TryDeleteTemp), so a failed save leaves nothing behind. The read half
-    # of the same save goes through the seam too, so a simulated run drives
-    # the read and the write of one save on one filesystem.
+    # The staged sibling is named in TryWrite: the temp file is a sibling
+    # of the target, the replace is what puts it in, and the same name is
+    # unlinked on the failure path (TryDeleteTemp) so a failed save leaves
+    # nothing behind. Held against TryWrite's own body, not the whole file,
+    # so a call that reached the target directly cannot hide outside it.
+    write = body(target, "static bool TryWrite(")
     check("a save is staged and swapped in, never written over in place",
-          "WriteAllText(TomlPath" not in target
-          and 'var tempPath = TomlPath + ".wrench-tmp";' in target
-          and "files.WriteAllText(tempPath, newText, encoding)" in target
-          and "files.Replace(tempPath, TomlPath)" in target
-          and "if (attempt >= ReplaceAttempts)" in target
-          and "TryDeleteTemp(tempPath)" in target)
+          write != ""
+          and "WriteAllText(path" not in write
+          and 'var temp = path + ".wrench-tmp";' in write
+          and "files.WriteAllText(temp, text, encoding)" in write
+          and "files.Replace(temp, path)" in write
+          and "files.Move(temp, path)" in write
+          and "TryDeleteTemp(temp)" in write)
     # The mod name comes out of another mod's ModInfo.xml, and this screen
     # writes to the file it names: the path must be resolved, not
     # concatenated. scripts/toml_gate exercises the resolver itself.

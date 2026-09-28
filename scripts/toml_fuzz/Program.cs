@@ -323,8 +323,7 @@ static class Program
 			// The flat reader is the same grammar; it must not be more
 			// permissive than the document reader.
 			List<TomlSettings.Entry> flat;
-			string flatError;
-			if (TomlSettings.TryRead(text, out flat, out flatError))
+			if (TomlSettings.TryRead(text, out flat, out _))
 				Report("TryRead accepted what TryReadDocument refused");
 			return;
 		}
@@ -429,10 +428,7 @@ static class Program
 			// Every value the screen offers has to be writable; anything the
 			// reader accepts as a value and the writer refuses is a value the
 			// screen can show and not save.
-			string normalized;
-			TomlSettings.ValueKind kind;
-			string parseError;
-			if (TomlEdit.TryParseRawValue(raw, out normalized, out kind, out parseError))
+			if (TomlEdit.TryParseRawValue(raw, out _, out _))
 				Report("a value the reader accepts is refused by the editor: " + Escape(raw)
 					+ " (" + (error ?? "") + ")");
 			return;
