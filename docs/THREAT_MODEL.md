@@ -14,6 +14,8 @@ Point vulnerabilities belong to `sec-review`, per-endpoint authorization to
 map those reviews aim at.
 
 Last reviewed: 2026-09-28, against the mod version `0.3.0.0` (`ModInfo.xml:7`).
+Every `path:line` reference below was re-resolved against the code on that
+date, so a drifted reference is a defect this document does not have.
 
 ## Third-party dependencies
 
@@ -44,11 +46,12 @@ base assumption for every entry point except the telnet console.
 | 1 | Unbounded parser work on third-party TOML: `TomlSettings` is a hand-written parser fed other mods' text on the UI thread, with no size or nesting cap | B2 (installed mod content → game process) | Mod author, or anyone editing a mod's config on disk | UI thread stall, the mod becomes unmanageable in-game | none; see T-3 |
 | 2 | Arbitrary setting change from the telnet console: `wrench set` performs no sender or permission check | B3 (network console → process) | Anyone who reaches the telnet port and knows the shared password | Mod behaviour changes without the in-game path | no authz in Wrench; M-17 records the actor; see T-2 |
 | 3 | A hostile TOML document declares an encoding or a byte order mark the naive path would mangle; the file this mod does not own is written back | B2 | Mod author, or a file copied between machines | Silent corruption of a third party's config outside the edited span | partial; see M-7, T-6 |
-| 4 | Config destruction by a stale or wrong span: a value edit is applied to whatever the file holds at write time | B1 (player → Wrench → disk) | Local, concurrent config writer (config tool, the mod itself, a second client) | A neighbouring key is silently rewritten and the whole file is written back over someone else's save | controls present; see M-1, M-2, M-3 |
-| 5 | A mod's own settings file drives live behaviour with no integrity check beyond the TOML grammar | B2 (this mod's `Config/Wrench.toml`) | Anyone with write access to the install folder | Wrench's own behaviour changes on the next poll, no restart | partial; see M-4 |
-| 6 | A hostile mod's assembly is reflected over (`GetTypes()`) to decide its hot-reload label | B2 | Mod author | Wrench's decision quality only; assembly loading happens in the mod loader, not here | contained; see T-4 |
-| 7 | Setting values and full config paths are written to the game log | B2 (third-party config → host log) | Anyone who can read the game log | Values of a mod this mod does not own become readable to whoever holds the log | see T-7 |
-| 8 | Deployment tooling writes into the live game install and server, and holds machine paths in `.local.env` | B4 (tooling → filesystem) | Local | A mistaken deploy overwrites a working mod copy; `rollback-server` exists for that | controls present; see M-5 |
+| 4 | Any mod can log a line containing the reload marker and have Wrench report its settings as applied live when they were not | B2 (mod log output → screen status) | Mod author, or anyone who can write to the game log | A false status line; no write is affected | none; see T-8 |
+| 5 | Config destruction by a stale or wrong span: a value edit is applied to whatever the file holds at write time | B1 (player → Wrench → disk) | Local, concurrent config writer (config tool, the mod itself, a second client) | A neighbouring key is silently rewritten and the whole file is written back over someone else's save | controls present; see M-1, M-2, M-3 |
+| 6 | A mod's own settings file drives live behaviour with no integrity check beyond the TOML grammar | B2 (this mod's `Config/Wrench.toml`) | Anyone with write access to the install folder | Wrench's own behaviour changes on the next poll, no restart | partial; see M-4 |
+| 7 | A hostile mod's assembly is reflected over (`GetTypes()`) to decide its hot-reload label | B2 | Mod author | Wrench's decision quality only; assembly loading happens in the mod loader, not here | contained; see T-9 |
+| 8 | Setting values and full config paths are written to the game log | B2 (third-party config → host log) | Anyone who can read the game log | Values of a mod this mod does not own become readable to whoever holds the log | see T-7 |
+| 9 | Deployment tooling writes into the live game install and server, and holds machine paths in `.local.env` | B4 (tooling → filesystem) | Local | A mistaken deploy overwrites a working mod copy; `rollback-server` exists for that | controls present; see M-5 |
 
 T-1 (path construction from a third-party mod's name) was ranked the top threat
 at the previous review and is no longer on this list: `ModTomlPath` now resolves
@@ -56,8 +59,8 @@ the name rather than concatenating it, and the resolved path is asserted to stay
 inside the mod folder. It is recorded below as M-14 so the control, and the
 reason it exists, stay visible.
 
-T-3 and T-2 have no mitigation in the code today. They are recorded here for
-`sec-review` and `authz-review` to take; this document does not fix them.
+T-3, T-2, and T-8 have no mitigation in the code today. They are recorded here
+for `sec-review` and `authz-review` to take; this document does not fix them.
 
 ## Attack surface inventory
 
@@ -65,17 +68,19 @@ Entry points, in the order data reaches the process.
 
 | Entry point | Kind | Source | Handling | Reference |
 |---|---|---|---|---|
-| Mod Settings options page | UI (keyboard, mouse, gamepad) | Local player | Per-row pooled controllers, value written on Enter | `src/Wrench/ModSettingsScreen.cs:25`, `src/Wrench/ModSettingsRows.cs:68` |
+| Mod Settings options page | UI (keyboard, mouse, gamepad) | Local player | Per-row pooled controllers, value written on Enter | `src/Wrench/ModSettingsScreen.cs:24`, `src/Wrench/ModSettingsRows.cs:80` |
+| The game log while the screen is open | Callback on every log line the process emits | Every mod in the process, and the console | `Log.LogCallbacks` subscription, substring match on the target's reload marker, latch cleared on close | `src/Wrench/ModSettingsScreen.cs:121`, `src/Wrench/ModSettingsScreen.cs:284`, `src/Wrench/TargetMod.cs:171` |
 | `wrench` console command | CLI, in-game console and dedicated-server telnet over TCP | Local player, or a network peer on the telnet port | Fixed subcommand grammar, name/value pair, output to `SdtdConsole`, every outcome logged with the sender | `src/Wrench/ConsoleCmdWrench.cs:40` |
 | `Config/Wrench.toml` (this mod's own settings) | File, polled at runtime | Install folder | mtime/length watch through the filesystem seam, debounce, TOML-subset parse, name lookup | `src/Wrench/ModSettings.cs:93`, `src/Wrench/ModSettings.cs:213` |
-| `Config/<Mod>.toml` (every other mod with one) | File, discovered and written | Install folder, third-party content | Path resolved and containment-checked, then discovered, parsed, listed; written only on an explicit user edit | `src/Wrench/TargetModDiscovery.cs:67`, `src/Wrench/ModTomlPath.cs:24` |
+| `Config/<Mod>.toml` (every other mod with one) | File, discovered and written | Install folder, third-party content | Path resolved and containment-checked, then discovered, parsed, listed; written only on an explicit user edit | `src/Wrench/TargetModDiscovery.cs:62`, `src/Wrench/ModTomlPath.cs:24` |
 | A third-party mod's declared name | Field of third-party content, becomes a path | `ModInfo.xml` of an installed mod | Checked for being one plain file name, then the composed path must resolve under the mod's `Config` directory | `src/Wrench/ModTomlPath.cs:38`, `src/Wrench/ModTomlPath.cs:49` |
-| Other mods' managed assemblies | Reflection | Install folder, third-party content | `GetTypes()`, then a name and field lookup, result memoized per mod path | `src/Wrench/TargetModDiscovery.cs:129` |
-| The filesystem seam | The one path to a disk, in this mod | Callers inside the mod | Staging sibling created exclusively after an unlink, `File.Replace`, `Flush(true)`, shared-access opens | `src/Wrench/ModFileSystem.cs:158`, `src/Wrench/ModFileSystem.cs:178` |
-| A config file's declared encoding and byte order mark | File bytes | Install folder, third-party content | Decoded as the bytes declare, re-encoded as they were read, so a save is byte-faithful outside the edited span | `src/Wrench/ModFileSystem.cs:136`, `src/Wrench/ModFileText.cs:1` |
-| `Config/XUi_Menu/*.xml`, `Config/items.xml` | Config file parsed by the engine at load | This repo (trusted), or a player-edited install | XPath patch, loaded by `ModManager`; Wrench does not parse it | `Config/XUi_Menu/windows.xml:1`, `Config/XUi_Menu/xui.xml:1` |
+| Other mods' managed assemblies | Reflection | Install folder, third-party content | `GetTypes()`, then a name and field lookup, result memoized per mod path | `src/Wrench/TargetModDiscovery.cs:141` |
+| The filesystem seam | The one path to a disk, in this mod | Callers inside the mod | Staging sibling created exclusively after an unlink, `File.Replace`, `Flush(true)`, shared-access opens | `src/Wrench/ModFileSystem.cs:158`, `src/Wrench/ModFileSystem.cs:181` |
+| A config file's declared encoding and byte order mark | File bytes | Install folder, third-party content | Decoded as the bytes declare, re-encoded as they were read, so a save is byte-faithful outside the edited span | `src/Wrench/ModFileSystem.cs:136`, `src/Wrench/ModFileText.cs:19` |
+| `Config/XUi_Menu/*.xml` | Config file parsed by the engine at load | This repo (trusted), or a player-edited install | XPath patch, loaded by `ModManager`; Wrench does not parse it | `Config/XUi_Menu/windows.xml:1`, `Config/XUi_Menu/xui.xml:1` |
+| `Config/Localization.csv` | Data file parsed by the engine at load | This repo (trusted), or a player-edited install | Read by the engine, not by Wrench; `WrenchText.Get` falls back to the English string in code when a key is missing or a dictionary hands the key back | `src/Wrench/WrenchText.cs:36` |
 | `scripts/build.sh`, `deploy-server.sh`, `install-server.sh` | Local tooling, writes outside the repo | Developer | Allowlist staging, staged copy then replace, `steamcmd ... validate` | `scripts/build.sh:67`, `scripts/deploy-server.sh:127` |
-| `scripts/lib/game_telnet.py` | Network client, TCP to the telnet console | Development server | Shared password held in memory only | `scripts/lib/game_telnet.py:60` |
+| `scripts/lib/game_telnet.py` | Network client, TCP to the telnet console | Development server | Shared password held in memory only | `scripts/lib/game_telnet.py:65` |
 | `scripts/playtest/` provider mod | Code injected into the running game | Development tooling | Scenario provider, `[InternalsVisibleTo("WrenchPlaytest")]` | `src/Wrench/ModApi.cs:6`, `scripts/playtest/Source/WrenchPlaytest.cs:24` |
 | `.github/workflows/ci.yml` | Build/CI, runs on every PR | GitHub | Actions pinned by commit SHA, `permissions: contents: read`, no secrets used | `.github/workflows/ci.yml:7`, `.github/workflows/ci.yml:22` |
 | `.local.env` | Local config carrying machine paths | Developer | Gitignored, loaded through `scripts/local-env.sh` and `scripts/lib/local_env.py` | `.gitignore:5`, `.local.env.example:1` |
@@ -95,12 +100,14 @@ boundary at all: whoever can use the game's process owns the writes. The
 boundary is therefore exactly the operating-system account.
 
 **B2 — installed mod content to the Wrench process.** Mods are third-party
-code and data of unknown provenance. Four crossings: the hand-written TOML
+code and data of unknown provenance. Five crossings: the hand-written TOML
 parser fed text from other mods' `Config/<Mod>.toml`
-(`src/Wrench/TomlSettings.cs:26`), the target path resolved from a mod's own
+(`src/Wrench/TomlSettings.cs:25`), the target path resolved from a mod's own
 declared name (`src/Wrench/ModTomlPath.cs:24`), that file's declared encoding
-and byte order mark (`src/Wrench/ModFileSystem.cs:136`), and reflection over a
-mod's assemblies (`src/Wrench/TargetModDiscovery.cs:129`). This is the boundary
+and byte order mark (`src/Wrench/ModFileSystem.cs:136`), reflection over a
+mod's assemblies (`src/Wrench/TargetModDiscovery.cs:141`), and the game log
+while the settings screen is open, which every mod in the process writes to and
+Wrench reads back (`src/Wrench/ModSettingsScreen.cs:284`). This is the boundary
 a hostile mod controls directly.
 
 **B3 — console and telnet to the process.** `ConsoleCmdWrench` is
@@ -134,7 +141,7 @@ ships, which is the control that keeps build-time material (`src/`, `scripts/`,
 | The mod install tree and the game install | Wrench writes into other mod folders, inside the install the game trusts | Corruption costs a reinstall, not the machine: every write target is now asserted to be inside the mod's own `Config` directory (`src/Wrench/ModTomlPath.cs:49`) |
 | The dedicated server's mod folder | `deploy-server.sh` replaces it in place | Server starts with a broken mod config; the replaced copy is kept for rollback (`scripts/deploy-server.sh:153`) |
 | The local machine path inventory in `.local.env` | Names install locations and tool checkouts | Disclosure is information about the host layout, not a credential; it is gitignored (`.gitignore:5`) and enforced by `scripts/test_local_path_inventory.py` |
-| Telnet password | Shared, single-password, no identity | Anyone holding it has the whole server console. Wrench does not store it; `scripts/lib/game_telnet.py:60` holds it in memory for the call |
+| Telnet password | Shared, single-password, no identity | Anyone holding it has the whole server console. Wrench does not store it; `scripts/lib/game_telnet.py:65` holds it in memory for the call |
 | The game log | Carries Wrench's write and console records (T-7) | A log reader learns setting values and the absolute config paths of mods this mod does not own |
 | Player saves and world data | **Not touched by Wrench.** It never opens a world, save, or player profile | none |
 
@@ -152,7 +159,7 @@ STRIDE classes that apply, tied to the entry points above.
   a stale row landing on a neighbouring key is the real risk; the controls are
   M-1, M-2, and M-3.
 - Denial of service, local: an edit that cannot be relocated refuses the write
-  rather than guessing (`src/Wrench/TargetMod.cs:440`). The failure mode is a
+  rather than guessing (`src/Wrench/TargetMod.cs:498`). The failure mode is a
   refusal message, not data loss.
 - Concurrent writers inside one process are serialized by a per-path gate held
   around the whole read-modify-write (`src/Wrench/TargetMod.cs:80`); the
@@ -175,7 +182,7 @@ STRIDE classes that apply, tied to the entry points above.
   (`src/Wrench/ModTomlPath.cs:49`). The second check is what makes the first a
   guarantee, and both run on every platform, because a modlet written on one
   machine runs on another. A mod that fails either is skipped with a log line
-  naming the reason (`src/Wrench/TargetModDiscovery.cs:85`).
+  naming the reason (`src/Wrench/TargetModDiscovery.cs:77`).
 - T-6: tampering outside the edited span, through encoding. A target file is
   read as its bytes declare and written back in the same encoding, byte order
   mark included (`src/Wrench/ModFileSystem.cs:136`), because a decoder whose
@@ -188,8 +195,8 @@ STRIDE classes that apply, tied to the entry points above.
 - Repudiation: a write leaves a game-log line naming the mod, the key, the
   value, and the path (`src/Wrench/ModSettingsScreen.cs:210`). It does not name
   the local account or the player, and there is no separate audit log.
-- T-4: reflection over a third-party assembly
-  (`src/Wrench/TargetModDiscovery.cs:129`). `GetTypes()` runs a loader for
+- T-9: reflection over a third-party assembly
+  (`src/Wrench/TargetModDiscovery.cs:141`). `GetTypes()` runs a loader for
   every type in the assembly, and `ReflectionTypeLoadException` handling already
   anticipates assemblies that cannot load. The effect on Wrench is bounded to a
   wrong status label (the `wrenchNoteLive` versus `wrenchNoteRestart` note under
@@ -197,7 +204,20 @@ STRIDE classes that apply, tied to the entry points above.
   `ModSettings` with a field named `FilePollIntervalSeconds` is enough to be
   labelled hot-reloading, which is a false label, not a wrong write. An
   inconclusive answer is not memoized, so a load failure is asked again
-  (`src/Wrench/TargetModDiscovery.cs:47`).
+  (`src/Wrench/TargetModDiscovery.cs:55`).
+- T-8: spoofing, through the reload status. After a save to a hot-reloading
+  mod, the screen subscribes to `Log.LogCallbacks`
+  (`src/Wrench/ModSettingsScreen.cs:121`) and treats any line containing
+  `"reload Config/<Mod>.toml"` as proof that the mod re-read its file
+  (`src/Wrench/ModSettingsScreen.cs:284`, marker built at
+  `src/Wrench/TargetMod.cs:171`). The match is a plain substring over every
+  line any mod in the process writes, and nothing ties the line to the mod it
+  claims. A mod that logs a line carrying another mod's marker, or its own
+  marker on demand, gets Wrench to report "applied live" for a save that never
+  took effect. The impact is a false status line, and the timeout bounds it in
+  the other direction too (`src/Wrench/ModSettingsScreen.cs:31`). The write
+  path does not read this latch, so no save is affected. There is no
+  mitigation today.
 
 **B3 (console and telnet).**
 - T-2: elevation of privilege. `wrench set` changes a running setting for
@@ -217,7 +237,7 @@ STRIDE classes that apply, tied to the entry points above.
   `src/Wrench/ConsoleCmdWrench.cs:60`). The gap that remains is identity, not
   the record: on telnet there is no per-user name to record.
 - Information disclosure: `wrench settings` prints current values to the
-  console (`src/Wrench/ModSettings.cs:434`), which for Wrench today is one
+  console (`src/Wrench/ModSettings.cs:420`), which for Wrench today is one
   boolean and for a config-heavy target mod would be the whole config.
 
 **B4/B5 (tooling and build).**
@@ -232,15 +252,15 @@ Existing controls, mapped to the threats they cover.
 
 | # | Control | Covers | Reference |
 |---|---|---|---|
-| M-1 | A value edit is validated against the shared TOML-subset grammar before anything is written | T-3, T-4 | `src/Wrench/TomlEdit.cs:30` |
+| M-1 | A value edit is validated against the shared TOML-subset grammar before anything is written | T-3, T-4 | `src/Wrench/TomlEdit.cs:30`, `src/Wrench/TomlEdit.cs:35` |
 | M-2 | The whole candidate file is re-parsed and checked to keep every key, in order, and to change no unrelated value | T-4, T-6 | `src/Wrench/TomlEdit.cs:128`, `src/Wrench/TomlEdit.cs:139` |
-| M-3 | A stale row is relocated by key name on the file as it is now, and an ambiguous or vanished key refuses the edit | T-4 | `src/Wrench/TargetMod.cs:244`, `src/Wrench/TargetMod.cs:417` |
-| M-4 | Writes go to a staging sibling and are swapped in with an atomic replace, retried while the target's own watch holds the file; the staging name is removed on every failing path | T-4, availability | `src/Wrench/TargetMod.cs:330`, `src/Wrench/TargetMod.cs:338` |
-| M-5 | A file Wrench cannot parse is listed as unreadable and never written to | T-3, T-4 | `src/Wrench/TargetMod.cs:185`, `src/Wrench/ModSettingsRows.cs:51` |
-| M-6 | Every read is wrapped; a mod that cannot be inspected is skipped with a log line instead of taking the screen down | availability | `src/Wrench/TargetMod.cs:447`, `src/Wrench/TargetModDiscovery.cs:80` |
+| M-3 | A stale row is relocated by key name on the file as it is now, and an ambiguous or vanished key refuses the edit | T-4 | `src/Wrench/TargetMod.cs:244`, `src/Wrench/TargetMod.cs:475` |
+| M-4 | Writes go to a staging sibling and are swapped in with an atomic replace, retried while the target's own watch holds the file; the staging name is removed on every failing path | T-4, availability | `src/Wrench/TargetMod.cs:347`, `src/Wrench/TargetMod.cs:368` |
+| M-5 | A file Wrench cannot parse is listed as unreadable and never written to | T-3, T-4 | `src/Wrench/TargetMod.cs:185`, `src/Wrench/ModSettingsRows.cs:50` |
+| M-6 | Every read is wrapped; a mod that cannot be inspected is skipped with a log line instead of taking the screen down | availability | `src/Wrench/TargetMod.cs:240`, `src/Wrench/TargetModDiscovery.cs:88` |
 | M-7 | A target file is decoded as its bytes declare and written back in that encoding, byte order mark included, and a decoder whose text is written back refuses bytes invalid in the encoding they claim | T-6 | `src/Wrench/ModFileSystem.cs:136`, `src/Wrench/ModFileSystem.cs:160` |
 | M-8 | A broken settings file keeps the current values rather than resetting to defaults, and the reload is debounced so a half-written save is not read | T-3 | `src/Wrench/ModSettings.cs:252`, `src/Wrench/ModSettings.cs:213` |
-| M-9 | UI rows come from a fixed pool, and a mod with more settings than rows is reported rather than growing the widget tree without bound | T-3 | `src/Wrench/ModSettingsScreen.cs:310`, `src/Wrench/ModSettingsScreen.cs:315` |
+| M-9 | UI rows come from a fixed pool, and a mod with more settings than rows is reported rather than growing the widget tree without bound | T-3 | `src/Wrench/ModSettingsScreen.cs:302`, `src/Wrench/ModSettingsScreen.cs:315` |
 | M-10 | Only a declared setting name is applied, and only a parsed bool is accepted for it; unknown names change nothing | T-2 | `src/Wrench/ModSettings.cs:366`, `src/Wrench/ModSettings.cs:398` |
 | M-11 | Staging is an allowlist, so build-time material is not shippable | B5 | `scripts/build.sh:67` |
 | M-12 | Server deploy stages a copy and keeps the one it replaced; `make rollback-server` restores it | T-5 | `scripts/deploy-server.sh:127`, `scripts/deploy-server.sh:153` |
@@ -254,7 +274,7 @@ Existing controls, mapped to the threats they cover.
 M-14, M-15, M-16, and M-17 are the controls the previous review's top-ranked
 threats asked for, and each is gated offline rather than asserted here:
 `scripts/toml_gate/Program.cs:476` exercises the resolver, `scripts/toml_fuzz/Program.cs:519`
-fuzzes it, and `scripts/test_settings_reload.py:210` holds both the
+fuzzes it, and `scripts/test_settings_reload.py:164` holds both the
 containment and the staging-name contract.
 
 ### Gaps
@@ -274,7 +294,11 @@ Threats with no mitigation, in the order the summary ranks them.
    trade for a local mod: a silent write is worse than a readable log
    (`src/Wrench/ModSettingsScreen.cs:208` says so). It does mean a mod's values
    are readable by whoever holds the log.
-5. **No signature or provenance check on mod content.** Wrench trusts every
+5. **T-8, the reload status is spoofable by any mod that logs.** The marker
+   match takes no sender and the log callback carries none, so nothing in the
+   code can tell the mod's own reload line from another mod's. Status line
+   only; a save is not affected.
+6. **No signature or provenance check on mod content.** Wrench trusts every
    installed mod's files, exactly as the game does. This is a deliberate
    acceptance, matching the engine's own model, not an oversight.
 
@@ -285,11 +309,27 @@ this document. The previous revision overstated its own risk, which is the same
 defect in the other direction: it named a threat as unmitigated that the code
 had already closed, and cited line numbers that had since moved.
 
+- The previous revision listed `Config/items.xml` among the parsed config
+  files. Nothing in the repo ships one: the empty placeholder was dropped, and
+  the build stages `Config/` as a whole, so what the engine parses is
+  `Config/XUi_Menu/*.xml` and `Config/Localization.csv`. The row is corrected
+  to the files that exist, and `Localization.csv` is named as its own entry
+  point because `WrenchText.Get` reads it through the engine.
+- The previous revision's line references had drifted: 24 of them pointed at
+  a line that no longer holds the construct they claimed (for instance the
+  `GetTypes()` call, the staging `WriteAllText`, the containment check). Every
+  reference in this document was re-resolved against the code in this pass.
+- The previous revision had no entry point for the game's log while the
+  screen is open, and no threat for it. `ModSettingsScreen` subscribes to
+  `Log.LogCallbacks` and substring-matches a marker the target mod's own log
+  line is expected to carry, which makes the log an input from every mod in
+  the process. Recorded as T-8.
+
 - The previous revision claimed the third-party mod name "is concatenated into
   a path" with "nothing checks that the result stays inside `mod.Path`". The
   code resolves it through `ModTomlPath.TryResolve` and asserts containment
   (`src/Wrench/ModTomlPath.cs:49`); the call site says so in its own comment
-  ("resolved, never concatenated", `src/Wrench/TargetModDiscovery.cs:61`). The
+  ("resolved, never concatenated", `src/Wrench/TargetModDiscovery.cs:69`). The
   claim is withdrawn and the control recorded as M-14.
 - It claimed `ConsoleCmdWrench` "does not consult its `CommandSenderInfo` at
   all". It reads it for the log line (`src/Wrench/ConsoleCmdWrench.cs:90`). The
@@ -307,7 +347,7 @@ had already closed, and cited line numbers that had since moved.
     edits through an authenticated channel as deliberately not built
     (`README.md:37`), so the two agree.
   - The hot-reload label is a heuristic, matched by type and field name
-    (`src/Wrench/TargetModDiscovery.cs:129`), and the code says so where it is
+    (`src/Wrench/TargetModDiscovery.cs:141`), and the code says so where it is
     used. It affects a status line only, never a write.
 
 ### Single points of failure
@@ -321,11 +361,14 @@ had already closed, and cited line numbers that had since moved.
   is being fixed.
 - `ModFileSystem` is the only path to a disk in this mod, so every read, every
   staging write, and the encoding round trip are decided in one file
-  (`src/Wrench/ModFileSystem.cs:203`). A defect there is a defect in the whole
+  (`src/Wrench/ModFileSystem.cs:212`). A defect there is a defect in the whole
   B1 and B2 write path.
 - Telnet's single shared password is the whole authentication story on a
   dedicated server. Wrench adds nothing to it and cannot weaken it, but every
   B3 threat sits behind it.
+- The reload status has one decision point, `_message.Contains(marker)` in
+  `OnLogLine` (`src/Wrench/ModSettingsScreen.cs:284`). Nothing else about a log
+  line is checked, so the whole of T-8 rests on that one call.
 
 ## Abuse cases
 
@@ -348,7 +391,7 @@ would walk, named so a review can check them.
 3. **A second writer races a save.** A config tool saves between Wrench's read
    and its write. M-3 turns the worst outcome into a refusal, and the refusal
    message names the cause ("it changed outside Wrench",
-   `src/Wrench/TargetMod.cs:440`). A save that lands between the relocation and
+   `src/Wrench/TargetMod.cs:498`). A save that lands between the relocation and
    the write is the residual window M-3 does not close; M-16 closes the same
    race between writers inside one process.
 4. **A mod declares an encoding its bytes do not honour.** The read is refused
@@ -360,12 +403,19 @@ would walk, named so a review can check them.
    screen shows values from the last parse; the write goes to the file as it is
    now. M-2 verifies the result against that same current text, so a key that
    moved meaning is caught only as a parse or key-count failure.
+6. **A mod fakes a reload.** A mod that watches the log learns a player just
+   saved to another mod, or simply logs `"reload Config/<Other>.toml"` on a
+   timer. The screen's substring match
+   (`src/Wrench/ModSettingsScreen.cs:284`) cannot tell whose line it is, so the
+   status reads "applied live" for a file the mod never re-read. The player is
+   sent looking for an effect that does not exist; the value on disk is the one
+   Wrench wrote either way.
 
 The abuse cases the previous revision listed under a closed threat, a mod named
 for a parent directory rewriting a file outside its folder, no longer has a
 code path: `ModTomlPath` refuses such a name before it is ever composed
 (`src/Wrench/ModTomlPath.cs:38`), and the mod is skipped with a reason
-(`src/Wrench/TargetModDiscovery.cs:85`). It stays here as a regression case
+(`src/Wrench/TargetModDiscovery.cs:77`). It stays here as a regression case
 rather than an open route, and `scripts/toml_gate/Program.cs:476` exercises it.
 
 No client-side-only enforcement exists to trust wrongly: there is no
@@ -390,12 +440,18 @@ invented here.
   its refusal, naming mod, key, value, and path
   (`src/Wrench/ModSettingsScreen.cs:210`); the per-problem line for the
   settings watch (`src/Wrench/ModSettings.cs:287`); the per-mod skip line
-  (`src/Wrench/TargetModDiscovery.cs:85`); and every console subcommand with its
+  (`src/Wrench/TargetModDiscovery.cs:77`); and every console subcommand with its
   sender (`src/Wrench/ConsoleCmdWrench.cs:74`). There is no structured security
   event and no separate audit log. Log structure belongs to `o11y-review`; what
   is recorded here is that a settings write names the mod, the key, the value,
   the path, and the outcome, but not the local account or the player, so a write
   is traceable to a mod's config and not to a person.
+- The same log is an input, not only an output: the screen reads it back to
+  confirm a reload (T-8), and the callback carries no sender, so a log line an
+  operator would take for the target mod's is not attributable to it. Every
+  log line this mod writes is prefixed `[Wrench]`
+  (`src/Wrench/ModApi.cs:12`); the lines it reads back are not, and the marker
+  match does not check for the prefix either.
 - A gap in offline coverage worth naming: the TOML gate and fuzz harness need a
   .NET SDK, so on a machine without one, T-3, T-4, and T-6 are enforced by
   nothing at all (`scripts/test_toolchain_floor.py` records the requirement).
