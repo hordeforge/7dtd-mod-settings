@@ -1,7 +1,12 @@
 {
+  // The SDK that compiles the shipped Wrench.dll. rollForward stays inside
+  // the 8.0 feature band: a patch or feature update may roll forward, a new
+  // major may not, because Roslyn's emitted metadata changes with the major
+  // and two machines then build different bytes from the same source. The
+  // two TOML round-trip gates compile against the same resolver.
   "sdk": {
     "version": "8.0.100",
-    "rollForward": "latestMajor",
+    "rollForward": "latestFeature",
     "allowPrerelease": false
   }
 }

@@ -48,8 +48,14 @@ if [[ -d "$SRC" && "${WRENCH_SKIP_DLL:-0}" != "1" ]]; then
 	# in the middle of a build log.
 	sdks="$("$DOTNET" --list-sdks 2>/dev/null || true)"
 	[[ -n "$sdks" ]] || { echo "ERROR: no .NET SDK found; $DOTNET is a runtime-only install. Install the .NET SDK (https://aka.ms/dotnet/download) and put it on PATH." >&2; exit 1; }
+	# ContinuousIntegrationBuild normalizes the source paths the compiler
+	# embeds (the SDK's PathMap), so the checkout's absolute directory does
+	# not reach the shipped DLL. DebugType is already none, so this is the
+	# whole of the build-path leak, and it is the C# answer to
+	# -ffile-prefix-map.
 	"$DOTNET" build "$SRC/$MOD_NAME.csproj" -c Release -o "$OUT" \
-		-p:GameManagedDir="$MANAGED" -p:HarmonyPath="$HARMONY"
+		-p:GameManagedDir="$MANAGED" -p:HarmonyPath="$HARMONY" \
+		-p:ContinuousIntegrationBuild=true
 fi
 
 cp "$ROOT/ModInfo.xml" "$OUT/ModInfo.xml"
@@ -63,6 +69,18 @@ for entry in Config Prefabs Resources UIAtlases WebMod; do
 		cp -R "$ROOT/$entry" "$OUT/$entry"
 	fi
 done
+
+# `cp -R` copies every file under the mod content directories, including the
+# ones no `git status` lists: a macOS .DS_Store, a Thumbs.db, an editor's
+# *~ or a patch's .orig all shipped inside the release zip. A package gate
+# that reads the archive (or a player unpacking it) has to see only what the
+# mod declares, so the drop happens before the tree is declared complete.
+JUNK_GLOBS=('.DS_Store' 'Thumbs.db' '*~' '*.bak' '*.orig' '*.rej' '*.swp')
+junk_predicate=()
+for glob in "${JUNK_GLOBS[@]}"; do
+	junk_predicate+=(-o -name "$glob")
+done
+find "$OUT" \( "${junk_predicate[@]:1}" \) -delete
 
 # The staged tree is what the package is made of, and the zip records every
 # entry's unix mode. `cp` creates each file through the builder's umask, so

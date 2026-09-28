@@ -65,9 +65,9 @@ runs, installed with `python3 -m pip install -r requirements-dev.txt` (the
 one place their versions are written down, and what CI installs, so a green
 local run and a green remote run mean the same thing); `shellcheck`; the .NET
 SDK, not just the runtime, for the net48 build and for the two TOML
-round-trip gates inside `make test` (`global.json` pins the floor at
-8.0.100 and rolls forward to a newer major, so a runtime-only install is not
-enough); `ilspycmd` (`dotnet tool install -g ilspycmd`) for patch-target
+round-trip gates inside `make test` (`global.json` pins the SDK to
+8.0.100, rolling forward only inside the 8.0 feature band, so a runtime-only
+install is not enough); `ilspycmd` (`dotnet tool install -g ilspycmd`) for patch-target
 validation, `steamcmd` for the dedicated-server lane.
 
 Machine-local paths (game install, hordeforge tool checkouts) live in the

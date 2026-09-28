@@ -24,6 +24,18 @@ its own numbered heading when the version it ships under is declared.
   the next opening of the screen instead of being remembered as not
   hot-reloading for the rest of the session, and the memoized answers are
   read and filled under one lock.
+- Editor and OS leftovers under a shipped mod content directory
+  (`.DS_Store`, `Thumbs.db`, `*~`, `*.bak`, `*.orig`, `*.rej`, `*.swp`)
+  no longer reach `dist/Wrench.zip`. Staging copied the whole directory,
+  so a file no `git status` lists shipped inside the release package.
+  The package a player extracts is now exactly the mod's own files.
+- The .NET SDK that compiles the DLL is pinned to the 8.0 feature band
+  (`global.json` rolled forward to any newer major, so two machines could
+  build different bytes from the same source). A patch or feature update
+  still rolls forward; a major no longer does.
+- The DLL build maps its source paths out of the output
+  (`ContinuousIntegrationBuild=true`), so the checkout's absolute directory
+  no longer reaches the shipped binary.
 
 ## [0.3.0] - 2026-09-28
 

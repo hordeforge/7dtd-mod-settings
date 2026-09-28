@@ -533,8 +533,10 @@ shipped bytes. Three leaks were there and are now closed:
 - the **toolchain**. The net48 DLL was built by whatever `dotnet` the host
   happened to carry, and the documented `DOTNET_ROOT` inventory key was never
   read by the build, so a machine whose SDK was off `PATH` failed even with
-  the key set. `global.json` now pins the floor (8.0.100, rolling forward to a
-  newer major) and `scripts/build.sh` resolves `dotnet` from `PATH` first,
+  the key set. `global.json` now pins the SDK (8.0.100, rolling forward only
+  inside the 8.0 feature band: a major bump changes Roslyn's emitted metadata,
+  so an unpinned major builds different bytes from the same source) and
+  `scripts/build.sh` resolves `dotnet` from `PATH` first,
   then `$DOTNET_ROOT/dotnet`. The offline gates that compile a C# harness
   resolve it the same way, through `require_dotnet_sdk()` in
   `scripts/lib/local_env.py`, so a machine that keeps its SDK off `PATH`
