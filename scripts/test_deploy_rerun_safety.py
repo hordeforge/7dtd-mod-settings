@@ -35,30 +35,12 @@ import tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate_report import check, result
 from local_env import mod_dir
+from modlet_tree import stage_modlet
 
 MOD_DIR = str(mod_dir())
 DEPLOY = os.path.join(MOD_DIR, "scripts", "deploy-server.sh")
 SERVER_BINARY = "7DaysToDieServer.x86_64"
 SENTINEL = "first-deployment.marker"
-
-
-def stage_tree(root: str) -> str:
-    """A copy of the modlet the deploy script can run against.
-
-    `src/` is left out on purpose: the deploy is about the swap, and
-    building the DLL needs the game install this gate has none of.
-    """
-    tree = os.path.join(root, "Wrench")
-    os.makedirs(tree)
-    for name in ("ModInfo.xml", "README.txt"):
-        shutil.copy(os.path.join(MOD_DIR, name), os.path.join(tree, name))
-    shutil.copytree(os.path.join(MOD_DIR, "Config"),
-                    os.path.join(tree, "Config"),
-                    ignore=shutil.ignore_patterns("__pycache__"))
-    shutil.copytree(os.path.join(MOD_DIR, "scripts"),
-                    os.path.join(tree, "scripts"),
-                    ignore=shutil.ignore_patterns("__pycache__", "dist", "bin", "obj"))
-    return tree
 
 
 def stage_server(root: str) -> str:
@@ -179,7 +161,7 @@ def main() -> int:
 
     root = tempfile.mkdtemp(prefix="test-deploy-rerun-")
     try:
-        tree = stage_tree(root)
+        tree = stage_modlet(root, "Wrench")
         server = stage_server(root)
         deployed = os.path.join(server, "Mods", "Wrench")
         deploy_dir = os.path.join(server, ".wrench-deploy")

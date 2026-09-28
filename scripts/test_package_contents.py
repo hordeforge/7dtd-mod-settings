@@ -30,9 +30,8 @@ import zipfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate_report import check, result
-from local_env import mod_dir
+from modlet_tree import stage_modlet
 
-MOD_DIR = str(mod_dir())
 ZIP_NAME = "Wrench.zip"
 
 # Everything the modlet is made of. Listed here rather than derived from the
@@ -66,26 +65,6 @@ def mode_problems(entries: list[tuple[str, int]]) -> list[str]:
     return problems
 
 
-def stage_tree(root: str) -> str:
-    """A copy of the modlet `make package` can run in.
-
-    `src/` is left out on purpose: staging the DLL needs the game install
-    this gate has none of, and the packaged content it would add is one file
-    whose mode the same check covers.
-    """
-    tree = os.path.join(root, "Wrench-src")
-    os.makedirs(tree)
-    for name in ("ModInfo.xml", "README.txt", "Makefile"):
-        shutil.copy(os.path.join(MOD_DIR, name), os.path.join(tree, name))
-    shutil.copytree(os.path.join(MOD_DIR, "Config"),
-                    os.path.join(tree, "Config"),
-                    ignore=shutil.ignore_patterns("__pycache__"))
-    shutil.copytree(os.path.join(MOD_DIR, "scripts"),
-                    os.path.join(tree, "scripts"),
-                    ignore=shutil.ignore_patterns("__pycache__", "dist", "bin", "obj"))
-    return tree
-
-
 def build_package(tree: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["make", "package"],
@@ -103,7 +82,7 @@ def build_package(tree: str) -> subprocess.CompletedProcess[str]:
 def main() -> int:
     root = tempfile.mkdtemp(prefix="test-package-contents-")
     try:
-        tree = stage_tree(root)
+        tree = stage_modlet(root, "Wrench-src")
         built = build_package(tree)
         check("package-builds", built.returncode == 0,
               f"exit={built.returncode} stderr={built.stderr[-300:]!r}")

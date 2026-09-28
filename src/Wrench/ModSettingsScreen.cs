@@ -153,7 +153,7 @@ namespace Wrench
 			base.Update(_dt);
 		}
 
-		/// <summary>Moves the watched mod out of the pending state, then stops watching it.</summary>
+		/// <summary>Stops watching the mod, then moves it out of the pending state.</summary>
 		void SetWatchedSaveState(TargetMod.ESaveState state)
 		{
 			var target = watchedReloadTarget;

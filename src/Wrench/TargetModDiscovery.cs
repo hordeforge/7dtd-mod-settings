@@ -123,7 +123,6 @@ namespace Wrench
 			definitive = false;
 			if (mod.AllAssemblies == null)
 			{
-				definitive = false;
 				return false;
 			}
 			var complete = true;
@@ -157,7 +156,6 @@ namespace Wrench
 					// carry the component in an assembly that would not load.
 					// The label costs the player one status line, a wrong one
 					// costs them the truth for the rest of the session.
-					definitive = false;
 					Log.Warning(ModApi.LogPrefix + " could not inspect an assembly of "
 						+ mod.Name + " (" + ex.Message + "); the mod is reported as "
 						+ "not hot-reloading until an inspection succeeds.");
