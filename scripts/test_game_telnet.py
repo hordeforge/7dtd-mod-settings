@@ -73,12 +73,7 @@ def client_over(peer: socket.socket) -> GameTelnet:
 
 def test_run_returns_output_without_the_echo() -> None:
     reply = (
-        b"giveself\r\n"
-        b"Executing command 'giveself'\r\n"
-        b"\r\n"
-        b"Gave 2x wood\r\n"
-        b"   \r\n"
-        b"Gave 1x stone\r\n"
+        b"giveself\r\nExecuting command 'giveself'\r\n\r\nGave 2x wood\r\n   \r\nGave 1x stone\r\n"
     )
     mine, server = socket.socketpair()
     sent = serve_on_ending(server, reply, close_after=False)
@@ -122,8 +117,11 @@ def test_send_before_connect_raises() -> None:
     except TelnetError:
         check("sending before connecting raises instead of dropping the command", True)
         return
-    check("sending before connecting raises instead of dropping the command", False,
-          "send_raw on a disconnected client returned normally")
+    check(
+        "sending before connecting raises instead of dropping the command",
+        False,
+        "send_raw on a disconnected client returned normally",
+    )
 
 
 def test_close_sends_exit() -> None:
@@ -142,8 +140,11 @@ def test_close_sends_exit() -> None:
     telnet = client_over(mine)
     telnet.close()
     thread.join(timeout=5.0)
-    check("close() sends exit so the server sees the session go",
-          b"exit\r\n" in b"".join(received), repr(received))
+    check(
+        "close() sends exit so the server sees the session go",
+        b"exit\r\n" in b"".join(received),
+        repr(received),
+    )
     mine.close()
     server.close()
 
@@ -270,16 +271,18 @@ def test_password_is_not_quoted_back_in_a_send_failure() -> None:
     # is sent, so that is where the gate drives it.
     secret = "hunter2-not-a-real-password"
     mine, server = socket.socketpair()
-    prompt = threading.Thread(
-        target=_announce_password_prompt, args=(server,), daemon=True)
+    prompt = threading.Thread(target=_announce_password_prompt, args=(server,), daemon=True)
     prompt.start()
     telnet = GameTelnet(password=secret, timeout=5.0)
     try:
         with _patched_create_connection(_FailingSocket(mine)):  # type: ignore[arg-type]
             telnet.connect(wait=5.0)
     except TelnetError as exc:
-        check("a failed send of the password does not name the password",
-              secret not in str(exc) and "password" in str(exc), str(exc))
+        check(
+            "a failed send of the password does not name the password",
+            secret not in str(exc) and "password" in str(exc),
+            str(exc),
+        )
     else:
         check("a failed send of the password raises", False, "no error raised")
     prompt.join(timeout=5.0)
@@ -293,8 +296,9 @@ def test_password_is_not_quoted_back_in_a_send_failure() -> None:
     try:
         plain.send_raw("giveself")
     except TelnetError as exc:
-        check("a failed send of a command still names the command",
-              "giveself" in str(exc), str(exc))
+        check(
+            "a failed send of a command still names the command", "giveself" in str(exc), str(exc)
+        )
     else:
         check("a failed send of a command raises", False, "no error raised")
     other.close()
@@ -318,10 +322,12 @@ def test_client_keeps_no_growing_copy_of_the_console_output() -> None:
     try:
         telnet.run("giveself", settle=0.5)
         check("the command reached the server", sent == ["giveself"], repr(sent))
-        held = sorted(name for name, value in vars(telnet).items()
-                      if isinstance(value, str) and len(value) > 1024)
-        check("a drained session leaves no growing copy on the client",
-              not held, repr(held))
+        held = sorted(
+            name
+            for name, value in vars(telnet).items()
+            if isinstance(value, str) and len(value) > 1024
+        )
+        check("a drained session leaves no growing copy on the client", not held, repr(held))
     finally:
         mine.close()
         server.close()

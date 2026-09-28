@@ -35,8 +35,16 @@ MOD_DIR = str(mod_dir())
 # (append, insertBefore/After, setattribute) names the parent it is created
 # under in its xpath, so that is the same node that has to resolve as for
 # the ops that change a node in place.
-KNOWN_OPS = {"append", "insertBefore", "insertAfter", "setattribute",
-             "set", "remove", "removeattribute", "csv"}
+KNOWN_OPS = {
+    "append",
+    "insertBefore",
+    "insertAfter",
+    "setattribute",
+    "set",
+    "remove",
+    "removeattribute",
+    "csv",
+}
 
 # One step of the subset this checker understands: a tag name (or "*"),
 # then any number of [@attr='value'] predicates. A step carrying anything
@@ -100,7 +108,7 @@ def _resolve(root: ET.Element, xpath: str) -> bool | None:
     relative = xpath[1:]
     head = relative.split("/", 1)[0]
     if head == root.tag:
-        relative = relative[len(head):].lstrip("/")
+        relative = relative[len(head) :].lstrip("/")
     if not relative:
         return True
     nodes = [root]
@@ -131,9 +139,11 @@ def game_dir(override: str = "") -> str:
     """The game install to check, or exit: the xpaths have nothing to check against."""
     path = override or configured_game_dir()
     if not path or not os.path.isdir(os.path.join(path, "Data", "Config")):
-        print("ERROR: no game install to check against. Set SEVEN_DAYS_TO_DIE_DIR"
-              " (or .local.env) to a valid install, or pass --game-dir PATH.",
-              file=sys.stderr)
+        print(
+            "ERROR: no game install to check against. Set SEVEN_DAYS_TO_DIE_DIR"
+            " (or .local.env) to a valid install, or pass --game-dir PATH.",
+            file=sys.stderr,
+        )
         raise SystemExit(2)
     return str(path)
 
@@ -144,11 +154,14 @@ def main() -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="Exit status: 0 every xpath resolves, 1 an xpath matches nothing, "
-               "2 bad command line or no game install.",
+        "2 bad command line or no game install.",
     )
     parser.add_argument(
-        "--game-dir", default="", metavar="PATH",
-        help="game install to check against (default: SEVEN_DAYS_TO_DIE_DIR)")
+        "--game-dir",
+        default="",
+        metavar="PATH",
+        help="game install to check against (default: SEVEN_DAYS_TO_DIE_DIR)",
+    )
     args = parser.parse_args()
 
     config_dir = os.path.join(game_dir(args.game_dir), "Data", "Config")

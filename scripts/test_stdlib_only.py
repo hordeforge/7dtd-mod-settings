@@ -59,11 +59,28 @@ def in_tree_modules() -> set[str]:
     """
     names: set[str] = set()
     for base, dirs, files in os.walk(MOD_DIR):
-        dirs[:] = [d for d in dirs
-                   if d not in {"__pycache__", "node_modules", ".venv", "venv",
-                                "bin", "build", "dist", "obj", ".git", ".tmp",
-                                ".mypy_cache", ".ruff_cache", ".pytest_cache",
-                                ".shamway", ".scratch"}]
+        dirs[:] = [
+            d
+            for d in dirs
+            if d
+            not in {
+                "__pycache__",
+                "node_modules",
+                ".venv",
+                "venv",
+                "bin",
+                "build",
+                "dist",
+                "obj",
+                ".git",
+                ".tmp",
+                ".mypy_cache",
+                ".ruff_cache",
+                ".pytest_cache",
+                ".shamway",
+                ".scratch",
+            }
+        ]
         rel = os.path.relpath(base, MOD_DIR).split(os.sep)
         if rel != ["."]:
             names.update(rel)
@@ -79,8 +96,7 @@ def imported_names(source: str) -> set[str]:
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.Import):
             found.update(alias.name.partition(".")[0] for alias in node.names)
-        elif (isinstance(node, ast.ImportFrom)
-              and not node.level and node.module):
+        elif isinstance(node, ast.ImportFrom) and not node.level and node.module:
             found.add(node.module.partition(".")[0])
     return found
 
@@ -95,9 +111,10 @@ def main() -> int:
 
     # A negative control: without it a gate that never looks at anything
     # passes forever, which is the one outcome this gate exists to prevent.
-    check("negative-control-detects-a-third-party-import",
-          imported_names("import yaml\nfrom lxml import etree\n") - allowed
-          == {"lxml", "yaml"})
+    check(
+        "negative-control-detects-a-third-party-import",
+        imported_names("import yaml\nfrom lxml import etree\n") - allowed == {"lxml", "yaml"},
+    )
 
     files = tracked_py()
     check("tracked-python-files-are-listed", bool(files))
@@ -108,8 +125,11 @@ def main() -> int:
             check("reads:" + path, False, str(error))
             continue
         foreign = sorted(imported_names(source) - allowed)
-        check("stdlib-or-local-imports:" + path, not foreign,
-              f"undeclared third-party import(s): {', '.join(foreign)}")
+        check(
+            "stdlib-or-local-imports:" + path,
+            not foreign,
+            f"undeclared third-party import(s): {', '.join(foreign)}",
+        )
 
     return result()
 

@@ -50,8 +50,11 @@ def main() -> int:
     else:
         with open(path, encoding="utf-8") as handle:
             gone = missing_elements(handle.read())
-        check("AGENTS.md states the full shared-checkout worktree rule",
-              gone == [], "missing " + repr(gone))
+        check(
+            "AGENTS.md states the full shared-checkout worktree rule",
+            gone == [],
+            "missing " + repr(gone),
+        )
 
     return result()
 

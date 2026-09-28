@@ -30,8 +30,7 @@ REQUIRED_TOOLS = ("ruff", "mypy")
 # The distributions those two pull in. A version here that floats is a
 # release nobody reviewed entering the lint lane on the day it is
 # published, so the file pins the closure, not only the two tools.
-TRANSITIVE = ("mypy_extensions", "typing_extensions", "pathspec", "librt",
-              "ast-serialize", "tomli")
+TRANSITIVE = ("mypy_extensions", "typing_extensions", "pathspec", "librt", "ast-serialize", "tomli")
 PINNED_NAMES = REQUIRED_TOOLS + TRANSITIVE
 
 # A pin: `tool==version`, with or without extras or an environment marker.
@@ -43,8 +42,20 @@ EXACT = re.compile(r"([A-Za-z][A-Za-z0-9._-]*)==\d+(\.\d+)+;?")
 
 # Tracked text files a pin could hide in. Anything else is binary, a build
 # output or an image, none of which a contributor reads instructions from.
-TEXT_SUFFIXES = (".md", ".txt", ".toml", ".yml", ".yaml", ".sh", ".py", ".cfg",
-                 ".cs", ".csproj", ".xml", ".json")
+TEXT_SUFFIXES = (
+    ".md",
+    ".txt",
+    ".toml",
+    ".yml",
+    ".yaml",
+    ".sh",
+    ".py",
+    ".cfg",
+    ".cs",
+    ".csproj",
+    ".xml",
+    ".json",
+)
 
 
 def read(path: str) -> str:
@@ -61,14 +72,20 @@ def tracked_text_files() -> list[str]:
     could not be read is a `SystemExit` from the shared reader, not an
     empty list: a drift check that walked nothing finds nothing.
     """
-    return sorted(name for name in tracked_paths()
-                  if (name.endswith(TEXT_SUFFIXES) or name in ("Makefile", REQUIREMENTS))
-                  and os.path.isfile(os.path.join(MOD_DIR, name)))
+    return sorted(
+        name
+        for name in tracked_paths()
+        if (name.endswith(TEXT_SUFFIXES) or name in ("Makefile", REQUIREMENTS))
+        and os.path.isfile(os.path.join(MOD_DIR, name))
+    )
 
 
 def pinned(text: str) -> dict[str, str]:
-    return {match.group(1): match.group(0) for match in PIN.finditer(text)
-            if match.group(1) in PINNED_NAMES}
+    return {
+        match.group(1): match.group(0)
+        for match in PIN.finditer(text)
+        if match.group(1) in PINNED_NAMES
+    }
 
 
 def main() -> int:
@@ -78,29 +95,40 @@ def main() -> int:
         return result()
 
     declared = pinned(read(requirements))
-    check("every lint tool is pinned in requirements-dev.txt",
-          all(tool in declared for tool in REQUIRED_TOOLS),
-          "missing: " + ", ".join(t for t in REQUIRED_TOOLS if t not in declared))
+    check(
+        "every lint tool is pinned in requirements-dev.txt",
+        all(tool in declared for tool in REQUIRED_TOOLS),
+        "missing: " + ", ".join(t for t in REQUIRED_TOOLS if t not in declared),
+    )
     for tool in PINNED_NAMES:
         # The version is exact; a trailing environment marker scopes the pin
         # to the interpreters that resolve it, and is not a range.
-        check(f"{tool} is pinned to an exact version",
-              EXACT.fullmatch(declared.get(tool, "")) is not None,
-              f"{tool} is not pinned to an exact version")
+        check(
+            f"{tool} is pinned to an exact version",
+            EXACT.fullmatch(declared.get(tool, "")) is not None,
+            f"{tool} is not pinned to an exact version",
+        )
 
     workflow = read(os.path.join(MOD_DIR, ".github", "workflows", "ci.yml"))
-    check("CI installs the pinned toolchain from requirements-dev.txt with uv",
-          re.search(r"uv pip install[^\n]*-r\s+" + REQUIREMENTS, workflow) is not None,
-          "the workflow must install " + REQUIREMENTS + " through uv, not inline pins")
+    check(
+        "CI installs the pinned toolchain from requirements-dev.txt with uv",
+        re.search(r"uv pip install[^\n]*-r\s+" + REQUIREMENTS, workflow) is not None,
+        "the workflow must install " + REQUIREMENTS + " through uv, not inline pins",
+    )
 
     lint_script = read(os.path.join(SCRIPTS, "lint-python.sh"))
-    check("the missing-tool error names the install command",
-          REQUIREMENTS in lint_script and "uv pip install" in lint_script,
-          "scripts/lint-python.sh must print how to install the missing tool")
+    check(
+        "the missing-tool error names the install command",
+        REQUIREMENTS in lint_script and "uv pip install" in lint_script,
+        "scripts/lint-python.sh must print how to install the missing tool",
+    )
 
     readme = read(os.path.join(MOD_DIR, "README.md"))
-    check("README points at requirements-dev.txt", REQUIREMENTS in readme,
-          "README must name " + REQUIREMENTS + " instead of listing versions")
+    check(
+        "README points at requirements-dev.txt",
+        REQUIREMENTS in readme,
+        "README must name " + REQUIREMENTS + " instead of listing versions",
+    )
 
     # uv is the project's only Python toolchain (AGENTS.md, "Python
     # Toolchain"). An install path that reaches for pip is a second answer
@@ -118,13 +146,19 @@ def main() -> int:
     # The drift check itself: no other tracked text file states a version for
     # a pinned distribution, so there is no second place to update and no
     # second place to forget.
-    stray = {name: found for name in tracked_text_files() if name != REQUIREMENTS
-             and (found := pinned(read(os.path.join(MOD_DIR, name))))}
-    check("no tracked file restates a pinned toolchain version",
-          not stray,
-          "; ".join(f"{name}: {', '.join(sorted(found.values()))}"
-                    for name, found in sorted(stray.items()))
-          + f" -- state it in {REQUIREMENTS} only")
+    stray = {
+        name: found
+        for name in tracked_text_files()
+        if name != REQUIREMENTS and (found := pinned(read(os.path.join(MOD_DIR, name))))
+    }
+    check(
+        "no tracked file restates a pinned toolchain version",
+        not stray,
+        "; ".join(
+            f"{name}: {', '.join(sorted(found.values()))}" for name, found in sorted(stray.items())
+        )
+        + f" -- state it in {REQUIREMENTS} only",
+    )
 
     return result()
 

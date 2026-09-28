@@ -85,72 +85,97 @@ def main() -> int:
     # A gate whose parsers stop matching reads green forever, so prove
     # each one still finds a version in a sample, and that a mismatch is
     # a mismatch, before trusting a PASS below.
-    check("negative control: the ModInfo version is found",
-          MODINFO_VERSION.search('<Version value="0.1.0.0" />') is not None,
-          "MODINFO_VERSION no longer matches a ModInfo version element")
-    check("negative control: the readme version is found",
-          README_VERSION.search("Wrench (Mod Settings) 0.1.0.0\n") is not None,
-          "README_VERSION no longer matches the readme's first line")
-    check("negative control: a changelog heading is found",
-          CHANGELOG_VERSION.search("## [0.1.0] - 2026-09-11\n") is not None,
-          "CHANGELOG_VERSION no longer matches a release heading")
-    check("negative control: a Changed group is found",
-          CHANGED_GROUP.search("### Fixed\n\n- one\n\n### Changed\n\n- two\n") is not None,
-          "CHANGED_GROUP no longer matches a Changed group")
-    check("negative control: a required game version is found",
-          REQUIRES_GAME.search("Requires 7 Days to Die V3.2, the same as 0.1.0.\n")
-          is not None,
-          "REQUIRES_GAME no longer matches the line naming the game version")
+    check(
+        "negative control: the ModInfo version is found",
+        MODINFO_VERSION.search('<Version value="0.1.0.0" />') is not None,
+        "MODINFO_VERSION no longer matches a ModInfo version element",
+    )
+    check(
+        "negative control: the readme version is found",
+        README_VERSION.search("Wrench (Mod Settings) 0.1.0.0\n") is not None,
+        "README_VERSION no longer matches the readme's first line",
+    )
+    check(
+        "negative control: a changelog heading is found",
+        CHANGELOG_VERSION.search("## [0.1.0] - 2026-09-11\n") is not None,
+        "CHANGELOG_VERSION no longer matches a release heading",
+    )
+    check(
+        "negative control: a Changed group is found",
+        CHANGED_GROUP.search("### Fixed\n\n- one\n\n### Changed\n\n- two\n") is not None,
+        "CHANGED_GROUP no longer matches a Changed group",
+    )
+    check(
+        "negative control: a required game version is found",
+        REQUIRES_GAME.search("Requires 7 Days to Die V3.2, the same as 0.1.0.\n") is not None,
+        "REQUIRES_GAME no longer matches the line naming the game version",
+    )
     # A doc whose review line lost its version yields no match at all, which
     # is the case the per-version loop below cannot see: prove the parser
     # does find a version when one is there.
-    check("negative control: a doc's review line is read",
-          DOC_VERSION.findall("against the mod version `0.1.0.0`.\n")
-          == ["0.1.0.0"],
-          "DOC_VERSION no longer matches a doc naming the build it reviewed")
-    check("negative control: a doc naming no build yields no version",
-          DOC_VERSION.findall("Last reviewed: 2026-09-28.\n") == [],
-          "DOC_VERSION matches text that names no build")
+    check(
+        "negative control: a doc's review line is read",
+        DOC_VERSION.findall("against the mod version `0.1.0.0`.\n") == ["0.1.0.0"],
+        "DOC_VERSION no longer matches a doc naming the build it reviewed",
+    )
+    check(
+        "negative control: a doc naming no build yields no version",
+        DOC_VERSION.findall("Last reviewed: 2026-09-28.\n") == [],
+        "DOC_VERSION matches text that names no build",
+    )
 
     declared = version_in_modinfo("ModInfo.xml")
-    check("ModInfo.xml declares a four-part version", bool(VERSION.match(declared)),
-          f"got {declared!r}")
+    check(
+        "ModInfo.xml declares a four-part version",
+        bool(VERSION.match(declared)),
+        f"got {declared!r}",
+    )
 
     match = VERSION.match(declared)
     fourth = match.group(4) if match else "1"
-    check("the fourth component is 0, so a changelog entry exists for it",
-          fourth == "0",
-          f"version {declared} has no CHANGELOG.md entry; a nonzero "
-          "fourth component needs its own release heading")
+    check(
+        "the fourth component is 0, so a changelog entry exists for it",
+        fourth == "0",
+        f"version {declared} has no CHANGELOG.md entry; a nonzero "
+        "fourth component needs its own release heading",
+    )
     semver = ".".join(declared.split(".")[:3])
 
     readme = README_VERSION.search(read("README.txt"))
-    check("README.txt names the ModInfo version",
-          readme is not None and readme.group(1) == declared,
-          f"README.txt says {readme.group(1) if readme else 'nothing'}"
-          f", ModInfo.xml says {declared}")
+    check(
+        "README.txt names the ModInfo version",
+        readme is not None and readme.group(1) == declared,
+        f"README.txt says {readme.group(1) if readme else 'nothing'}, ModInfo.xml says {declared}",
+    )
 
     for path in MODINFOS[1:]:
         other = version_in_modinfo(path)
-        check(path.replace(os.sep, "/") + " carries the ModInfo version",
-              other == declared,
-              f"it says {other or 'nothing'}, ModInfo.xml says {declared}")
+        check(
+            path.replace(os.sep, "/") + " carries the ModInfo version",
+            other == declared,
+            f"it says {other or 'nothing'}, ModInfo.xml says {declared}",
+        )
 
     changelog_text = read("CHANGELOG.md")
     changelog = CHANGELOG_VERSION.findall(changelog_text)
-    check("CHANGELOG.md documents the declared version",
-          bool(changelog) and changelog[0][0] == semver,
-          f"its newest release is {changelog[0][0] if changelog else 'absent'}"
-          f", the mod declares {semver}")
-    check("no release is documented twice",
-          len({version for version, _ in changelog}) == len(changelog),
-          "a version in CHANGELOG.md has two headings; a published number "
-          "is reused for different work")
-    order = [tuple(int(part) for part in version.split("."))
-             for version, _ in changelog]
-    check("CHANGELOG.md is newest first",
-          all(later > earlier for later, earlier in itertools.pairwise(order)),
-          "a release heading is out of order")
+    check(
+        "CHANGELOG.md documents the declared version",
+        bool(changelog) and changelog[0][0] == semver,
+        f"its newest release is {changelog[0][0] if changelog else 'absent'}"
+        f", the mod declares {semver}",
+    )
+    check(
+        "no release is documented twice",
+        len({version for version, _ in changelog}) == len(changelog),
+        "a version in CHANGELOG.md has two headings; a published number "
+        "is reused for different work",
+    )
+    order = [tuple(int(part) for part in version.split(".")) for version, _ in changelog]
+    check(
+        "CHANGELOG.md is newest first",
+        all(later > earlier for later, earlier in itertools.pairwise(order)),
+        "a release heading is out of order",
+    )
 
     for path in VERSIONED_DOCS:
         shown = path.replace(os.sep, "/")
@@ -159,16 +184,20 @@ def main() -> int:
         # superseded ones either, and an empty findall would make the loop
         # below report nothing at all, so the review line could be deleted
         # and the gate would still be green.
-        check(shown + " names the build it was written against",
-              bool(named_versions),
-              "the doc names no build; write `mod version `<x.y.z.w>` into "
-              "its review line so the next bump has something to contradict")
+        check(
+            shown + " names the build it was written against",
+            bool(named_versions),
+            "the doc names no build; write `mod version `<x.y.z.w>` into "
+            "its review line so the next bump has something to contradict",
+        )
         for named in named_versions:
-            check(shown + " names the version it was written against",
-                  named == declared,
-                  f"it says {named}, ModInfo.xml declares {declared}; a doc "
-                  "that names a superseded build reads as a review of a "
-                  "build nobody installs")
+            check(
+                shown + " names the version it was written against",
+                named == declared,
+                f"it says {named}, ModInfo.xml declares {declared}; a doc "
+                "that names a superseded build reads as a review of a "
+                "build nobody installs",
+            )
 
     # Each "## " heading with the body under it, in file order, so an
     # entry can be read on its own instead of by slicing the text.
@@ -179,17 +208,19 @@ def main() -> int:
     # upgrading, and it is the entry that goes stale as soon as the tree
     # moves on, so it carries the compatibility statement the header
     # promises. Older entries are already published and stay as shipped.
-    newest = next((body for heading, body in entries
-                   if CHANGELOG_VERSION.match(heading)), "")
-    check("the newest release entry states its compatibility",
-          COMPATIBILITY.search(newest) is not None,
-          f"the {semver} entry has no Compatibility section, so it never "
-          "says whether a setting key changed, a default changed, or a "
-          "console command changed")
-    check("the newest release entry is grouped by impact",
-          CHANGELOG_GROUP.search(newest) is not None,
-          f"the {semver} entry has no Added/Changed/Fixed/Compatibility "
-          "group under it")
+    newest = next((body for heading, body in entries if CHANGELOG_VERSION.match(heading)), "")
+    check(
+        "the newest release entry states its compatibility",
+        COMPATIBILITY.search(newest) is not None,
+        f"the {semver} entry has no Compatibility section, so it never "
+        "says whether a setting key changed, a default changed, or a "
+        "console command changed",
+    )
+    check(
+        "the newest release entry is grouped by impact",
+        CHANGELOG_GROUP.search(newest) is not None,
+        f"the {semver} entry has no Added/Changed/Fixed/Compatibility group under it",
+    )
 
     # What a published release says about itself is fixed with the
     # number, so every release that follows another is held to it for as
@@ -204,33 +235,40 @@ def main() -> int:
         if matched is not None:
             releases.append((matched.group(1), body))
     for index, (version, body) in enumerate(releases[:-1]):
-        check(f"the {version} entry names the game version it requires",
-              REQUIRES_GAME.search(body) is not None,
-              "it never says which 7 Days to Die version it needs, so "
-              "somebody on another game version cannot tell whether it "
-              "will load there")
+        check(
+            f"the {version} entry names the game version it requires",
+            REQUIRES_GAME.search(body) is not None,
+            "it never says which 7 Days to Die version it needs, so "
+            "somebody on another game version cannot tell whether it "
+            "will load there",
+        )
         earlier = releases[index + 1][0]
-        same_minor = (version.split(".")[:2] == earlier.split(".")[:2])
-        check(f"the {version} entry's bump matches what it describes",
-              not (same_minor and CHANGED_GROUP.search(body)),
-              f"it is a patch over {earlier} and carries a Changed group; a "
-              "behaviour change for a player or a mod author is a minor "
-              "bump, and a patch release that changes behaviour breaks the "
-              "number the player installed")
+        same_minor = version.split(".")[:2] == earlier.split(".")[:2]
+        check(
+            f"the {version} entry's bump matches what it describes",
+            not (same_minor and CHANGED_GROUP.search(body)),
+            f"it is a patch over {earlier} and carries a Changed group; a "
+            "behaviour change for a player or a mod author is a minor "
+            "bump, and a patch release that changes behaviour breaks the "
+            "number the player installed",
+        )
 
     # Work in progress is written above the newest release, so it reads
     # as not shipped, and it is never left as a heading with nothing
     # under it.
     top = entries[0] if entries else ("", "")
     if UNRELEASED_HEADING.match(top[0]):
-        check("the Unreleased section groups its entries",
-              CHANGELOG_GROUP.search(top[1]) is not None,
-              "## [Unreleased] has no Added/Changed/Fixed group under it")
+        check(
+            "the Unreleased section groups its entries",
+            CHANGELOG_GROUP.search(top[1]) is not None,
+            "## [Unreleased] has no Added/Changed/Fixed group under it",
+        )
     else:
-        check("CHANGELOG.md names no Unreleased section it cannot place",
-              UNRELEASED_HEADING.search(changelog_text) is None,
-              "an ## [Unreleased] heading sits below another heading, so it "
-              "reads as already shipped")
+        check(
+            "CHANGELOG.md names no Unreleased section it cannot place",
+            UNRELEASED_HEADING.search(changelog_text) is None,
+            "an ## [Unreleased] heading sits below another heading, so it reads as already shipped",
+        )
 
     return result()
 

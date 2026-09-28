@@ -43,8 +43,11 @@ def main() -> int:
         print(USAGE.rstrip())
         return 0
     if len(argv) != 2:
-        print(f"ERROR: expected SOURCE_CONFIG and TARGET_CONFIG, got {len(argv)} "
-              f"argument(s): {' '.join(argv) or 'none'}\n", file=sys.stderr)
+        print(
+            f"ERROR: expected SOURCE_CONFIG and TARGET_CONFIG, got {len(argv)} "
+            f"argument(s): {' '.join(argv) or 'none'}\n",
+            file=sys.stderr,
+        )
         print(USAGE.rstrip(), file=sys.stderr)
         return 2
 
@@ -76,7 +79,8 @@ def main() -> int:
     temp_name = None
     try:
         handle, temp_name = tempfile.mkstemp(
-            dir=target.parent, prefix=target.name + ".", suffix=".tmp")
+            dir=target.parent, prefix=target.name + ".", suffix=".tmp"
+        )
         with os.fdopen(handle, "wb") as stream:
             tree.write(stream, encoding="utf-8", xml_declaration=True)
         # mkstemp is 0600; the server reads this as its own user, so the

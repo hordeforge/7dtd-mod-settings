@@ -44,8 +44,9 @@ GATE_REF = re.compile(r"(?:scripts/)?(test_\w+\.py)")
 # Incident sections enforced by something other than a scripts/test_*.py
 # here; each names what enforces it. A stale heading fails.
 ENFORCED_ELSEWHERE: dict[str, str] = {
-    "Playtest / live-client exclusivity":
-        "hordeforge/7dtd-playtest scripts/playtest_lock.py, exercised upstream",
+    "Playtest / live-client exclusivity": (
+        "hordeforge/7dtd-playtest scripts/playtest_lock.py, exercised upstream"
+    ),
 }
 
 
@@ -67,16 +68,25 @@ def main() -> int:
             continue
         named = sorted({m.group(1) for m in GATE_REF.finditer(body)})
         existing = [g for g in named if os.path.isfile(os.path.join(SCRIPTS, g))]
-        check("incident-names-a-gate:" + heading, bool(existing),
-              "dated incident section names no existing scripts/test_*.py")
+        check(
+            "incident-names-a-gate:" + heading,
+            bool(existing),
+            "dated incident section names no existing scripts/test_*.py",
+        )
     for known in sorted(ENFORCED_ELSEWHERE):
-        check("enforced-elsewhere-heading-exists:" + known,
-              any(h.startswith(known) for h in headings),
-              "stale ENFORCED_ELSEWHERE entry; remove it")
+        check(
+            "enforced-elsewhere-heading-exists:" + known,
+            any(h.startswith(known) for h in headings),
+            "stale ENFORCED_ELSEWHERE entry; remove it",
+        )
 
-    gates = sorted(f for f in os.listdir(SCRIPTS)
-                   if f.startswith("test_") and f.endswith(".py")
-                   and os.path.abspath(os.path.join(SCRIPTS, f)) != SELF)
+    gates = sorted(
+        f
+        for f in os.listdir(SCRIPTS)
+        if f.startswith("test_")
+        and f.endswith(".py")
+        and os.path.abspath(os.path.join(SCRIPTS, f)) != SELF
+    )
 
     # One report shape, one definition. A gate that rolls its own verdict
     # prints its own summary and picks its own exit status, and the copies
@@ -87,44 +97,61 @@ def main() -> int:
     # `run_harness` and are held to that instead.
     with open(os.path.join(SCRIPTS, "lib", "gate_report.py"), encoding="utf-8") as handle:
         report_source = handle.read()
-    check("the report has one definition of the verdict",
-          report_source.count("def result(") == 1)
-    for gate in sorted(f for f in os.listdir(SCRIPTS)
-                       if f.startswith("test_") and f.endswith(".py")):
+    check("the report has one definition of the verdict", report_source.count("def result(") == 1)
+    for gate in sorted(
+        f for f in os.listdir(SCRIPTS) if f.startswith("test_") and f.endswith(".py")
+    ):
         with open(os.path.join(SCRIPTS, gate), encoding="utf-8") as handle:
             source = handle.read()
         # This gate names the failure list itself, in the check below, so it
         # is the one file exempt from the clause about reading it.
         hand_rolled = ("FAIL" + "URES") in source and gate != os.path.basename(SELF)
-        check("gate-reports-through-one-definition:" + gate,
-              ("return result()" in source and not hand_rolled)
-              or "return run_harness(" in source,
-              "the gate does not end its main() with the shared result()")
+        check(
+            "gate-reports-through-one-definition:" + gate,
+            ("return result()" in source and not hand_rolled) or "return run_harness(" in source,
+            "the gate does not end its main() with the shared result()",
+        )
 
     for gate in gates:
         path = os.path.join(SCRIPTS, gate)
-        runs = [subprocess.run([sys.executable, path], capture_output=True,
-                               timeout=GATE_RUN_TIMEOUT_SECONDS, check=False)
-                for _ in range(2)]
-        check("gate-deterministic:" + gate,
-              runs[0].stdout == runs[1].stdout and runs[0].returncode == runs[1].returncode,
-              "two runs on an unchanged tree differed")
+        runs = [
+            subprocess.run(
+                [sys.executable, path],
+                capture_output=True,
+                timeout=GATE_RUN_TIMEOUT_SECONDS,
+                check=False,
+            )
+            for _ in range(2)
+        ]
+        check(
+            "gate-deterministic:" + gate,
+            runs[0].stdout == runs[1].stdout and runs[0].returncode == runs[1].returncode,
+            "two runs on an unchanged tree differed",
+        )
 
     # The report is data, and a redirected run must keep the failures;
     # stderr is for a gate that produced no report at all.
     failing = subprocess.run(
-        [sys.executable, "-c",
-         "import sys; sys.path.insert(0, sys.argv[1]);"
-         "from gate_report import check; check('probe', False, 'detail')",
-         os.path.join(SCRIPTS, "lib")],
-        capture_output=True, check=False, text=True,
-        encoding="utf-8", errors="replace",
+        [
+            sys.executable,
+            "-c",
+            "import sys; sys.path.insert(0, sys.argv[1]);"
+            "from gate_report import check; check('probe', False, 'detail')",
+            os.path.join(SCRIPTS, "lib"),
+        ],
+        capture_output=True,
+        check=False,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=GATE_RUN_TIMEOUT_SECONDS,
-        cwd=os.path.dirname(SCRIPTS))
-    check("gate-report-on-stdout",
-          failing.returncode == 0 and "FAIL probe: detail" in failing.stdout
-          and failing.stderr == "",
-          "a failed check must print its report to stdout, not stderr")
+        cwd=os.path.dirname(SCRIPTS),
+    )
+    check(
+        "gate-report-on-stdout",
+        failing.returncode == 0 and "FAIL probe: detail" in failing.stdout and failing.stderr == "",
+        "a failed check must print its report to stdout, not stderr",
+    )
 
     return result()
 

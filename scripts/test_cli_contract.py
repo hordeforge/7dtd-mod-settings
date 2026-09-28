@@ -54,7 +54,8 @@ ENTRYPOINTS = (
 )
 SOURCED = frozenset({"cli.sh", "local-env.sh", "server-common.sh"})
 NOT_ENTRYPOINTS = SOURCED | {
-    name for name in (os.path.basename(path) for path in tracked_paths("scripts/*.py"))
+    name
+    for name in (os.path.basename(path) for path in tracked_paths("scripts/*.py"))
     if name.startswith("test_")
 }
 
@@ -106,23 +107,37 @@ def ignores_the_option(done: subprocess.CompletedProcess[str]) -> str:
 
 def main() -> int:
     # scripts/ only: scripts/lib/ is imported, not run.
-    unlisted = sorted(os.path.basename(path) for path in tracked_paths("scripts")
-                      if "/" not in path.removeprefix("scripts/")
-                      and path.endswith((".sh", ".py"))
-                      and os.path.basename(path) not in ENTRYPOINTS
-                      and os.path.basename(path) not in NOT_ENTRYPOINTS)
-    check("a tracked script is an entrypoint, a gate or a sourced file",
-          not unlisted, f"unlisted: {', '.join(unlisted)}")
+    unlisted = sorted(
+        os.path.basename(path)
+        for path in tracked_paths("scripts")
+        if "/" not in path.removeprefix("scripts/")
+        and path.endswith((".sh", ".py"))
+        and os.path.basename(path) not in ENTRYPOINTS
+        and os.path.basename(path) not in NOT_ENTRYPOINTS
+    )
+    check(
+        "a tracked script is an entrypoint, a gate or a sourced file",
+        not unlisted,
+        f"unlisted: {', '.join(unlisted)}",
+    )
 
     with tempfile.TemporaryDirectory(prefix="test-cli-contract-") as scratch:
         probe = os.path.join(scratch, "probe.sh")
         with open(probe, "w", encoding="utf-8") as handle:
             handle.write(SILENT_FIXTURE)
         silent = subprocess.run(
-            ["bash", probe, "--help"], capture_output=True, text=True,
-            encoding="utf-8", errors="replace", timeout=RUN_TIMEOUT, check=False)
-        check("negative control: a silent script fails both checks",
-              bool(says_nothing(silent) and ignores_the_option(silent)))
+            ["bash", probe, "--help"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=RUN_TIMEOUT,
+            check=False,
+        )
+        check(
+            "negative control: a silent script fails both checks",
+            bool(says_nothing(silent) and ignores_the_option(silent)),
+        )
 
     for name in ENTRYPOINTS:
         for flag in HELP_FLAGS:

@@ -63,7 +63,7 @@ LINES: tuple[str, ...] = (
     "\u001b[32mgreen\u001b[0m",
     "\ufffd",
     "\u65e5\u672c\u8a9e",
-    "\U0001F600",
+    "\U0001f600",
     "line\rcarriage",
     "line\u2028separator",
     "line\x0bvertical",
@@ -73,17 +73,21 @@ LINES: tuple[str, ...] = (
 # Line endings a terminal sends, all of which splitlines() treats as one.
 BREAKS: tuple[str, ...] = ("\n", "\r\n", "\r", "\r\r\n", "\n\n", "\x85", "\u2028", "")
 
-JOIN: str = " ".join(("For the record: a case counts as reaching the filter",
-                      "when a mutation put the command echo, the chatter, or a",
-                      "blank line in front of a planted answer, so the report",
-                      "below is evidence the run was not a no-op."))
+JOIN: str = " ".join(
+    (
+        "For the record: a case counts as reaching the filter",
+        "when a mutation put the command echo, the chatter, or a",
+        "blank line in front of a planted answer, so the report",
+        "below is evidence the run was not a no-op.",
+    )
+)
 
 
 def replay_args(argv: list[str]) -> tuple[list[str], str]:
     """The harness options a replay asked for, and why not if it asked wrongly."""
     args = list(argv)
     if "--" in args:
-        args = args[args.index("--") + 1:]
+        args = args[args.index("--") + 1 :]
     for i in range(0, len(args), 2):
         if args[i] not in OPTIONS:
             return [], f"unknown option: {args[i]}"
@@ -167,15 +171,13 @@ INVARIANTS: tuple[str, ...] = (
 )
 
 
-def check_case(text: str, command: str, answer: str,
-               broken: dict[str, list[str]]) -> None:
+def check_case(text: str, command: str, answer: str, broken: dict[str, list[str]]) -> None:
     """Record every invariant the case breaks, with the case itself."""
     try:
         cleaned = clean_output(text, command)
         twice = clean_output(text, command)
     except Exception as exc:  # noqa: BLE001 - the parser must not raise at all
-        broken["the console parser raises on nothing"].append(
-            f"{text!r} as {command!r}: {exc!r}")
+        broken["the console parser raises on nothing"].append(f"{text!r} as {command!r}: {exc!r}")
         return
     kept = cleaned.split("\n")
     # An empty result has no lines at all; "" .split() handing back one empty
@@ -212,8 +214,11 @@ def main() -> int:
         try:
             value = int(args[i + 1])
         except ValueError:
-            check("a replay names an option the harness takes", False,
-                  f"{args[i]} takes a number, not {args[i + 1]!r}")
+            check(
+                "a replay names an option the harness takes",
+                False,
+                f"{args[i]} takes a number, not {args[i + 1]!r}",
+            )
             return result()
         if args[i] == "--seed":
             seed = value
@@ -234,9 +239,11 @@ def main() -> int:
             text = mutate(rng, text)
         text, answer = plant_answer(text, rng)
         arrived = [line.rstrip("\r") for line in text.splitlines()]
-        kept = sum(1 for line in arrived
-                   if line.strip() and line.strip() != command
-                   and "Executing command" not in line)
+        kept = sum(
+            1
+            for line in arrived
+            if line.strip() and line.strip() != command and "Executing command" not in line
+        )
         if len(arrived) > kept:
             reached_filter += 1
         if any(line.strip() == command for line in arrived):
@@ -246,10 +253,11 @@ def main() -> int:
     for name in INVARIANTS:
         cases = broken[name]
         check(name, not cases, "; ".join(cases[:3]) + f" ({len(cases)} cases)")
-    check(f"the run drops lines ({reached_filter} of {iterations} cases)",
-          reached_filter > iterations // 2)
-    check(f"the run meets the command's own echo ({reached_echo} cases)",
-          reached_echo > 0)
+    check(
+        f"the run drops lines ({reached_filter} of {iterations} cases)",
+        reached_filter > iterations // 2,
+    )
+    check(f"the run meets the command's own echo ({reached_echo} cases)", reached_echo > 0)
     print(f"{iterations} cases at seed {seed}.")
     return result()
 

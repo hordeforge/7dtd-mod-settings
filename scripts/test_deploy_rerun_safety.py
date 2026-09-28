@@ -72,8 +72,9 @@ def stage_server(root: str) -> str:
     return server
 
 
-def run_deploy(tree: str, server: str, *args: str,
-               path: str | None = None) -> subprocess.CompletedProcess[str]:
+def run_deploy(
+    tree: str, server: str, *args: str, path: str | None = None
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["bash", os.path.join(tree, "scripts", "deploy-server.sh"), *args],
         cwd=tree,
@@ -83,10 +84,14 @@ def run_deploy(tree: str, server: str, *args: str,
         errors="replace",
         timeout=300,
         check=False,
-        env={**os.environ, "SEVEN_DAYS_TO_DIE_SERVER_DIR": server,
-             "WRENCH_SKIP_DLL": "1",
-             "PATH": f"{path}{os.pathsep}{os.environ.get('PATH', '')}" if path
-             else os.environ.get("PATH", "")},
+        env={
+            **os.environ,
+            "SEVEN_DAYS_TO_DIE_SERVER_DIR": server,
+            "WRENCH_SKIP_DLL": "1",
+            "PATH": f"{path}{os.pathsep}{os.environ.get('PATH', '')}"
+            if path
+            else os.environ.get("PATH", ""),
+        },
     )
 
 
@@ -117,20 +122,26 @@ def snapshot(path: str) -> dict[str, str] | None:
     return files
 
 
-def re_runs(tree: str, server: str, deployed: str, previous: str,
-            discarded: str) -> None:
+def re_runs(tree: str, server: str, deployed: str, previous: str, discarded: str) -> None:
     """The re-run properties, on a server the first deploy put a package into."""
     after_first = snapshot(deployed)
 
     second = run_deploy(tree, server)
-    check("second deploy succeeds", second.returncode == 0,
-          f"exit={second.returncode} stderr={second.stderr[-300:]!r}")
-    check("deploying twice leaves what one deploy left",
-          snapshot(deployed) == after_first,
-          "a second deploy of the same package changed Mods/Wrench")
-    check("second deploy keeps a rollback point",
-          snapshot(previous) == after_first,
-          "the deployment the second run replaced is not the one the first left")
+    check(
+        "second deploy succeeds",
+        second.returncode == 0,
+        f"exit={second.returncode} stderr={second.stderr[-300:]!r}",
+    )
+    check(
+        "deploying twice leaves what one deploy left",
+        snapshot(deployed) == after_first,
+        "a second deploy of the same package changed Mods/Wrench",
+    )
+    check(
+        "second deploy keeps a rollback point",
+        snapshot(previous) == after_first,
+        "the deployment the second run replaced is not the one the first left",
+    )
 
     # Mark the deployed folder so the rollback has something identifiable
     # to put back: both deploys wrote the same bytes, so without this the
@@ -139,48 +150,69 @@ def re_runs(tree: str, server: str, deployed: str, previous: str,
         handle.write("first deployment\n")
     marked = snapshot(deployed)
     later = run_deploy(tree, server)
-    check("the deploy over the marked folder succeeds",
-          later.returncode == 0,
-          f"exit={later.returncode} stderr={later.stderr[-300:]!r}")
+    check(
+        "the deploy over the marked folder succeeds",
+        later.returncode == 0,
+        f"exit={later.returncode} stderr={later.stderr[-300:]!r}",
+    )
     after_later = snapshot(deployed)
     # Both the folder and the marker: a deploy that left nothing behind
     # would satisfy a "the marker is gone" check on its own.
-    check("a deploy replaces the marked folder",
-          after_later is not None and SENTINEL not in after_later
-          and "ModInfo.xml" in after_later,
-          f"Mods/Wrench holds {sorted(after_later or {})}")
+    check(
+        "a deploy replaces the marked folder",
+        after_later is not None and SENTINEL not in after_later and "ModInfo.xml" in after_later,
+        f"Mods/Wrench holds {sorted(after_later or {})}",
+    )
 
     rolled_back = run_deploy(tree, server, "--rollback")
-    check("rollback succeeds", rolled_back.returncode == 0,
-          f"exit={rolled_back.returncode} stderr={rolled_back.stderr[-300:]!r}")
-    check("rollback puts the replaced deployment back byte for byte",
-          snapshot(deployed) == marked,
-          f"Mods/Wrench holds {sorted(snapshot(deployed) or {})}")
+    check(
+        "rollback succeeds",
+        rolled_back.returncode == 0,
+        f"exit={rolled_back.returncode} stderr={rolled_back.stderr[-300:]!r}",
+    )
+    check(
+        "rollback puts the replaced deployment back byte for byte",
+        snapshot(deployed) == marked,
+        f"Mods/Wrench holds {sorted(snapshot(deployed) or {})}",
+    )
 
     again = run_deploy(tree, server, "--rollback")
-    check("a second rollback refuses", again.returncode != 0,
-          f"exit={again.returncode}; there is nothing left to roll back to")
-    check("a refused rollback changes nothing",
-          snapshot(deployed) == marked,
-          "the refused rollback altered Mods/Wrench")
-    check("a refused rollback names the missing rollback point",
-          "no previous deployment" in again.stderr,
-          f"stderr={again.stderr[-300:]!r}")
+    check(
+        "a second rollback refuses",
+        again.returncode != 0,
+        f"exit={again.returncode}; there is nothing left to roll back to",
+    )
+    check(
+        "a refused rollback changes nothing",
+        snapshot(deployed) == marked,
+        "the refused rollback altered Mods/Wrench",
+    )
+    check(
+        "a refused rollback names the missing rollback point",
+        "no previous deployment" in again.stderr,
+        f"stderr={again.stderr[-300:]!r}",
+    )
 
     # A rollback killed between its two renames: the deployment it was
     # replacing is in the discard folder, the rollback point is still
     # there, and nothing is deployed.
     interrupt_rollback(deployed, previous, discarded)
     recovered = run_deploy(tree, server, "--rollback")
-    check("rollback after an interrupted rollback succeeds",
-          recovered.returncode == 0,
-          f"exit={recovered.returncode} stderr={recovered.stderr[-300:]!r}")
-    check("rollback after an interrupted rollback lands the rollback point",
-          ROLLED_BACK_TO in (snapshot(deployed) or {}),
-          f"Mods/Wrench holds {sorted(snapshot(deployed) or {})}")
-    check("rollback after an interrupted rollback clears the discard folder",
-          not os.path.exists(discarded),
-          "the deployment the interrupted rollback left behind is still there")
+    check(
+        "rollback after an interrupted rollback succeeds",
+        recovered.returncode == 0,
+        f"exit={recovered.returncode} stderr={recovered.stderr[-300:]!r}",
+    )
+    check(
+        "rollback after an interrupted rollback lands the rollback point",
+        ROLLED_BACK_TO in (snapshot(deployed) or {}),
+        f"Mods/Wrench holds {sorted(snapshot(deployed) or {})}",
+    )
+    check(
+        "rollback after an interrupted rollback clears the discard folder",
+        not os.path.exists(discarded),
+        "the deployment the interrupted rollback left behind is still there",
+    )
 
 
 def interrupt_rollback(deployed: str, previous: str, discarded: str) -> None:
@@ -190,13 +222,13 @@ def interrupt_rollback(deployed: str, previous: str, discarded: str) -> None:
     with open(os.path.join(discarded, SENTINEL), "w", encoding="utf-8") as handle:
         handle.write("the deployment the interrupted rollback was replacing\n")
     os.makedirs(previous, exist_ok=True)
-    with open(os.path.join(previous, ROLLED_BACK_TO), "w",
-              encoding="utf-8") as handle:
+    with open(os.path.join(previous, ROLLED_BACK_TO), "w", encoding="utf-8") as handle:
         handle.write("the deployment before that one\n")
 
 
-def rollback_that_cannot_land(root: str, tree: str, server: str, deployed: str,
-                              previous: str, discarded: str) -> None:
+def rollback_that_cannot_land(
+    root: str, tree: str, server: str, deployed: str, previous: str, discarded: str
+) -> None:
     """An interrupted state whose retry fails at the rollback's own rename.
 
     The deployment under the discard folder is the only copy of the mod the
@@ -210,19 +242,27 @@ def rollback_that_cannot_land(root: str, tree: str, server: str, deployed: str,
     interrupt_rollback(deployed, previous, discarded)
 
     refused = run_deploy(tree, server, "--rollback", path=shim_dir)
-    check("a rollback whose rename is refused fails",
-          refused.returncode != 0,
-          f"exit={refused.returncode}; the shimmed mv should have refused")
+    check(
+        "a rollback whose rename is refused fails",
+        refused.returncode != 0,
+        f"exit={refused.returncode}; the shimmed mv should have refused",
+    )
     landed = snapshot(deployed)
-    check("the mod the server was running is still deployed",
-          landed is not None and SENTINEL in landed,
-          f"Mods/Wrench holds {sorted(landed or {})}")
-    check("the rollback point is still there to roll back to",
-          ROLLED_BACK_TO in (snapshot(previous) or {}),
-          "the discard was deleted along with the deployment it held")
-    check("the failure says what is deployed now",
-          "the current" in refused.stderr and "was restored" in refused.stderr,
-          f"stderr={refused.stderr[-300:]!r}")
+    check(
+        "the mod the server was running is still deployed",
+        landed is not None and SENTINEL in landed,
+        f"Mods/Wrench holds {sorted(landed or {})}",
+    )
+    check(
+        "the rollback point is still there to roll back to",
+        ROLLED_BACK_TO in (snapshot(previous) or {}),
+        "the discard was deleted along with the deployment it held",
+    )
+    check(
+        "the failure says what is deployed now",
+        "the current" in refused.stderr and "was restored" in refused.stderr,
+        f"stderr={refused.stderr[-300:]!r}",
+    )
 
 
 def main() -> int:
@@ -240,23 +280,29 @@ def main() -> int:
         discarded = os.path.join(deploy_dir, "discarded")
 
         first = run_deploy(tree, server)
-        check("first deploy succeeds", first.returncode == 0,
-              f"exit={first.returncode} stderr={first.stderr[-300:]!r}")
+        check(
+            "first deploy succeeds",
+            first.returncode == 0,
+            f"exit={first.returncode} stderr={first.stderr[-300:]!r}",
+        )
         after_first = snapshot(deployed)
-        check("first deploy puts the package in place",
-              after_first is not None and "ModInfo.xml" in after_first,
-              f"Mods/Wrench holds {sorted(after_first or {})}")
+        check(
+            "first deploy puts the package in place",
+            after_first is not None and "ModInfo.xml" in after_first,
+            f"Mods/Wrench holds {sorted(after_first or {})}",
+        )
         if after_first is not None and "ModInfo.xml" in after_first:
             re_runs(tree, server, deployed, previous, discarded)
-            rollback_that_cannot_land(root, tree, server, deployed, previous,
-                                      discarded)
+            rollback_that_cannot_land(root, tree, server, deployed, previous, discarded)
         else:
             # Nothing is deployed, so there is no state to re-run anything
             # against. The two failures above are the whole report; every
             # check after them would be measuring an absent folder.
-            check("a deployment to re-run", False,
-                  "the first deploy never landed a package, so its re-runs "
-                  "cannot be exercised")
+            check(
+                "a deployment to re-run",
+                False,
+                "the first deploy never landed a package, so its re-runs cannot be exercised",
+            )
     finally:
         shutil.rmtree(root, ignore_errors=True)
 

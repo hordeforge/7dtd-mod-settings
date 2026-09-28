@@ -68,19 +68,19 @@ def main() -> int:
     # (docs/reference/environment.md); AGENTS.md's prose is the index.
     example = (MOD_DIR / ".local.env.example").read_text(encoding="utf-8")
     environment_doc = (MOD_DIR / "docs" / "reference" / "environment.md").read_text(
-        encoding="utf-8")
-    undocumented = [key for key in REQUIRED_KEYS + DOCUMENTED_OPTIONAL_KEYS
-                    if f'{key}="' not in example]
+        encoding="utf-8"
+    )
+    undocumented = [
+        key for key in REQUIRED_KEYS + DOCUMENTED_OPTIONAL_KEYS if f'{key}="' not in example
+    ]
     check(
         ".local.env.example carries the full inventory",
         not undocumented,
         ", ".join(undocumented),
     )
-    undeclared = [key for key in DOCUMENTED_OPTIONAL_KEYS
-                  if key not in environment_doc]
+    undeclared = [key for key in DOCUMENTED_OPTIONAL_KEYS if key not in environment_doc]
     check(
-        "the optional server overrides are documented in "
-        "docs/reference/environment.md",
+        "the optional server overrides are documented in docs/reference/environment.md",
         not undeclared,
         ", ".join(undeclared),
     )

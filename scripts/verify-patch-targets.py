@@ -118,8 +118,16 @@ def source_dir(root: Path) -> Path:
 
 
 class Target:
-    def __init__(self, source: Path, line: int, patch_class: str, declaring_type: str,
-                 method: str, argument_types: list[str] | None, injected: list[str]) -> None:
+    def __init__(
+        self,
+        source: Path,
+        line: int,
+        patch_class: str,
+        declaring_type: str,
+        method: str,
+        argument_types: list[str] | None,
+        injected: list[str],
+    ) -> None:
         self.source = source
         self.line = line
         self.patch_class = patch_class
@@ -148,7 +156,7 @@ def parse_attribute(arguments: str) -> tuple[str | None, str | None, list[str] |
     if types:
         # An explicit argument-type array reuses typeof(); the declaring type is
         # whichever typeof() came before it.
-        leading = TYPEOF.findall(arguments[:array.start()] if array else arguments)
+        leading = TYPEOF.findall(arguments[: array.start()] if array else arguments)
         declaring_type = leading[0] if leading else None
 
     method = quoted[0] if quoted else None
@@ -182,7 +190,7 @@ def split_parameters(signature: str) -> list[str]:
     share this splitter, so a nested comma is handled the same way whichever
     of the two is asked.
     """
-    inner = signature[signature.index("(") + 1:signature.rindex(")")]
+    inner = signature[signature.index("(") + 1 : signature.rindex(")")]
     if not inner.strip():
         return []
     entries: list[str] = []
@@ -225,9 +233,16 @@ def parameter_types(signature: str) -> list[str]:
     return result
 
 
-def add_target(targets: list[Target], source: Path, lines: list[str], entry_line: int,
-               patch_class: str | None, declaring_type: str | None, method: str | None,
-               argument_types: list[str] | None) -> None:
+def add_target(
+    targets: list[Target],
+    source: Path,
+    lines: list[str],
+    entry_line: int,
+    patch_class: str | None,
+    declaring_type: str | None,
+    method: str | None,
+    argument_types: list[str] | None,
+) -> None:
     """Record one resolved [HarmonyPatch]; an incomplete attribute is a defect.
 
     Every attribute must be checked, so a missing type or method fails loudly
@@ -239,13 +254,27 @@ def add_target(targets: list[Target], source: Path, lines: list[str], entry_line
             f"ERROR: {source}:{entry_line}: [HarmonyPatch] names no type or no "
             "method (attribute carried method=" + str(method) + ")"
         )
-    targets.append(Target(source, entry_line, patch_class, declaring_type, method,
-                          argument_types, injected_parameters(lines, entry_line)))
+    targets.append(
+        Target(
+            source,
+            entry_line,
+            patch_class,
+            declaring_type,
+            method,
+            argument_types,
+            injected_parameters(lines, entry_line),
+        )
+    )
 
 
-def flush_targets(targets: list[Target], source: Path, lines: list[str],
-                  pending: list[tuple[int, str | None, str | None, list[str] | None]],
-                  patch_class: str | None, class_type: str | None) -> str | None:
+def flush_targets(
+    targets: list[Target],
+    source: Path,
+    lines: list[str],
+    pending: list[tuple[int, str | None, str | None, list[str] | None]],
+    patch_class: str | None,
+    class_type: str | None,
+) -> str | None:
     """Record the buffered attributes, returning the class type they settled on.
 
     An attribute that names its own type settles the type for the attributes
@@ -253,8 +282,16 @@ def flush_targets(targets: list[Target], source: Path, lines: list[str],
     """
     for entry_line, declaring_type, method, argument_types in pending:
         class_type = declaring_type or class_type
-        add_target(targets, source, lines, entry_line, patch_class,
-                   declaring_type or class_type, method, argument_types)
+        add_target(
+            targets,
+            source,
+            lines,
+            entry_line,
+            patch_class,
+            declaring_type or class_type,
+            method,
+            argument_types,
+        )
     return class_type
 
 
@@ -280,15 +317,13 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
             if declaration and pending:
                 class_name = declaration.group(1)
                 patch_classes.add(class_name)
-                class_type = flush_targets(targets, source, lines, pending,
-                                           class_name, class_type)
+                class_type = flush_targets(targets, source, lines, pending, class_name, class_type)
                 pending.clear()
                 continue
 
             if pending and line.strip() and not line.strip().startswith("["):
                 # A method-level attribute inside an already-opened patch class.
-                class_type = flush_targets(targets, source, lines, pending,
-                                           class_name, class_type)
+                class_type = flush_targets(targets, source, lines, pending, class_name, class_type)
                 pending.clear()
 
     return targets, patch_classes
@@ -303,13 +338,17 @@ def run_ilspy(argv: list[str], timeout: int) -> subprocess.CompletedProcess[str]
     header and `OK` lines had already printed.
     """
     try:
-        return subprocess.run(argv, capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", check=False,
-                              timeout=timeout)
+        return subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=timeout,
+        )
     except subprocess.TimeoutExpired:
-        raise RuntimeError(
-            f"ilspycmd did not answer within {timeout}s: {' '.join(argv)}"
-        ) from None
+        raise RuntimeError(f"ilspycmd did not answer within {timeout}s: {' '.join(argv)}") from None
     except OSError as exc:
         raise RuntimeError(f"ilspycmd could not run ({exc}): {' '.join(argv)}") from None
 
@@ -337,8 +376,11 @@ def decompile(assembly: Path, type_name: str,
 
 def ilspy_reason(result: subprocess.CompletedProcess[str]) -> str:
     """What the decompiler said about its own failure, whichever stream it used."""
-    return (result.stderr.strip() or result.stdout.strip()
-            or f"exited {result.returncode} with no message")
+    return (
+        result.stderr.strip()
+        or result.stdout.strip()
+        or f"exited {result.returncode} with no message"
+    )
 
 
 def ensure_ilspy_runtime() -> str | None:
@@ -354,10 +396,14 @@ def ensure_ilspy_runtime() -> str | None:
         return None
 
     hub_editors = Path.home() / "Unity" / "Hub" / "Editor"
-    candidates = sorted(
-        (path / "Editor" / "Data" / "DotNetSdk" for path in hub_editors.glob("*")),
-        reverse=True,
-    ) if hub_editors.is_dir() else []
+    candidates = (
+        sorted(
+            (path / "Editor" / "Data" / "DotNetSdk" for path in hub_editors.glob("*")),
+            reverse=True,
+        )
+        if hub_editors.is_dir()
+        else []
+    )
     # Every candidate is tried against the PATH this function started with:
     # a failed candidate's SDK directory left on PATH would shadow the real
     # dotnet for every later call, and the list would grow one entry per
@@ -390,8 +436,9 @@ def declared_signatures(body: list[str], method: str) -> list[str]:
     .DeclaredMethod would return.
     """
     pattern = re.compile(r"^\t(?!//)[^\t].*\b" + re.escape(method) + r"\s*\(")
-    return [line.strip() for line in body
-            if pattern.match(line) and not line.strip().startswith("[")]
+    return [
+        line.strip() for line in body if pattern.match(line) and not line.strip().startswith("[")
+    ]
 
 
 def main(argv: list[str]) -> int:
@@ -410,8 +457,10 @@ def main(argv: list[str]) -> int:
     game_dir = override if override is not None else local_env.game_dir()
 
     if game_dir is None:
-        print("ERROR: no game directory. Set SEVEN_DAYS_TO_DIE_DIR or pass"
-              " --game-dir.", file=sys.stderr)
+        print(
+            "ERROR: no game directory. Set SEVEN_DAYS_TO_DIE_DIR or pass --game-dir.",
+            file=sys.stderr,
+        )
         return 2
 
     assembly = game_dir / MANAGED_SUBDIR / ASSEMBLY_NAME
@@ -439,9 +488,11 @@ def main(argv: list[str]) -> int:
     if runtime_error is not None:
         print("ERROR: ilspycmd is installed but cannot run.", file=sys.stderr)
         print(runtime_error, file=sys.stderr)
-        print("Install its target .NET runtime, or install Unity Hub with an"
-              " editor SDK so this verifier can use its local fallback.",
-              file=sys.stderr)
+        print(
+            "Install its target .NET runtime, or install Unity Hub with an"
+            " editor SDK so this verifier can use its local fallback.",
+            file=sys.stderr,
+        )
         return 2
 
     sources = root / source_dir(root)
@@ -493,11 +544,11 @@ def main(argv: list[str]) -> int:
             continue
 
         available = parameter_names(signatures[0])
-        unknown = [name for name in target.injected
-                   if not name.startswith("__") and name not in available]
+        unknown = [
+            name for name in target.injected if not name.startswith("__") and name not in available
+        ]
         if unknown:
-            print(f"FAIL      {target.label()} — patch method asks for "
-                  + ", ".join(unknown))
+            print(f"FAIL      {target.label()} — patch method asks for " + ", ".join(unknown))
             print(f"          installed parameters: {', '.join(available) or '(none)'}")
             print(f"          {target.source}:{target.line} ({target.patch_class})")
             failures += 1

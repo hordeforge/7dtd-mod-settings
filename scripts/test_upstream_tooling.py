@@ -64,12 +64,14 @@ def main() -> int:
                 if needle in ALLOW.get(rel, {}):
                     check(f"allowed:{rel}:{needle}", True)
                     continue
-                check(f"banned-tool:{rel}:{needle}", False,
-                      f"belongs upstream: {BANNED[needle]}")
+                check(f"banned-tool:{rel}:{needle}", False, f"belongs upstream: {BANNED[needle]}")
     # A clean tree produces no checks at all above, so nothing says the walk
     # ran: a moved scripts/ or a narrowed walk reports the same green.
-    check("the walk covered the scripts directory", scanned > 1,
-          f"only {scanned} file(s) were scanned under scripts/")
+    check(
+        "the walk covered the scripts directory",
+        scanned > 1,
+        f"only {scanned} file(s) were scanned under scripts/",
+    )
     for rel in sorted(ALLOW):
         exists = os.path.isfile(os.path.join(MOD_DIR, rel))
         check("allow-entry-exists:" + rel, exists, "stale ALLOW entry; remove it")
@@ -77,8 +79,11 @@ def main() -> int:
             with open(os.path.join(MOD_DIR, rel), encoding="utf-8", errors="replace") as handle:
                 content = handle.read()
             for needle in sorted(ALLOW[rel]):
-                check(f"allow-entry-used:{rel}:{needle}", needle in content,
-                      "stale ALLOW needle; remove it")
+                check(
+                    f"allow-entry-used:{rel}:{needle}",
+                    needle in content,
+                    "stale ALLOW needle; remove it",
+                )
     return result()
 
 

@@ -52,7 +52,7 @@ def replay_args(argv: list[str]) -> tuple[list[str], str]:
     """The harness options a replay asked for, and why not if it asked wrongly."""
     args = list(argv)
     if "--" in args:
-        args = args[args.index("--") + 1:]
+        args = args[args.index("--") + 1 :]
     for i in range(0, len(args), 2):
         if args[i] not in OPTIONS:
             return [], f"unknown option: {args[i]}"

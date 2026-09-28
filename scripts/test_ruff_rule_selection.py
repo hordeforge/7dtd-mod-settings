@@ -56,6 +56,12 @@ REQUIRED_GROUPS: dict[str, str] = {
     "PGH": "type: ignore without a code, and one that matches nothing",
     "BLE": "blind except",
     "A": "builtins shadowed by a module-level name",
+    "ERA": "commented-out code left behind by an edit",
+    "DTZ": "naive datetime where the tz is a real value",
+    "T10": "a debugger breakpoint left in a gate",
+    "TRY300": "a return inside try, so the except swallows cleanup",
+    "TRY400": "logging.error where logging.exception belongs",
+    "PLR1711": "a bare return at the end of a function",
 }
 
 # `select = [...]` and `ignore = [...]`, each a TOML array of bare strings.
@@ -74,8 +80,7 @@ def lint_section(text: str) -> str:
     Falling back keeps a renamed section a failure of the group checks below
     rather than an IndexError the runner would report as a crashed gate.
     """
-    match = re.search(r"^\[tool\.ruff\.lint\]\s*$(.*?)(?=^\[|\Z)",
-                      text, re.DOTALL | re.MULTILINE)
+    match = re.search(r"^\[tool\.ruff\.lint\]\s*$(.*?)(?=^\[|\Z)", text, re.DOTALL | re.MULTILINE)
     return match.group(1) if match else text
 
 
@@ -96,30 +101,38 @@ def main() -> int:
         return result()
 
     section = lint_section(read_config())
-    check("pyproject.toml has a [tool.ruff.lint] section",
-          "[tool.ruff.lint]" in read_config())
+    check("pyproject.toml has a [tool.ruff.lint] section", "[tool.ruff.lint]" in read_config())
 
     selected = array_codes(section, "select")
     missing = sorted(set(REQUIRED_GROUPS) - set(selected))
-    check("every defect-priority ruff group is selected",
-          not missing,
-          "missing: " + ", ".join(f"{code} ({why})" for code, why in REQUIRED_GROUPS.items()
-                                   if code in missing)
-          + " -- a group that leaves the list silences that class of defect")
+    check(
+        "every defect-priority ruff group is selected",
+        not missing,
+        "missing: "
+        + ", ".join(f"{code} ({why})" for code, why in REQUIRED_GROUPS.items() if code in missing)
+        + " -- a group that leaves the list silences that class of defect",
+    )
 
     ignored = array_codes(section, "ignore")
     reasons = reason_block(section)
     unreasoned = [code for code in ignored if code not in reasons]
-    check("every ignored ruff rule has a written reason",
-          not unreasoned,
-          "no reason names: " + ", ".join(unreasoned)
-          + f" -- say what excluding {unreasoned[0]} buys in the comment above `ignore`"
-          if unreasoned else "")
+    check(
+        "every ignored ruff rule has a written reason",
+        not unreasoned,
+        "no reason names: "
+        + ", ".join(unreasoned)
+        + f" -- say what excluding {unreasoned[0]} buys in the comment above `ignore`"
+        if unreasoned
+        else "",
+    )
 
     # A group is a prefix, so a group can be silenced by a code inside it.
     # The recorded ignore list is small and deliberate; nothing may join it.
-    check("the ignore list stays small and deliberate", len(ignored) <= 5,
-          f"{len(ignored)} codes ignored: {', '.join(ignored)}")
+    check(
+        "the ignore list stays small and deliberate",
+        len(ignored) <= 5,
+        f"{len(ignored)} codes ignored: {', '.join(ignored)}",
+    )
 
     return result()
 

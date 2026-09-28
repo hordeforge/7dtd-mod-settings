@@ -59,9 +59,7 @@ def run_runner(scripts: str, *filters: str) -> subprocess.CompletedProcess[str]:
 def main() -> int:
     root = tempfile.mkdtemp(prefix="test-run-offline-tests-")
     try:
-        good = make_runner_dir(
-            root, {"test_alpha_ok.py": PASS_BODY, "test_beta_ok.py": PASS_BODY}
-        )
+        good = make_runner_dir(root, {"test_alpha_ok.py": PASS_BODY, "test_beta_ok.py": PASS_BODY})
 
         clean = run_runner(good)
         check(

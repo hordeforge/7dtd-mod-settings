@@ -55,22 +55,34 @@ def main() -> int:
     check("edit-case-present", bool(edit), "the edit case is gone")
 
     saved = SAVE_EDIT.findall(restore)
-    check("restore-writes-captured-value",
-          len(saved) == 1 and saved[0].strip() == "originalRaidMode",
-          f"restore writes {saved!r}; it must write the value captured "
-          "before the first edit, not a literal")
-    check("restore-refuses-without-baseline",
-          "originalRaidMode == null" in restore,
-          "restore must fail loudly when no baseline was captured")
+    check(
+        "restore-writes-captured-value",
+        len(saved) == 1 and saved[0].strip() == "originalRaidMode",
+        f"restore writes {saved!r}; it must write the value captured "
+        "before the first edit, not a literal",
+    )
+    check(
+        "restore-refuses-without-baseline",
+        "originalRaidMode == null" in restore,
+        "restore must fail loudly when no baseline was captured",
+    )
 
-    check("baseline-captured-once",
-          re.search(r"void CaptureBaseline\(\)\s*\{[^}]*if \(originalToml != null\)\s*return;",
-                    source, re.DOTALL) is not None,
-          "CaptureBaseline must return early once the baseline is held")
-    check("baseline-captured-before-first-write",
-          edit.find("CaptureBaseline()") >= 0
-          and edit.find("CaptureBaseline()") < edit.find("SaveEdit("),
-          "the edit case must capture the baseline before it writes")
+    check(
+        "baseline-captured-once",
+        re.search(
+            r"void CaptureBaseline\(\)\s*\{[^}]*if \(originalToml != null\)\s*return;",
+            source,
+            re.DOTALL,
+        )
+        is not None,
+        "CaptureBaseline must return early once the baseline is held",
+    )
+    check(
+        "baseline-captured-before-first-write",
+        edit.find("CaptureBaseline()") >= 0
+        and edit.find("CaptureBaseline()") < edit.find("SaveEdit("),
+        "the edit case must capture the baseline before it writes",
+    )
 
     return result()
 
