@@ -236,10 +236,9 @@ def main() -> int:
           "ForgetStamps();" in settings
           and "ForgetStamps();"
           not in body(kept, "public static void Load("))
-    check("the Applied event is raised outside the lock, so a handler cannot "
-          "run against half-applied values or block the polling thread",
-          "handlers?.Invoke();" in settings
-          and "handlers = Applied;" in body(settings, "static bool Apply(")
+    check("a reload returns the applied values still under the lock, so no "
+          "caller can observe a half-applied reload",
+          "return ReloadLocked(" in body(settings, "static bool Apply(")
           and "Invoke()" not in body(settings, "static bool ReloadLocked(")
           and "Invoke()" not in body(settings, "static bool ApplyMissingFileDefaults("))
     # The disk-touching spellings that do not go through `File.` are named

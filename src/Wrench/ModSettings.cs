@@ -46,18 +46,15 @@ namespace Wrench
 		/// <summary>Example setting; replace with this mod's real options.</summary>
 		public static bool ExampleEnabled { get; private set; } = ExampleEnabledDefault;
 
-		/// <summary>Raised after a file read applied values (startup or reload).</summary>
-		public static event Action Applied;
-
 		public const float FilePollIntervalSeconds = 0.25f;
 		public const float FileReloadDebounceSeconds = 0.35f;
 
 		// The Unity thread polls and reloads through ModEvents.UnityUpdate;
 		// the console command below runs on the dedicated server's telnet
 		// thread, which is not the Unity thread. Both touch the watched-path
-		// stamps, the setting values and the Applied event, so every one of
-		// those accesses is made under this lock. Monitor is reentrant, which
-		// is what lets the reload path call TrySet while it holds it.
+		// stamps and the setting values, so every one of those accesses is
+		// made under this lock. Monitor is reentrant, which is what lets the
+		// reload path call TrySet while it holds it.
 		static readonly object Gate = new object();
 
 		static string watchedPath;
@@ -132,40 +129,23 @@ namespace Wrench
 		}
 
 		/// <summary>
-		/// The whole read-and-apply cycle under <see cref="Gate"/>. The
-		/// <see cref="Applied"/> event is raised after the lock is released, so
-		/// a handler cannot run against half-applied values and cannot block
-		/// the polling thread on a handler that does I/O.
+		/// The whole read-and-apply cycle under <see cref="Gate"/>.
 		/// </summary>
 		static bool Apply(bool force, bool startup, out string message)
 		{
-			Action handlers;
-			bool applied;
 			lock (Gate)
 			{
-				handlers = Applied;
 				message = null;
 				if (force)
-				{
-					applied = ReloadLocked(force, startup, out message);
-				}
-				else
-				{
-					applied = false;
-					if (!string.IsNullOrEmpty(watchedPath))
-					{
-						var now = NowSeconds();
-						if (now >= nextPollAt)
-						{
-							nextPollAt = now + FilePollIntervalSeconds;
-							applied = ReloadLocked(force, startup, out message);
-						}
-					}
-				}
+					return ReloadLocked(force, startup, out message);
+				if (string.IsNullOrEmpty(watchedPath))
+					return false;
+				var now = NowSeconds();
+				if (now < nextPollAt)
+					return false;
+				nextPollAt = now + FilePollIntervalSeconds;
+				return ReloadLocked(force, startup, out message);
 			}
-			if (applied)
-				handlers?.Invoke();
-			return applied;
 		}
 
 		/// <summary>Caller holds <see cref="Gate"/>.</summary>

@@ -89,8 +89,9 @@ carries the full contract, taken from AtomicDoomsday (its ADRs 0006/0015):
 - the console command's `set` shares one name/value grammar with the file
   via `ModSettings.TrySet`, and changes the session only until the file is
   re-read
-- `ModSettings.Applied` fires after each apply — the hook for anything
-  that must react to changed values (synced CVars, a future settings UI)
+- a reload holds `ModSettings.Gate` from the read through the apply, so
+  a `wrench set` from the telnet thread cannot land between the reset and
+  the apply
 - a mod that **writes another mod's** `Config/<Mod>.toml` goes through
   `ModFileSystem.cs` and its codec `TomlFile.cs`, not
   `File.ReadAllText`/`File.WriteAllText`: the byte order mark the file was

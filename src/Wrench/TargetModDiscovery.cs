@@ -93,8 +93,7 @@ namespace Wrench
 					if (!ModFileSystem.Current.Exists(tomlPath))
 						continue;
 					result.Add(new TargetMod(mod.Name, mod.DisplayName, mod.Path, tomlPath,
-						CachedHasSettingsComponent(mod),
-						new ModIdentity(mod.Path, mod.Name)));
+						CachedHasSettingsComponent(mod)));
 				}
 				catch (Exception ex)
 				{

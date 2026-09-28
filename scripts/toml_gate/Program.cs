@@ -148,7 +148,7 @@ static class Program
 		var saved = true;
 		try
 		{
-			var target = new TargetMod("Example", "Example", tomlPath, true);
+			var target = new TargetMod("Example", "Example", null, tomlPath, true);
 			var entry = target.Entries.Find(e => e.Name == "Count");
 			files.PendingNoAtomicReplace = 1;
 			// Two, not one: the first is the move that puts the staged text in

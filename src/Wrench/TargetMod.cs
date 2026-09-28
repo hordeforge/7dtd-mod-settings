@@ -8,31 +8,6 @@ using System.Text;
 namespace Wrench
 {
 	/// <summary>
-	/// Which installed mod a target came from, held as the two strings that
-	/// survive the mod object the game handed over: its folder and the name
-	/// its ModInfo carries.
-	///
-	/// The folder is the identity. Two installed mods can ship the same
-	/// ModInfo name, so a screen that remembers the last selection by name
-	/// can come back on a different mod's settings; a path is one mod's and
-	/// no other's. It is a value, not the game's <c>Mod</c>, because the
-	/// save path below it is driven offline (ADR 0001).
-	/// </summary>
-	internal readonly struct ModIdentity
-	{
-		/// <summary>The mod's own folder, or null when the target is not one.</summary>
-		public readonly string Path;
-		/// <summary>The name its ModInfo carries.</summary>
-		public readonly string Name;
-
-		public ModIdentity(string path, string name)
-		{
-			Path = path;
-			Name = name;
-		}
-	}
-
-	/// <summary>
 	/// One installed mod that ships a <c>Config/&lt;Mod&gt;.toml</c>, as the
 	/// Mod Settings screen sees it: the parsed document (or the parse error
 	/// that makes it read-only), whether the mod hot-reloads a save (the
@@ -159,8 +134,6 @@ namespace Wrench
 		public readonly string TomlFileName;
 		/// <summary>The Anvil settings component was found, so a save applies without a restart.</summary>
 		public readonly bool HotReloads;
-		/// <summary>Which installed mod this is; see <see cref="ModIdentity"/>.</summary>
-		public readonly ModIdentity Mod;
 
 		/// <summary>Last file text the entries were parsed from.</summary>
 		public string Text { get; private set; }
@@ -172,7 +145,7 @@ namespace Wrench
 		public string SaveError;
 
 		public TargetMod(string name, string displayName, string modPath, string tomlPath,
-			bool hotReloads, ModIdentity mod = default(ModIdentity))
+			bool hotReloads)
 		{
 			Name = name;
 			DisplayName = displayName;
@@ -180,19 +153,7 @@ namespace Wrench
 			TomlPath = tomlPath;
 			TomlFileName = Path.GetFileName(tomlPath);
 			HotReloads = hotReloads;
-			Mod = mod;
 			Reload();
-		}
-
-		/// <summary>
-		/// A target that was not discovered through the game, so only the file
-		/// it edits is known. <paramref name="modPath"/> and
-		/// <see cref="Mod"/> are the identity of an installed mod, and neither
-		/// is a property of the file alone.
-		/// </summary>
-		public TargetMod(string name, string displayName, string tomlPath, bool hotReloads)
-			: this(name, displayName, null, tomlPath, hotReloads)
-		{
 		}
 
 		/// <summary>

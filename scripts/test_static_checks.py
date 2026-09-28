@@ -4,9 +4,7 @@
 Deterministic, offline, no game install needed:
 
 - every tracked XML file parses
-- every Config/*.xml patch file uses a `<configs>` root (declared
-  exceptions only — a full-file override or settings file is a decision,
-  recorded here, not an accident)
+- every Config/*.xml patch file uses a `<configs>` root
 - ModInfo.xml carries the required fields, and its Name matches the name
   the build tooling stages (build.sh MOD_NAME and, for C# mods, the
   src/<Name>/<Name>.csproj project). The checkout directory is the repo
@@ -34,10 +32,6 @@ from gate_report import check, result
 from local_env import mod_dir
 
 MOD_DIR = str(mod_dir())
-
-# Config XML files allowed a root other than <configs>, each with a reason.
-# A stale entry (file gone) fails, so this list cannot rot.
-NON_PATCH_CONFIG_XML: dict[str, str] = {}
 
 # Build output, caches, and scratch/agent state. Skipping by directory name
 # at any depth: the dotnet gate writes into .tmp/, and a stray generated
@@ -191,14 +185,8 @@ def main() -> int:
     for rel in files:
         if not rel.startswith("Config" + os.sep) or not roots.get(rel):
             continue
-        if rel in NON_PATCH_CONFIG_XML:
-            continue
         check("configs-root:" + rel, roots[rel] == "configs",
               f"root is <{roots[rel]}>, patch files use <configs>")
-    for rel in sorted(NON_PATCH_CONFIG_XML):
-        check("configs-root-exception-exists:" + rel,
-              os.path.isfile(os.path.join(MOD_DIR, rel)),
-              "stale exception entry; remove it")
 
     modinfo = os.path.join(MOD_DIR, "ModInfo.xml")
     check("modinfo-exists", os.path.isfile(modinfo))

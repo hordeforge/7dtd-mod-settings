@@ -607,9 +607,9 @@ player pays for:
 
 - Two installed mods can carry the same ModInfo name, so restoring the
   selection by name could come back on the other mod's settings.
-  `TargetMod` now holds a `ModIdentity` (the mod's folder plus its ModInfo
-  name) and the screen matches on the folder. The identity is a value, not
-  the game's `Mod`, so the save path stays drivable offline.
+  `TargetMod` now holds the mod's own folder (`ModPath`) alongside its
+  ModInfo name, and the screen matches on the folder. The identity is a
+  value, not the game's `Mod`, so the save path stays drivable offline.
 - `HasSettingsComponent` answers false both for "this mod has no settings
   component" and for "an assembly would not load, so I could not tell".
   Memoizing the second as the first labelled the mod "restart required" for
