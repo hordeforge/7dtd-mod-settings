@@ -27,6 +27,12 @@ from pathlib import Path
 
 from local_env import mod_dir, require_dotnet_sdk
 
+# A harness build restores packages and compiles two C# projects, and the
+# run itself walks seeds; both are bounded work on a healthy machine. A
+# timeout names a wedged child instead of leaving the suite to hang on it.
+BUILD_TIMEOUT_SECONDS = 900
+RUN_TIMEOUT_SECONDS = 600
+
 
 def run_harness(project: str, run_failure: str, *run_args: str) -> int:
     """Build `scripts/<project>/<project>.csproj` and run what it built.
@@ -52,7 +58,7 @@ def run_harness(project: str, run_failure: str, *run_args: str) -> int:
         [dotnet, "build", str(project_dir / f"{project}.csproj"),
          "-c", "Release", "-o", str(out_dir), "-v", "quiet", "--nologo"],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
-        check=False)
+        timeout=BUILD_TIMEOUT_SECONDS, check=False)
     if build.returncode != 0:
         sys.stdout.write(build.stdout)
         sys.stderr.write(build.stderr)
@@ -61,7 +67,8 @@ def run_harness(project: str, run_failure: str, *run_args: str) -> int:
 
     run = subprocess.run([dotnet, str(Path(out_dir) / f"{project}.dll"), *run_args],
                          capture_output=True, text=True, encoding="utf-8",
-                         errors="replace", cwd=str(root), check=False)
+                         errors="replace", timeout=RUN_TIMEOUT_SECONDS,
+                         cwd=str(root), check=False)
     sys.stdout.write(run.stdout)
     sys.stderr.write(run.stderr)
     if run.returncode != 0:

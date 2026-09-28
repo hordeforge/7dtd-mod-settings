@@ -30,6 +30,11 @@ MOD_DIR = str(mod_dir())
 SCRIPTS = os.path.join(MOD_DIR, "scripts")
 SELF = os.path.abspath(__file__)
 
+# Each gate is run twice, and a gate may build a C# project or a package, so
+# this is generous; it exists so a gate that blocks forever fails here instead
+# of holding the suite runner's `wait -n` open for the rest of the run.
+GATE_RUN_TIMEOUT_SECONDS = 900
+
 INCIDENT = re.compile(
     r"\b(?:Written|Decided|Added|Corrected)\s+(?:on\s+)?20\d\d-\d\d-\d\d\b"
     r"|\bon\s+20\d\d-\d\d-\d\d\b"
@@ -74,7 +79,8 @@ def main() -> int:
                    and os.path.abspath(os.path.join(SCRIPTS, f)) != SELF)
     for gate in gates:
         path = os.path.join(SCRIPTS, gate)
-        runs = [subprocess.run([sys.executable, path], capture_output=True, check=False)
+        runs = [subprocess.run([sys.executable, path], capture_output=True,
+                               timeout=GATE_RUN_TIMEOUT_SECONDS, check=False)
                 for _ in range(2)]
         check("gate-deterministic:" + gate,
               runs[0].stdout == runs[1].stdout and runs[0].returncode == runs[1].returncode,
@@ -89,6 +95,7 @@ def main() -> int:
          os.path.join(SCRIPTS, "lib")],
         capture_output=True, check=False, text=True,
         encoding="utf-8", errors="replace",
+        timeout=GATE_RUN_TIMEOUT_SECONDS,
         cwd=os.path.dirname(SCRIPTS))
     check("gate-report-on-stdout",
           failing.returncode == 0 and "FAIL probe: detail" in failing.stdout

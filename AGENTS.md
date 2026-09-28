@@ -353,6 +353,13 @@ compile `src/Wrench/*.cs` (`scripts/test_toolchain_floor.py`); the lint
 tool versions are written down in `requirements-dev.txt` only, which CI
 installs (`scripts/test_lint_toolchain_declared.py`).
 
+Added 2026-09-28: a gate that starts a child without a timeout waits on it
+forever, and `scripts/run-offline-tests.sh` waits on the gate, so one wedged
+child held the whole suite open with nothing reported. Every `subprocess.run`
+and `subprocess.check_output` in a tracked `*.py` names a timeout, as a named
+module constant; `Popen` takes no such keyword and is out of the detector's
+reach (`scripts/test_python_defects.py`).
+
 ## Git workflow
 
 This is a standalone hordeforge repository and the clone may be shared by

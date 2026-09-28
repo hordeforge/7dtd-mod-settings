@@ -20,6 +20,9 @@ from git_tracked import tracked_paths
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(MOD_DIR, "scripts")
 REQUIREMENTS = "requirements-dev.txt"
+# `git ls-files` reads one index and exits; a git that never answers must not
+# hold this gate open.
+GIT_LIST_TIMEOUT_SECONDS = 60
 
 # The tools scripts/lint-python.sh refuses to start without.
 REQUIRED_TOOLS = ("ruff", "mypy")

@@ -319,7 +319,6 @@ static class Simulation
 
 	const string ModPath = "/sim/Mods/Example";
 	const string TomlPath = "/sim/Mods/Example/Config/Example.toml";
-	/// <summary>Every name a save stages under, whatever process staged it.</summary>
 	/// <summary>
 	/// Every name a save of <see cref="TomlPath"/> stages under, whatever
 	/// process staged it: the shipped writer appends its own id.

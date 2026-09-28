@@ -19,7 +19,8 @@ Covered, from the module's own contract:
   printed, and the client records the close instead of raising;
 - sending before connecting raises rather than silently dropping the command;
 - close() sends `exit` so the server's listener sees the session go;
-- connecting again releases the socket it replaced.
+- connecting again releases the socket it replaced;
+- a drained session leaves no growing copy of the console output on the client.
 """
 
 from __future__ import annotations
@@ -266,6 +267,27 @@ def _announce_password_prompt(peer: socket.socket) -> None:
         peer.sendall(b"Please enter password:\r\n")
 
 
+def test_client_keeps_no_growing_copy_of_the_console_output() -> None:
+    # A client is kept for a whole session, so a drain that appended what it
+    # read to a member nothing consumed grew that member with everything the
+    # server printed, for as long as the process lived. The output belongs to
+    # the caller of the command that asked for it.
+    reply = b"Executing command 'giveself'\r\nGave 1x wood\r\n" * 200
+    mine, server = socket.socketpair()
+    sent = serve_on_ending(server, reply, close_after=False)
+    telnet = client_over(mine)
+    try:
+        telnet.run("giveself", settle=0.5)
+        check("the command reached the server", sent == ["giveself"], repr(sent))
+        held = sorted(name for name, value in vars(telnet).items()
+                      if isinstance(value, str) and len(value) > 1024)
+        check("a drained session leaves no growing copy on the client",
+              not held, repr(held))
+    finally:
+        mine.close()
+        server.close()
+
+
 def main() -> int:
     test_run_returns_output_without_the_echo()
     test_run_survives_a_session_ending_command()
@@ -273,6 +295,7 @@ def main() -> int:
     test_close_sends_exit()
     test_reconnect_releases_the_first_socket()
     test_password_is_not_quoted_back_in_a_send_failure()
+    test_client_keeps_no_growing_copy_of_the_console_output()
     return result()
 
 

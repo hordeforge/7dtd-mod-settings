@@ -25,6 +25,9 @@ from pathlib import Path
 
 GAME_DIR_KEY = "SEVEN_DAYS_TO_DIE_DIR"
 DOTNET_ROOT_KEY = "DOTNET_ROOT"
+# `dotnet --list-sdks` reads one directory and exits. A muxer that never
+# answers must not hold the caller that asked which SDK it has.
+SDK_LIST_TIMEOUT_SECONDS = 60
 
 
 def mod_dir() -> Path:
@@ -111,7 +114,8 @@ def require_dotnet_sdk(root: Path | None = None) -> Path | None:
         return None
     sdks = subprocess.run([str(dotnet), "--list-sdks"],
                           capture_output=True, text=True, encoding="utf-8",
-                          errors="replace", check=False)
+                          errors="replace", timeout=SDK_LIST_TIMEOUT_SECONDS,
+                          check=False)
     if sdks.returncode != 0 or not sdks.stdout.strip():
         print(f"FAIL dotnet SDK not found: `{dotnet}` lists no SDKs. Install the "
               f".NET SDK (https://aka.ms/dotnet/download) and put it on PATH, "

@@ -36,6 +36,10 @@ printf '%s|%s|%s\\n' "${SEVEN_DAYS_TO_DIE_DIR:-}" \\
 	"${SEVEN_DAYS_TO_DIE_STEAMCMD:-}" "${WRENCH_ATOMIC_MOD_DIR:-}"
 """
 
+# The probe sources a shell and reads one file; a loader that blocked would
+# leave this gate waiting instead of reporting.
+PROBE_TIMEOUT_SECONDS = 60
+
 
 def load_env_file(directory: Path, body: str) -> Path:
     path = directory / ".local.env"
@@ -47,6 +51,7 @@ def run_probe(env_file: Path, env: dict[str, str] | None = None) -> list[str]:
     result = subprocess.run(
         ["bash", "-c", PROBE, "bash", str(LOADER), str(env_file)],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=PROBE_TIMEOUT_SECONDS,
         check=True,
         env={**os.environ, **(env or {})},
     )

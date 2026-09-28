@@ -65,7 +65,6 @@ class GameTelnet:
         self.password = password
         self.timeout = timeout
         self._sock: socket.socket | None = None
-        self._buffer = ""
         self.closed_by_server = False
 
     # -- connection -------------------------------------------------------
@@ -178,7 +177,11 @@ class GameTelnet:
 
         A closed connection ends the collection rather than raising: some
         commands legitimately end the session — `shutdown` being the obvious
-        one — and their output should still be returned.
+        one — and their output should still be returned. The text goes back
+        to the caller and nowhere else: a client kept for a whole session
+        (a playtest run, a watch loop) accumulated every byte the console
+        printed in a member nothing ever read, so the memory grew with the
+        server's log volume for the life of the process.
         """
         end = time.monotonic() + seconds
         collected = ""
@@ -198,7 +201,6 @@ class GameTelnet:
                     time.sleep(IDLE_SECONDS)
             if not self.closed_by_server:
                 sock.settimeout(self.timeout)
-        self._buffer += collected
         return collected
 
     def _readable(self) -> bool:
