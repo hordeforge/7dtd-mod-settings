@@ -95,11 +95,17 @@
 				     wrapped text to land inside them. Wrapping alone is not
 				     enough: an NGUI label draws within its own rect, so a
 				     wrap="true" label whose text needs a second line is
-				     clipped at its height exactly like an unwrapped one.
-				     Each height below holds three lines at its font size,
-				     and the English source at these widths needs two, which
-				     leaves the room a German or Russian rendering runs
-				     into.
+				     clipped at its height exactly like an unwrapped one, and
+				     both strings are translated, so a German or Russian
+				     sentence runs past the single line a 1200px label holds at
+				     these font sizes. Each height below holds three lines at
+				     its font size, and the English source at these widths
+				     needs two, which leaves the room a translation runs into.
+				     The status line is the taller of the two because it is the
+				     longer sentence: it carries the save state, how to save,
+				     and, when the row pool held fewer rows than the file has,
+				     how many settings it could not show, which is three lines
+				     of text in the worst case.
 				     Both were one line high, so the English sentence was cut
 				     off in every language. scripts/test_localization_catalog.py
 				     holds the height against the catalog's own english text

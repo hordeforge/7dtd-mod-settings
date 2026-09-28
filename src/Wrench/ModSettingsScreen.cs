@@ -59,6 +59,13 @@ namespace Wrench
 		// between the save and the mod's reload, and that other mod is the one
 		// that never re-read.
 		TargetMod watchedReloadTarget;
+		// What the fixed row pools could not show: mods with settings beyond
+		// the mod list, and a mod's settings beyond the setting list. Both are
+		// logged for the operator, and both say so on the status line too,
+		// because a player looking at a list that stops short would otherwise
+		// read the stop as the end of the file.
+		int unlistedMods;
+		int unshownSettings;
 		// The wait is measured on the mod's one clock (ModClock), not by
 		// summing the frame delta the update loop is handed: that delta is the
 		// game's own frame time, and a frame the game does not advance (a
@@ -319,7 +326,10 @@ namespace Wrench
 				modRows[i].Target = i < targets.Count ? targets[i] : null;
 				modRows[i].RefreshBindings();
 			}
-			if (targets.Count > modRows.Length)
+			unlistedMods = targets.Count > modRows.Length
+				? targets.Count - modRows.Length
+				: 0;
+			if (unlistedMods > 0)
 				Log.Warning(ModApi.LogPrefix + " " + targets.Count + " mods with settings but only "
 					+ modRows.Length + " list rows; the rest are not shown.");
 		}
@@ -332,7 +342,10 @@ namespace Wrench
 				var entry = entries != null && i < entries.Count ? entries[i] : null;
 				settingRows[i].SetEntry(selected, entry);
 			}
-			if (entries != null && entries.Count > settingRows.Length)
+			unshownSettings = entries != null && entries.Count > settingRows.Length
+				? entries.Count - settingRows.Length
+				: 0;
+			if (unshownSettings > 0)
 				Log.Warning(ModApi.LogPrefix + " " + selected.Name + " has " + entries.Count
 					+ " settings but only " + settingRows.Length + " rows; the rest are not shown.");
 		}
@@ -361,9 +374,11 @@ namespace Wrench
 				_value = (targets.Count == 0).ToString();
 				return true;
 			case "noentries":
-				// Not when no mod is selected: `nomods` already says, on
-				// both sides, that there is nothing here, and "this mod's
-				// settings file has no keys in it" is false of no mod at all.
+				// Only a mod that was selected and has nothing in it. Not when
+				// no mod is selected: `nomods` already says, on both sides,
+				// that there is nothing here, and "this mod's settings file has
+				// no keys in it" is false of no mod at all, so the label would
+				// repeat the left column under a heading about "this mod".
 				_value = (selected != null && selected.Entries != null
 					&& selected.Entries.Count == 0).ToString();
 				return true;
@@ -380,6 +395,17 @@ namespace Wrench
 		}
 
 		string StatusLine()
+		{
+			return BaseStatusLine() + PooledOutOfViewSentence();
+		}
+
+		/// <summary>
+		/// What the selected mod's state is, in one sentence. A list that
+		/// stops short is a different fact and is said separately, so a
+		/// player never reads a save outcome as a statement about the whole
+		/// file.
+		/// </summary>
+		string BaseStatusLine()
 		{
 			if (selected == null)
 				return WrenchText.Get("wrenchNoMods",
@@ -407,17 +433,45 @@ namespace Wrench
 				return WrenchText.Format("wrenchStatusSaveFailed",
 					"Save failed: $1", selected.SaveError);
 			default:
+				// The screen is opened on a list of values the player is
+				// about to change, and both things that change one are
+				// invisible until used: the field saves on Enter, and the
+				// button beside a boolean flips it. The neutral line is the
+				// one shown before the first save, which is the moment the
+				// player has to find out how, so it names both.
 				return selected.HotReloads
 					? WrenchText.Get("wrenchStatusLiveHint",
-						"Edits apply live: the mod re-reads the file on save.")
+						"Press Enter to save, or the button on the right to flip true/false. "
+						+ "Edits apply live: the mod re-reads the file on save.")
 					: WrenchText.Get("wrenchStatusRestartHint",
-						"Edits take effect after a restart.");
+						"Press Enter to save, or the button on the right to flip true/false. "
+						+ "Edits take effect after a restart.");
 			}
 		}
 
 		/// <summary>
+		/// What the fixed row pools left out, said on the same line, or an
+		/// empty string when they showed everything.
+		/// </summary>
+		string PooledOutOfViewSentence()
+		{
+			var sentence = "";
+			if (unshownSettings > 0)
+				sentence += " " + WrenchText.Format("wrenchStatusUnshownSettings",
+					"$1 more settings in this file are past the end of the list "
+					+ "and cannot be edited here.", unshownSettings.ToString());
+			if (unlistedMods > 0)
+				sentence += " " + WrenchText.Format("wrenchStatusUnlistedMods",
+					"$1 more installed mods have a settings file and are not listed here.",
+					unlistedMods.ToString());
+			return sentence;
+		}
+
+		/// <summary>
 		/// The status line's tint, decided by the same switch the sentence is
-		/// decided by, so the two can never disagree.
+		/// decided by, so the two can never disagree. What the row pools left
+		/// out is appended to the sentence without a tint of its own: it is a
+		/// fact about the list, not about the save.
 		/// </summary>
 		string StatusColor()
 		{

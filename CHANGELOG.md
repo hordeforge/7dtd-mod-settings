@@ -54,6 +54,17 @@ its own numbered heading when the version it ships under is declared.
   cannot write refused every save, and the screen reported the refusal.
   Extract the new package over the old folder, or make the installed
   folder writable by its owner (`chmod -R u+w Mods/Wrench`).
+- A settings file with more keys than the list has rows, or an install
+  with more mods in it than the list has rows, now says so on the status
+  line with the count it could not show, instead of only writing a warning
+  to the game log a player never opens. The list stops at the end of the
+  pool either way; it just no longer reads as the end of the file.
+- The status line names the two gestures that change a value, since
+  neither is visible until it is used: press Enter to save the field, and
+  the button on the right of a true/false row to flip it.
+- An install with no mod shipping a settings file no longer says the same
+  "no keys in it" sentence twice, once over the mod list and once over the
+  empty setting list.
 - Reopening the Mod Settings screen keeps the selection on the mod whose
   folder it was on, instead of the mod whose `ModInfo` name matches. Two
   installed mods can carry the same name, and the reopen landed the player
