@@ -183,6 +183,25 @@ def main() -> int:
           and "lock (Gate)" in body(settings, "static bool Apply(")
           and "lock (Gate)" in body(settings, "public static bool TrySet(")
           and "lock (Gate)" in body(settings, "public static string[] Describe()"))
+    # The watch remembers one file's write time, length and text. Switching
+    # to another settings file (a second InitMod on a long-running server)
+    # has to forget them: a new file of the same length written in the same
+    # timestamp tick would otherwise be taken for the one already applied.
+    stamp = body(settings, "static void ForgetStamps(")
+    check("watching a different settings file forgets the previous one's "
+          "signature",
+          "ForgetStamps();" in body(settings, "public static void Load(")
+          and "static void ForgetStamps(" in settings
+          and "ForgetStamps();"
+          in body(settings, "static bool ApplyMissingFileDefaults(")
+          and "appliedText = null;" in stamp
+          and "nextPollAt = -1d;" in stamp)
+    kept = settings.replace("ForgetStamps();\n", "", 1)
+    check("negative control: a watch that keeps the old signature across a "
+          "new file fails the gate",
+          "ForgetStamps();" in settings
+          and "ForgetStamps();"
+          not in body(kept, "public static void Load("))
     check("the Applied event is raised outside the lock, so a handler cannot "
           "run against half-applied values or block the polling thread",
           "handlers?.Invoke();" in settings

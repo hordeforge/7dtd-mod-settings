@@ -102,7 +102,17 @@ namespace Wrench
 
 			lock (Gate)
 			{
-				watchedPath = ResolvePath(mod.Path);
+				var path = ResolvePath(mod.Path);
+				// A second InitMod on a long-running server can watch a
+				// different file. Every stamp below belongs to the file
+				// watched until now, and a new file of the same length
+				// written in the same timestamp tick would be taken for one
+				// already applied, leaving the old file's values in place.
+				if (!string.Equals(watchedPath, path, StringComparison.Ordinal))
+				{
+					ForgetStamps();
+					watchedPath = path;
+				}
 			}
 			Apply(true, true, out _);
 		}
@@ -301,14 +311,27 @@ namespace Wrench
 		static bool ApplyMissingFileDefaults(out string message)
 		{
 			ResetToDefaults();
+			ForgetStamps();
+			LogCurrent("defaults (no " + RelativePath + ")");
+			message = RelativePath + " is missing; using defaults.";
+			return true;
+		}
+
+		/// <summary>
+		/// Forgets the signature of the file that was applied or last seen, so
+		/// the next one is read as a fresh change rather than compared against
+		/// a signature of a different file. Caller holds <see cref="Gate"/>.
+		/// </summary>
+		static void ForgetStamps()
+		{
 			appliedWriteUtc = default(DateTime);
 			appliedLength = -1;
 			appliedText = null;
 			seenWriteUtc = default(DateTime);
 			seenLength = -1;
-			LogCurrent("defaults (no " + RelativePath + ")");
-			message = RelativePath + " is missing; using defaults.";
-			return true;
+			seenAt = -1d;
+			nextPollAt = -1d;
+			loggedProblem = null;
 		}
 
 		static bool TryStamp(string path, out DateTime writeUtc, out long length, out string error)

@@ -119,7 +119,25 @@ def main() -> int:
     check("the assembly probe is paid once per installed mod, not once per "
           "screen opening",
           "hotReloadsByModPath.TryGetValue(mod.Path" in probe
-          and "HasSettingsComponent(mod)" in probe)
+          and "HasSettingsComponent(mod, out definitive)" in probe)
+    check("the memoized answers are looked up and filled under one lock",
+          "lock (hotReloadsGate)" in probe
+          and "hotReloadsByModPath[mod.Path] = found;" in probe)
+    check("an inconclusive probe is not memoized as this mod's answer",
+          "if (definitive)" in probe)
+
+    # The two memoization rules above, proven able to fail against mutated
+    # copies of the real source rather than asserted by their own passing.
+    ungated = target.replace("if (definitive)", "if (true)", 1)
+    check("negative control: a probe cached whatever it found fails the gate",
+          "if (definitive)" in target
+          and "if (definitive)"
+          not in body(ungated, "static bool CachedHasSettingsComponent("))
+    unlocked = target.replace("lock (hotReloadsGate)", "", 1)
+    check("negative control: an unlocked memo table fails the gate",
+          "lock (hotReloadsGate)" in target
+          and "lock (hotReloadsGate)"
+          not in body(unlocked, "static bool CachedHasSettingsComponent("))
 
     relocate = body(target, "bool TryRelocate(")
     check("the key is located by name, not by the offset it used to have",
@@ -132,6 +150,11 @@ def main() -> int:
     probe = body(discovery, "static bool HasSettingsComponent(")
     check("one unloadable assembly does not take the settings list down",
           "catch (Exception)" in probe and "continue;" in probe)
+    check("an assembly that could not be inspected leaves the answer "
+          "incomplete",
+          "static bool HasSettingsComponent(Mod mod, out bool definitive)" in target
+          and "definitive = false;" in probe
+          and "definitive = true;" in probe)
 
     # The save path reaches the disk only through the seam, so a simulated
     # run's own filesystem is what a save is made against; and the discovery

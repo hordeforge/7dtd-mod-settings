@@ -232,6 +232,14 @@ game runs, so its answer is memoized per mod path and paid once per mod
 rather than on every opening of the screen. Enforced by
 `scripts/test_target_save_coherence.py`.
 
+The settings watch in `ModSettings` keeps the applied file's write time,
+length and text so an unchanged file is not re-read four times a second.
+Those belong to one file: a second `Load` (a mod reloaded on a long-running
+dedicated server) that watches a different path forgets them through
+`ForgetStamps`, or a new file of the same length written in the same
+timestamp tick is taken for the one already applied and the old values
+stay in place. Enforced by `scripts/test_settings_reload.py`.
+
 ## Decided 2026-09-28: bounded reload wait, empty-state labels
 
 The post-save wait for a hot-reloading mod's reload line is bounded by

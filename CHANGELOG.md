@@ -73,6 +73,16 @@ value.
   watch was registered a second time and polled twice per frame with no
   way to unhook the first. It is registered once per process.
 - Cross-thread reads of the settings state are guarded.
+- A mod whose assembly the runtime could not load once was remembered as
+  not hot-reloading for the rest of the session, so its row kept saying
+  "restart required" after the assembly was loadable again. An
+  incomplete probe is no longer kept, and the remembered answers are
+  looked up and filled under one lock.
+- Switching the settings watch to a different file (a mod reloaded on a
+  long-running dedicated server) kept the previous file's write time and
+  length, so a new file of the same size written in the same timestamp
+  tick was taken for one already applied and the old values stayed in
+  place. The signature is forgotten when the watched path changes.
 - A failed save is reported on the screen and in the log instead of
   being reported as applied, and a mod is marked applies-live only
   after its save succeeded.
