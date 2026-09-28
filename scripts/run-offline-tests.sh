@@ -17,10 +17,23 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Elapsed time is read from the monotonic clock, so an NTP step or a manual
+# clock change part way through a run cannot report a negative or hour-long
+# test duration. The wall clock is the fallback where /proc is unavailable;
+# it only ever feeds the printed durations, never a pass or fail decision.
+now_seconds() {
+	local uptime
+	if read -r uptime 2>/dev/null < /proc/uptime; then
+		printf '%s\n' "${uptime%%.*}"
+	else
+		date +%s
+	fi
+}
+
 filters=("$@")
 failed=()
 ran=0
-overall_start=$(date +%s)
+overall_start=$(now_seconds)
 
 tests=()
 for test_script in "$SCRIPT_DIR"/test_*.py; do
@@ -53,12 +66,12 @@ run_serial() {
 	local test_script name start status
 	for test_script in "${tests[@]}"; do
 		name="$(basename "$test_script")"
-		start=$(date +%s)
+		start=$(now_seconds)
 		if python3 "$test_script"; then
-			printf 'PASS %s (%ss)\n' "$name" "$(( $(date +%s) - start ))"
+			printf 'PASS %s (%ss)\n' "$name" "$(( $(now_seconds) - start ))"
 		else
 			status=$?
-			printf 'FAIL %s (exit %s, %ss)\n' "$name" "$status" "$(( $(date +%s) - start ))"
+			printf 'FAIL %s (exit %s, %ss)\n' "$name" "$status" "$(( $(now_seconds) - start ))"
 			failed+=("$name")
 		fi
 		ran=$((ran + 1))
@@ -75,13 +88,13 @@ run_parallel() {
 		out="$tmpdir/$name.out"
 		err="$tmpdir/$name.err"
 		(
-			start=$(date +%s)
+			start=$(now_seconds)
 			if python3 "$test_script" >"$out" 2>"$err"; then
 				status=0
 			else
 				status=$?
 			fi
-			printf '%s %s\n' "$status" "$(( $(date +%s) - start ))" > "$tmpdir/$name.status"
+			printf '%s %s\n' "$status" "$(( $(now_seconds) - start ))" > "$tmpdir/$name.status"
 		) &
 		active=$((active + 1))
 		if (( active >= max_jobs )); then
@@ -111,7 +124,7 @@ else
 	run_parallel
 fi
 
-printf '%s offline tests run in %ss.\n' "$ran" "$(( $(date +%s) - overall_start ))"
+printf '%s offline tests run in %ss.\n' "$ran" "$(( $(now_seconds) - overall_start ))"
 if (( ${#filters[@]} && ran == 0 )); then
 	# A filter matching nothing must not read as a green run.
 	printf 'ERROR: no test_*.py matches filter(s): %s\n' "${filters[*]}" >&2

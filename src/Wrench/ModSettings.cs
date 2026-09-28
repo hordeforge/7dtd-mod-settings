@@ -12,7 +12,8 @@ namespace Wrench
 	/// The engine's XML patcher never sees the file; the DLL reads it at
 	/// <c>InitMod</c> and again whenever it is saved (a mtime/length watch
 	/// polled from <c>ModEvents.UnityUpdate</c>, debounced so a half-written
-	/// save is not read). A reload resets to shipped defaults, then applies
+	/// save is not read; both intervals are elapsed time off a monotonic
+	/// clock). A reload resets to shipped defaults, then applies
 	/// the file; a broken save keeps the current values. The console command
 	/// (<c>wrench settings|set|reload</c>) shares the same value
 	/// grammar through <see cref="TrySet"/>.
@@ -43,8 +44,20 @@ namespace Wrench
 		static string appliedText;
 		static DateTime seenWriteUtc;
 		static long seenLength = -1;
-		static float seenAt = -1f;
-		static float nextPollAt;
+		static double seenAt = -1d;
+		static double nextPollAt;
+
+		// Elapsed time is read from a monotonic clock, not from
+		// Time.unscaledTime: that one is a float, so a dedicated server with
+		// weeks of uptime can no longer resolve the sub-second poll interval
+		// and debounce, and a saved file silently stops being picked up.
+		static readonly System.Diagnostics.Stopwatch Clock =
+			System.Diagnostics.Stopwatch.StartNew();
+
+		static double NowSeconds()
+		{
+			return Clock.Elapsed.TotalSeconds;
+		}
 
 		/// <summary>
 		/// Reads the settings file if it is there. A missing file is the normal
@@ -77,7 +90,7 @@ namespace Wrench
 		{
 			if (string.IsNullOrEmpty(watchedPath))
 				return false;
-			var now = Time.unscaledTime;
+			var now = NowSeconds();
 			if (now < nextPollAt)
 				return false;
 			nextPollAt = now + FilePollIntervalSeconds;
@@ -136,10 +149,10 @@ namespace Wrench
 				{
 					seenWriteUtc = writeUtc;
 					seenLength = length;
-					seenAt = Time.unscaledTime;
+					seenAt = NowSeconds();
 					return false;
 				}
-				if (Time.unscaledTime - seenAt < FileReloadDebounceSeconds)
+				if (NowSeconds() - seenAt < FileReloadDebounceSeconds)
 					return false;
 			}
 

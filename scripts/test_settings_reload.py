@@ -64,6 +64,10 @@ def main() -> int:
           and "FilePollIntervalSeconds" in settings
           and "FileReloadDebounceSeconds" in settings
           and "SdFile.GetLastWriteTimeUtc" in settings)
+    check("the file watch measures elapsed time on a monotonic clock",
+          "Stopwatch.StartNew()" in settings
+          and "Time.unscaledTime -" not in settings
+          and "seenAt = Time.unscaledTime" not in settings)
     check("reload resets to defaults then applies the file",
           "ResetToDefaults();" in settings
           and '"reload " + RelativePath' in settings)
