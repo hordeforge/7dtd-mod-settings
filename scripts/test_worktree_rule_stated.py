@@ -27,15 +27,8 @@ REQUIRED_ELEMENTS = (
     "worktree add",
 )
 
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate_report import FAILURES, check
 
 
 def missing_elements(text: str) -> list[str]:

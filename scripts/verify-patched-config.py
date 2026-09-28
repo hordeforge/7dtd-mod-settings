@@ -38,6 +38,9 @@ MOD_NAME = next(
     for p in ET.parse(os.path.join(MOD_DIR, "ModInfo.xml")).getroot()
     if p.tag == "Name")
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from local_env import game_dir
+
 # Patches whose value depends on landing inside a specific parent. These are
 # the ones a wrong-but-valid XPath would silently misplace.
 # Placement-sensitive patches: (file, parent tag, parent name, regex the
@@ -150,7 +153,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--configs-dump", default="", help="use this ConfigsDump directory")
     parser.add_argument("--save-name", default="", help="save whose dump to check")
-    parser.add_argument("--game-dir", default=configured_game_dir())
+    parser.add_argument("--game-dir", default=game_dir() or "")
     args = parser.parse_args()
 
     dump = args.configs_dump or find_dump(args.game_dir, args.save_name)

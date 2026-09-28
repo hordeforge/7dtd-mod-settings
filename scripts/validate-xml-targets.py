@@ -32,10 +32,11 @@ CHECK_FULL = {"set", "remove", "removeattribute", "csv"}
 
 
 def game_dir() -> str:
+    """The configured game install, or exit: the xpaths have nothing to check against."""
     path = configured_game_dir()
     if not path or not os.path.isdir(os.path.join(path, "Data", "Config")):
         sys.exit("ERROR: set SEVEN_DAYS_TO_DIE_DIR or .local.env to a valid game install.")
-    return path
+    return str(path)
 
 
 def find(root: ET.Element, xpath: str) -> bool | None:

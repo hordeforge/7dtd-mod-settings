@@ -22,18 +22,11 @@ import sys
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(MOD_DIR, "scripts")
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate_report import FAILURES, check
+
 FAMILIES = ("codex", "claude", "grok", "gemini", "gpt", "shamway")
 CALL = re.compile(r"new-session-id\.sh\"?\s+(\S+)")
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def main() -> int:

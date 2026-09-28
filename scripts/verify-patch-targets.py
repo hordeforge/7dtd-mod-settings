@@ -74,7 +74,7 @@ def usage() -> None:
     print("  scripts/verify-patch-targets.py --game-dir /path/to/7dtd")
 
 
-def configured_game_dir(root: Path) -> Path | None:
+def configured_game_dir(root: Path | None = None) -> Path | None:
     """`SEVEN_DAYS_TO_DIE_DIR` resolved by scripts/lib/local_env.py."""
     path = local_env.configured_game_dir(root)
     return Path(path) if path else None
@@ -280,7 +280,6 @@ def main(argv: list[str]) -> int:
         return 0
 
     root = Path(__file__).resolve().parent.parent
-    game_dir = None
     if "--game-dir" in argv:
         index = argv.index("--game-dir")
         if index + 1 >= len(argv):
@@ -289,7 +288,7 @@ def main(argv: list[str]) -> int:
             return 2
         game_dir = Path(argv[index + 1])
     else:
-        game_dir = configured_game_dir(root)
+        game_dir = configured_game_dir()
 
     if game_dir is None:
         print("ERROR: no game directory. Set SEVEN_DAYS_TO_DIE_DIR or pass --game-dir.")

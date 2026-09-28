@@ -26,15 +26,8 @@ MOD_NAME = next(
     if p.tag == "Name")
 SRC = os.path.join(MOD_DIR, "src", MOD_NAME)
 
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool) -> None:
-    if ok:
-        print("PASS " + name)
-    else:
-        FAILURES.append(name)
-        print("FAIL " + name, file=sys.stderr)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate_report import FAILURES, check
 
 
 def main() -> int:

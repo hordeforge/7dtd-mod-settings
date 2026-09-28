@@ -21,18 +21,11 @@ import subprocess
 import sys
 import tempfile
 
-FAILURES: list[str] = []
-
 PASS_BODY = "#!/usr/bin/env python3\nprint('ok')\n"
 FAIL_BODY = "#!/usr/bin/env python3\nimport sys\nprint('boom')\nsys.exit(3)\n"
 
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate_report import FAILURES, check
 
 
 def make_runner_dir(root: str, bodies: dict[str, str]) -> str:
