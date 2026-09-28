@@ -25,6 +25,13 @@ namespace Wrench
 	/// this class, so every static field above is read and written under
 	/// <c>Gate</c>; a public entry point takes it, and the code it calls
 	/// internally takes it reentrantly.
+	///
+	/// Nothing is written to the game log while <c>Gate</c> is held. The
+	/// logger calls every mod's log callback on the thread that logged, so a
+	/// line written under the settings lock runs other mods' handlers, and
+	/// whatever they take, under it. A line is decided under the lock, with
+	/// the values it reports, and written by <see cref="Flush"/> once the
+	/// lock is released.
 	/// </summary>
 	internal static class ModSettings
 	{
@@ -67,6 +74,25 @@ namespace Wrench
 		static double nextPollAt;
 		static string loggedProblem;
 
+		enum Level
+		{
+			Out,
+			Warning,
+			Error,
+		}
+
+		/// <summary>
+		/// One line decided under <see cref="Gate"/> and written after it is
+		/// released. The text is built where the values it reports are still
+		/// the locked ones, so what the log says and what the settings are
+		/// cannot come apart.
+		/// </summary>
+		struct LogLine
+		{
+			public Level Severity;
+			public string Text;
+		}
+
 		// Elapsed time is read from the mod's one monotonic clock, not from
 		// Time.unscaledTime: that one is a float, so a dedicated server with
 		// weeks of uptime can no longer resolve the sub-second poll interval
@@ -91,8 +117,11 @@ namespace Wrench
 		{
 			if (mod == null || string.IsNullOrEmpty(mod.Path))
 			{
-				Log.Warning(ModApi.LogPrefix + " no mod path available; using default settings.");
-				LogCurrent("defaults");
+				var log = new List<LogLine>();
+				Queue(log, Level.Warning,
+					ModApi.LogPrefix + " no mod path available; using default settings.");
+				LogCurrent("defaults", log);
+				Flush(log);
 				return;
 			}
 
@@ -129,27 +158,35 @@ namespace Wrench
 		}
 
 		/// <summary>
-		/// The whole read-and-apply cycle under <see cref="Gate"/>.
+		/// The whole read-and-apply cycle under <see cref="Gate"/>, and the
+		/// lines it decided written with it released.
 		/// </summary>
 		static bool Apply(bool force, bool startup, out string message)
 		{
+			var log = new List<LogLine>();
+			var applied = false;
 			lock (Gate)
 			{
 				message = null;
 				if (force)
-					return ReloadLocked(force, startup, out message);
-				if (string.IsNullOrEmpty(watchedPath))
-					return false;
-				var now = NowSeconds();
-				if (now < nextPollAt)
-					return false;
-				nextPollAt = now + FilePollIntervalSeconds;
-				return ReloadLocked(force, startup, out message);
+					applied = ReloadLocked(force, startup, log, out message);
+				else if (!string.IsNullOrEmpty(watchedPath))
+				{
+					var now = NowSeconds();
+					if (now >= nextPollAt)
+					{
+						nextPollAt = now + FilePollIntervalSeconds;
+						applied = ReloadLocked(force, startup, log, out message);
+					}
+				}
 			}
+			Flush(log);
+			return applied;
 		}
 
 		/// <summary>Caller holds <see cref="Gate"/>.</summary>
-		static bool ReloadLocked(bool force, bool startup, out string message)
+		static bool ReloadLocked(bool force, bool startup, List<LogLine> log,
+			out string message)
 		{
 			message = null;
 			if (string.IsNullOrEmpty(watchedPath))
@@ -177,12 +214,12 @@ namespace Wrench
 							message = "defaults (no " + RelativePath + ")";
 							return false;
 						}
-						return ApplyMissingFileDefaults(out message);
+						return ApplyMissingFileDefaults(log, out message);
 					}
-					return ApplyMissingFileDefaults(out message);
+					return ApplyMissingFileDefaults(log, out message);
 				}
 				var problem = "could not stat " + RelativePath + " (" + ioError + ").";
-				LogProblem(problem, false);
+				LogProblem(problem, false, log);
 				message = problem;
 				return false;
 			}
@@ -210,13 +247,13 @@ namespace Wrench
 				if (startup)
 				{
 					var failure = RelativePath + " " + cause + "using default settings.";
-					LogProblem(failure, true);
-					LogCurrent("defaults (unreadable " + RelativePath + ")");
+					LogProblem(failure, true, log);
+					LogCurrent("defaults (unreadable " + RelativePath + ")", log);
 					message = failure;
 					return false;
 				}
 				var problem = RelativePath + " " + cause + "keeping current settings.";
-				LogProblem(problem, false);
+				LogProblem(problem, false, log);
 				message = problem;
 				return false;
 			}
@@ -241,9 +278,9 @@ namespace Wrench
 				var problem = error + (startup
 					? "; using default settings."
 					: "; keeping current settings.");
-				LogProblem(problem, true);
+				LogProblem(problem, true, log);
 				if (startup)
-					LogCurrent("defaults");
+					LogCurrent("defaults", log);
 				message = error;
 				return false;
 			}
@@ -253,7 +290,8 @@ namespace Wrench
 			{
 				if (!TrySet(entries[i].Name, entries[i].Value, out var setMessage,
 					ignoreNameCase: false))
-					Log.Warning(ModApi.LogPrefix + " " + RelativePath + ": " + setMessage);
+					Queue(log, Level.Warning,
+						ModApi.LogPrefix + " " + RelativePath + ": " + setMessage);
 			}
 			appliedWriteUtc = writeUtc;
 			appliedLength = length;
@@ -262,7 +300,7 @@ namespace Wrench
 			seenLength = length;
 			loggedProblem = null;
 			var source = startup ? RelativePath : "reload " + RelativePath;
-			LogCurrent(source);
+			LogCurrent(source, log);
 			message = source;
 			return true;
 		}
@@ -273,16 +311,13 @@ namespace Wrench
 		/// line per distinct problem is logged, and again when the problem
 		/// changes or a good read clears it.
 		/// </summary>
-		static void LogProblem(string problem, bool isError)
+		static void LogProblem(string problem, bool isError, List<LogLine> log)
 		{
 			if (string.Equals(problem, loggedProblem, StringComparison.Ordinal))
 				return;
 			loggedProblem = problem;
-			var line = ModApi.LogPrefix + " " + RelativePath + ": " + problem;
-			if (isError)
-				Log.Error(line);
-			else
-				Log.Warning(line);
+			Queue(log, isError ? Level.Error : Level.Warning,
+				ModApi.LogPrefix + " " + RelativePath + ": " + problem);
 		}
 
 		static void ResetToDefaults()
@@ -295,11 +330,11 @@ namespace Wrench
 		/// every stamp, so a file reappearing is read as a fresh change
 		/// rather than compared against a stale signature.
 		/// </summary>
-		static bool ApplyMissingFileDefaults(out string message)
+		static bool ApplyMissingFileDefaults(List<LogLine> log, out string message)
 		{
 			ResetToDefaults();
 			ForgetStamps();
-			LogCurrent("defaults (no " + RelativePath + ")");
+			LogCurrent("defaults (no " + RelativePath + ")", log);
 			message = RelativePath + " is missing; using defaults.";
 			return true;
 		}
@@ -413,15 +448,49 @@ namespace Wrench
 			};
 		}
 
-		static void LogCurrent(string source)
+		/// <summary>
+		/// One line naming the settings in force, decided under
+		/// <see cref="Gate"/> and written by <see cref="Flush"/>.
+		/// </summary>
+		static void LogCurrent(string source, List<LogLine> log)
 		{
 			string[] lines;
 			lock (Gate)
 			{
 				lines = DescribeLocked();
 			}
-			Log.Out(ModApi.LogPrefix + " settings (" + source + "): "
+			Queue(log, Level.Out, ModApi.LogPrefix + " settings (" + source + "): "
 				+ string.Join(", ", lines));
+		}
+
+		static void Queue(List<LogLine> log, Level severity, string text)
+		{
+			log.Add(new LogLine { Severity = severity, Text = text });
+		}
+
+		/// <summary>
+		/// Writes the lines a cycle decided, with no lock held. The game's
+		/// logger calls every mod's log callback on the thread that logged, so
+		/// a line written under <see cref="Gate"/> runs other mods' handlers,
+		/// and whatever they take, under the settings lock.
+		/// </summary>
+		static void Flush(List<LogLine> log)
+		{
+			for (var i = 0; i < log.Count; i++)
+			{
+				switch (log[i].Severity)
+				{
+				case Level.Error:
+					Log.Error(log[i].Text);
+					break;
+				case Level.Warning:
+					Log.Warning(log[i].Text);
+					break;
+				default:
+					Log.Out(log[i].Text);
+					break;
+				}
+			}
 		}
 	}
 }
