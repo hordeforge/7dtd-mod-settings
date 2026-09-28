@@ -139,6 +139,17 @@ save, reset-then-apply, broken save keeps current values, console
 comment lists the steps) and mirror it, commented, in the shipped TOML.
 `scripts/test_settings_reload.py` holds the contract offline.
 
+## Dependencies
+
+The mod's Python is stdlib only: `pyproject.toml` declares a virtual project
+with no dependencies and `uv.lock` resolves it empty, so `make test` runs on
+a bare interpreter. ruff, mypy and shellcheck are host tools, pinned by
+version in `.github/workflows/ci.yml`; the dotnet SDK is read-only
+reference for the C# TOML harnesses. A third-party package is a decision to
+make on purpose, not a reflex: declare it in `pyproject.toml`, take the
+install with it, and write down why. `scripts/test_stdlib_only.py` holds
+the no-import claim, so nothing arrives on one contributor's disk instead.
+
 ## Releases
 
 `ModInfo.xml` declares the version; `README.txt` (staged into the package

@@ -220,11 +220,13 @@ def main() -> int:
 
     # The staged sibling has a name any writer in the mod folder can guess,
     # so it is created exclusively: create-or-truncate follows a link planted
-    # there and truncates whatever it points at.
+    # there and truncates whatever it points at. The write moved out of the
+    # codec and into the filesystem seam when the codec stopped naming paths,
+    # so the property is read where the open is.
     check("the staged file is created, never created-or-truncated over a link",
-          "FileMode.CreateNew" in toml_file
-          and "File.Delete(path);" in toml_file
-          and "FileMode.Create," not in toml_file)
+          "FileMode.CreateNew" in seam
+          and "File.Delete(path);" in seam
+          and "FileMode.Create," not in seam)
 
     opened = body(screen, "public override void OnOpen()")
     check("the reload latch does not survive the closing it was set in",

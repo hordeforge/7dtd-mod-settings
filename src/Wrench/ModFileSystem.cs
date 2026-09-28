@@ -60,6 +60,12 @@ namespace Wrench
 		/// Writes text in the given encoding, byte order mark included when
 		/// that encoding has one, so a file can be written back the way it
 		/// was read.
+		///
+		/// The path is a staging name beside the file being saved, and
+		/// anything already at it is unlinked before the new file is created
+		/// exclusively. A leftover from a crash is gone, and a link planted
+		/// there is unlinked rather than followed, which is what
+		/// create-or-truncate would do.
 		/// </summary>
 		void WriteAllText(string path, string text, Encoding encoding);
 
@@ -140,7 +146,8 @@ namespace Wrench
 		public void WriteAllText(string path, string text, Encoding encoding)
 		{
 			var bytes = TomlFile.Encode(text, encoding);
-			using (var stream = File.Open(path, FileMode.Create, FileAccess.Write, SharedAccess))
+			File.Delete(path);
+			using (var stream = File.Open(path, FileMode.CreateNew, FileAccess.Write, SharedAccess))
 				stream.Write(bytes, 0, bytes.Length);
 		}
 

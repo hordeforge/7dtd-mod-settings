@@ -1,9 +1,24 @@
 # Static analysis for the mod's own Python (scripts/ and the gates in it).
 # There is no third-party runtime dependency to install: ruff and mypy are
 # developer/CI tools, invoked by scripts/lint-python.sh and blocking in CI.
+# scripts/test_stdlib_only.py holds the "no third-party import" claim, so a
+# dependency arrives in the manifest rather than on one contributor's disk.
 #
 # No formatter is configured: `ruff format` would rewrite most of the tree, and
 # reformatting is not a gate. Add it in one pass with the reformat it implies.
+
+# The manifest, so `uv lock` resolves against the interpreter floor the suite
+# runs on. Without it uv falls back to its own default and writes
+# requires-python = ">=3.14" into uv.lock, which refuses a 3.10 or 3.12
+# interpreter the rest of the repo supports. The package is virtual and has
+# no dependencies: ruff and mypy are host tools, installed by each
+# contributor's package manager, and nothing here is built or published.
+# The mod's own version is declared in ModInfo.xml, not here.
+[project]
+name = "wrench-dev-tools"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = []
 
 [tool.ruff]
 line-length = 100
