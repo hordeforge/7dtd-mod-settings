@@ -120,10 +120,17 @@ def re_runs(tree: str, server: str, deployed: str, previous: str,
     with open(os.path.join(deployed, SENTINEL), "w", encoding="utf-8") as handle:
         handle.write("first deployment\n")
     marked = snapshot(deployed)
-    run_deploy(tree, server)
+    later = run_deploy(tree, server)
+    check("the deploy over the marked folder succeeds",
+          later.returncode == 0,
+          f"exit={later.returncode} stderr={later.stderr[-300:]!r}")
+    after_later = snapshot(deployed)
+    # Both the folder and the marker: a deploy that left nothing behind
+    # would satisfy a "the marker is gone" check on its own.
     check("a deploy replaces the marked folder",
-          SENTINEL not in (snapshot(deployed) or {}),
-          "Mods/Wrench still carries the marker after a later deploy")
+          after_later is not None and SENTINEL not in after_later
+          and "ModInfo.xml" in after_later,
+          f"Mods/Wrench holds {sorted(after_later or {})}")
 
     rolled_back = run_deploy(tree, server, "--rollback")
     check("rollback succeeds", rolled_back.returncode == 0,

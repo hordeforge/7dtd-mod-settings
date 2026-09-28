@@ -16,8 +16,9 @@ namespace Wrench
 	/// (ADR 0001); no other file is ever kept, and a save only ever lands
 	/// through a short-lived temp sibling of that same file.
 	///
-	/// Nothing here names a game type: what the mod is called arrives as two
-	/// strings, and finding the file and probing its assemblies is
+	/// Nothing here names a game type: what the mod is and where it is
+	/// installed arrive as three strings, and finding the file and probing
+	/// its assemblies is
 	/// <see cref="TargetModDiscovery"/>'s work, on the game side. So the
 	/// whole save path, from the read that locates the span to the replace
 	/// that lands it, is the code a simulated run drives against its own
@@ -88,10 +89,10 @@ namespace Wrench
 		/// <summary>The name to show a player.</summary>
 		public readonly string DisplayName;
 		/// <summary>
-		/// The mod's own folder. Two installed mods can carry the same name,
-		/// so this, not <see cref="Name"/>, is what tells one from another:
-		/// a reopened screen keeps its selection by it, and a log line naming
-		/// a mod names the file it wrote.
+		/// The mod's own installed folder. Two installed mods can carry the
+		/// same name, so this, not <see cref="Name"/>, is what tells one from
+		/// another: a reopened screen keeps its selection by it, and a log
+		/// line naming a mod names the file it wrote.
 		/// </summary>
 		public readonly string ModPath;
 		public readonly string TomlPath;

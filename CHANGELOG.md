@@ -12,6 +12,19 @@ Breaking changes for players and for mod authors are called out under
 `## [Unreleased]`, above the newest release heading, and moves down to
 its own numbered heading when the version it ships under is declared.
 
+## [Unreleased]
+
+### Fixed
+
+- Reopening the Mod Settings screen keeps the selection on the mod whose
+  folder it was on, instead of the mod whose `ModInfo` name matches. Two
+  installed mods can carry the same name, and the reopen landed the player
+  on the other mod's settings.
+- A mod whose assemblies the runtime cannot fully load is asked again on
+  the next opening of the screen instead of being remembered as not
+  hot-reloading for the rest of the session, and the memoized answers are
+  read and filled under one lock.
+
 ## [0.3.0] - 2026-09-28
 
 Requires 7 Days to Die V3.2, the same as 0.2.0. Upgrade by replacing the

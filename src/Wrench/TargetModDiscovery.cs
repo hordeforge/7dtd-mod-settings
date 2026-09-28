@@ -42,7 +42,8 @@ namespace Wrench
 				// An assembly the runtime could not fully load leaves the
 				// answer unknown rather than no. Caching that would pin the
 				// mod to "restart required" for the rest of the session over
-				// a load failure that may never happen again.
+				// a load failure that may never happen again, so it is asked
+				// again on the next opening.
 				if (definitive)
 					hotReloadsByModPath[mod.Path] = found;
 				return found;

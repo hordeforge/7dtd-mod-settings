@@ -171,6 +171,12 @@ def catalog_english() -> dict[str, str]:
 
 
 def main() -> int:
+    if not os.path.isfile(CATALOG):
+        # Every check below reads the catalog, so a missing one would raise
+        # a traceback instead of reporting which file is gone.
+        check("catalog-exists", False, CATALOG + " is missing")
+        return result()
+    check("catalog-exists", True)
     with open(CATALOG, encoding="utf-8", newline="") as handle:
         raw = list(csv.reader(handle))
 

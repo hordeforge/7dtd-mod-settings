@@ -261,6 +261,7 @@ static class Simulation
 	/// <summary>How many edits one seed makes.</summary>
 	public const int StepsPerSeed = 24;
 
+	const string ModPath = "/sim/Mods/Example";
 	const string TomlPath = "/sim/Mods/Example/Config/Example.toml";
 	/// <summary>Every name a save stages under, whatever process staged it.</summary>
 	const string TempPrefix = TomlPath + ".wrench-tmp";
@@ -293,7 +294,7 @@ static class Simulation
 		trace.Append("seed ").Append(seed).Append('\n');
 		try
 		{
-			var target = new TargetMod("Example", "Example", "/sim/Mods/Example",
+			var target = new TargetMod("Example", "Example", ModPath,
 				TomlPath, true);
 			CheckInvariants(files, clock, target, 0);
 			for (var step = 1; step <= StepsPerSeed; step++)
@@ -341,7 +342,8 @@ static class Simulation
 		ModClock.Current = clock;
 		try
 		{
-			var target = new TargetMod("Example", "Example", TomlPath, true);
+			var target = new TargetMod("Example", "Example", ModPath,
+				TomlPath, true);
 			var entry = FindCount(target);
 			Check(entry != null, "the fixture has " + CountKey + " to edit");
 			files.RacingPath = TomlPath;
