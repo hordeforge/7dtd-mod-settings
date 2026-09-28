@@ -104,6 +104,10 @@ namespace Wrench
 
 		sealed class Reader
 		{
+			/// <summary>The largest Unicode scalar value, U+10FFFF.</summary>
+			const long MaxCodePoint = 0x10FFFF;
+
+			/// <summary>
 			readonly string text;
 			int index;
 			int line = 1;
@@ -324,7 +328,7 @@ namespace Wrench
 			bool ReadEscapedCodePoint(int digits, StringBuilder builder, out string error)
 			{
 				error = null;
-				int codePoint;
+				long codePoint;
 				if (!TryReadHex(digits, out codePoint))
 				{
 					error = "line " + line + ": malformed string escape; "
@@ -333,7 +337,7 @@ namespace Wrench
 				}
 				if (digits == 4 && IsHighSurrogate((char)codePoint))
 				{
-					int low;
+					long low;
 					if (index + 6 > text.Length || text[index] != '\\' || text[index + 1] != 'u'
 						|| !TryReadHexAt(index + 2, 4, out low) || !IsLowSurrogate((char)low))
 					{
@@ -343,7 +347,7 @@ namespace Wrench
 					builder.Append((char)codePoint).Append((char)low);
 					return true;
 				}
-				if (codePoint < 0 || codePoint > 0x10FFFF
+				if (codePoint > MaxCodePoint
 					|| (codePoint >= 0xD800 && codePoint <= 0xDFFF))
 				{
 					error = "line " + line + ": escape is not a Unicode scalar value.";
@@ -362,9 +366,13 @@ namespace Wrench
 			/// <summary>
 			/// Reads hex digits at the cursor and moves past them; nothing is
 			/// consumed on a short or non-hex remainder, so the caller's
-			/// error points at the escape it rejected.
+			/// error points at the escape it rejected. The accumulator is
+		/// 64-bit because a <c>\U</c> escape is eight hex digits: folded
+		/// into an <c>int</c> it wraps silently, and <c>\UFFFFFFFF</c>
+		/// would read back as a small positive scalar instead of being
+		/// refused.
 			/// </summary>
-			bool TryReadHex(int digits, out int value)
+			bool TryReadHex(int digits, out long value)
 			{
 				return TryReadHexAt(index, digits, out value);
 			}
@@ -373,7 +381,7 @@ namespace Wrench
 			/// As <see cref="TryReadHex"/>, from an offset: the caller has
 			/// already looked at the bytes between.
 			/// </summary>
-			bool TryReadHexAt(int at, int digits, out int value)
+			bool TryReadHexAt(int at, int digits, out long value)
 			{
 				value = 0;
 				if (at < 0 || at + digits > text.Length)
@@ -390,7 +398,7 @@ namespace Wrench
 						nibble = c - 'A' + 10;
 					else
 						return false;
-					value = (value << 4) | nibble;
+					value = (value << 4) | (uint)nibble;
 				}
 				index = at + digits;
 				return true;
@@ -497,7 +505,13 @@ namespace Wrench
 						error = "line " + line + ": invalid number '" + token + "'.";
 						return false;
 					}
-					value = parsed.ToString("0.#######", CultureInfo.InvariantCulture);
+					if (double.IsNaN(parsed) || double.IsInfinity(parsed))
+					{
+						error = "line " + line + ": number '" + token
+							+ "' is out of range for a 64-bit float.";
+						return false;
+					}
+					value = FormatFloat(parsed);
 					return true;
 				}
 
@@ -509,6 +523,58 @@ namespace Wrench
 				}
 				value = integer.ToString(CultureInfo.InvariantCulture);
 				return true;
+			}
+
+			/// <summary>
+			/// A parsed float back to a value token this same grammar reads
+			/// as the identical double.
+			///
+			/// A fixed number of decimal places is not that: seven of them
+			/// turn 0.00000001 into 0, and the row then shows and writes a
+			/// setting the file never held. The shortest round-trip form
+			/// ("R") is exact, but it may use exponent notation, which this
+			/// grammar has no reader for, so that spelling is expanded to
+			/// plain digits here. Zero and -0 both normalize to "0": TOML
+			/// has one zero, and this text is the decoded value, not the
+			/// file's raw token.
+			/// </summary>
+			static string FormatFloat(double value)
+			{
+				if (value == 0d)
+					return "0";
+				var text = value.ToString("R", CultureInfo.InvariantCulture);
+				var exponent = text.IndexOfAny(new[] { 'E', 'e' });
+				if (exponent < 0)
+					return text;
+				return ExpandExponent(text, exponent);
+			}
+
+			/// <summary>
+			/// "1.5E-07" as "0.00000015": the mantissa's digits with the
+			/// decimal point moved by the exponent, so the result carries no
+			/// exponent this grammar cannot read back.
+			/// </summary>
+			static string ExpandExponent(string text, int exponentAt)
+			{
+				var exponent = int.Parse(text.Substring(exponentAt + 1),
+					NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+				var mantissa = text.Substring(0, exponentAt);
+				var negative = mantissa.StartsWith("-", StringComparison.Ordinal);
+				if (negative)
+					mantissa = mantissa.Substring(1);
+				var point = mantissa.IndexOf('.');
+				var digits = point < 0 ? mantissa : mantissa.Remove(point, 1);
+				// Where the decimal point lands among `digits` once the
+				// exponent has moved it: past both ends needs zero padding.
+				var position = (point < 0 ? digits.Length : point) + exponent;
+				string body;
+				if (position <= 0)
+					body = "0." + new string('0', -position) + digits;
+				else if (position >= digits.Length)
+					body = digits + new string('0', position - digits.Length);
+				else
+					body = digits.Substring(0, position) + "." + digits.Substring(position);
+				return negative ? "-" + body : body;
 			}
 
 			bool MatchWord(string word)

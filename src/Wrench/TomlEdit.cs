@@ -85,6 +85,27 @@ namespace Wrench
 		}
 
 		/// <summary>
+		/// As <see cref="TryReplaceValue"/>, for a caller that holds no parse
+		/// of <paramref name="text"/> and does not need the reparse of the
+		/// result: this one parses the text, edits the entry it names, and
+		/// hands back the new text. The verification is the same either way,
+		/// so this is the same edit, not a cheaper one.
+		/// </summary>
+		public static bool TryReplaceValue(string text, TomlSettings.DocEntry entry, string newRaw, out string newText, out string error)
+		{
+			newText = null;
+			if (entry == null)
+			{
+				error = "no setting to edit.";
+				return false;
+			}
+			List<TomlSettings.DocEntry> before;
+			if (!TomlSettings.TryReadDocument(text, out before, out error))
+				return false;
+			return TryReplaceValue(text, before, entry, newRaw, out newText, out _, out error);
+		}
+
+		/// <summary>
 		/// Replaces the value span of <paramref name="entry"/> (an entry of
 		/// <paramref name="text"/>, taken from <paramref name="before"/>, the
 		/// caller's own parse of that text) with <paramref name="newRaw"/> and

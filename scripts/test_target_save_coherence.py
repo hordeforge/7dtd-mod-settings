@@ -125,16 +125,20 @@ def main() -> int:
     check("one unloadable assembly does not take the settings list down",
           "catch (Exception)" in probe and "continue;" in probe)
 
-    write = body(target, "static bool TryWrite(")
+    # The writer is the shared byte-faithful one, so the check holds the
+    # staged path rather than a File.* spelling: it is the temp sibling the
+    # text reaches, not which overload does it, that keeps the target whole.
+    write = body(target, "bool TryWrite(")
     check("a save is written to a temp file, never over the target",
-          "files.WriteAllText(temp," in write and "WriteAllText(path" not in write)
+          "files.WriteAllText(tempPath, newText" in write
+          and "WriteAllText(TomlPath" not in write)
     check("the temp file is replaced in, so the target is never half-written",
-          "files.Replace(temp, path);" in write)
+          "files.Replace(tempPath, TomlPath);" in write)
     check("a target holding the file for its own read is retried, not failed",
           "catch (IOException)" in write and "ReplaceAttempts" in write
           and "ModClock.Current.Sleep(ReplaceRetryMilliseconds)" in write)
     check("a failed replace leaves no temp file behind",
-          "TryDeleteTemp(temp);" in write)
+          "TryDeleteTemp(tempPath);" in write)
 
     read_body = body(target, "bool TryRead(")
     check("a read takes the file's bytes and its encoding, not just its text",
@@ -143,7 +147,7 @@ def main() -> int:
           and target.count("ReadAllText(") == 1)
     check("a save writes the encoding the file is in",
           "out currentEncoding" in save
-          and "TryWrite(TomlPath, newText, currentEncoding" in save)
+          and "TryWrite(newText, currentEncoding" in save)
 
     toml_file = read("TomlFile.cs")
     check("a byte order mark is decoded away and written back",
@@ -177,10 +181,10 @@ def main() -> int:
     atomic = write
     check("a save is staged in a temp file and swapped in, never truncated "
           "in place",
-          'var temp = path + ".wrench-tmp";' in atomic
-          and "files.WriteAllText(temp," in atomic
-          and "files.Replace(temp, path);" in atomic
-          and "TryDeleteTemp(temp)" in atomic
+          'var tempPath = TomlPath + ".wrench-tmp";' in atomic
+          and "files.WriteAllText(tempPath," in atomic
+          and "files.Replace(tempPath, TomlPath);" in atomic
+          and "TryDeleteTemp(tempPath)" in atomic
           and "File.WriteAllText(" not in atomic
           and "WriteAllText(TomlPath" not in save)
 

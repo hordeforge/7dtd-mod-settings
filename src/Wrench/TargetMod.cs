@@ -155,7 +155,7 @@ namespace Wrench
 			List<TomlSettings.DocEntry> newEntries;
 			if (!TomlEdit.TryReplaceValue(Text, Entries, entry, newRaw, out newText, out newEntries, out error))
 				return Fail(error);
-			if (!TryWrite(TomlPath, newText, currentEncoding, out error))
+			if (!TryWrite(newText, currentEncoding, out error))
 				return Fail(error);
 			SaveState = ESaveState.Saved;
 			SaveError = null;
@@ -169,25 +169,26 @@ namespace Wrench
 		}
 
 		/// <summary>
-		/// Writes the file through a sibling temp file and an atomic replace.
-		/// Writing in place truncates the target first, so a crash, a
-		/// shutdown, or a full disk between the truncate and the last byte
-		/// leaves the mod with a settings file it cannot read at all, or
-		/// with none. The file is the whole integration surface (ADR 0001);
-		/// the one outcome that must never happen is losing it.
+		/// Writes <paramref name="newText"/> to this mod's file through a
+		/// sibling temp file and an atomic replace. Writing in place
+		/// truncates the target first, so a crash, a shutdown, or a full disk
+		/// between the truncate and the last byte leaves the mod with a
+		/// settings file it cannot read at all, or with none. The file is the
+		/// whole integration surface (ADR 0001); the one outcome that must
+		/// never happen is losing it.
 		/// </summary>
-		static bool TryWrite(string path, string text, Encoding encoding, out string error)
+		bool TryWrite(string newText, Encoding encoding, out string error)
 		{
-			var temp = path + ".wrench-tmp";
+			var tempPath = TomlPath + ".wrench-tmp";
 			var files = ModFileSystem.Current;
 			try
 			{
-				files.WriteAllText(temp, text, encoding);
+				files.WriteAllText(tempPath, newText, encoding);
 				for (var attempt = 1; ; attempt++)
 				{
 					try
 					{
-						files.Replace(temp, path);
+						files.Replace(tempPath, TomlPath);
 						break;
 					}
 					catch (NotSupportedException)
@@ -195,8 +196,8 @@ namespace Wrench
 						// A runtime with no atomic replace: the file goes away
 						// for an instant instead of being half-written, which
 						// is the closest this platform gets.
-						files.Delete(path);
-						files.Move(temp, path);
+						files.Delete(TomlPath);
+						files.Move(tempPath, TomlPath);
 						break;
 					}
 					catch (IOException)
@@ -213,7 +214,7 @@ namespace Wrench
 			}
 			catch (Exception ex)
 			{
-				TryDeleteTemp(temp);
+				TryDeleteTemp(tempPath);
 				error = ex.Message;
 				return false;
 			}
@@ -221,11 +222,11 @@ namespace Wrench
 			return true;
 		}
 
-		static void TryDeleteTemp(string temp)
+		static void TryDeleteTemp(string tempPath)
 		{
 			try
 			{
-				ModFileSystem.Current.Delete(temp);
+				ModFileSystem.Current.Delete(tempPath);
 			}
 			catch (Exception)
 			{

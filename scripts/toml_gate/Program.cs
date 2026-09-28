@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -49,6 +50,7 @@ static class Program
 	static void Main()
 	{
 		TestParse();
+		TestNumbers();
 		TestLegacyEquivalence();
 		TestEdits();
 		TestRejections();
@@ -95,6 +97,83 @@ static class Program
 		Check("trailing comment is nobody's help", doc[3].Comment == "");
 		Check("array's own block is its help; inner comments are not",
 			doc[5].Comment == "Tokens, one per yield.");
+	}
+
+	// A value that reaches the mod on the other side of the file must be the
+	// value the file holds. Normalizing through a fixed number of decimal
+	// places is where that stops being true: 0.00000001 came back as 0, and
+	// an exponent spelling came back as something this grammar cannot read.
+	static void TestNumbers()
+	{
+		List<TomlSettings.DocEntry> doc;
+		string error;
+
+		string[] tokens =
+		{
+			"0.5", "0.001", "-1.5", "2.5", "0.00000001", "0.0000001",
+			"0.123456789012345", "3.14159265358979",
+			"0.000000000000000001", "1000000000000000000.0",
+			"99999999.99999999",
+		};
+		var allExact = true;
+		var allPlain = true;
+		var allFloat = true;
+		for (var i = 0; i < tokens.Length; i++)
+		{
+			var token = tokens[i];
+			if (!TomlSettings.TryReadDocument("V = " + token + "\n", out doc, out error))
+			{
+				Console.WriteLine("  " + token + " did not parse: " + error);
+				allExact = allPlain = allFloat = false;
+				break;
+			}
+			var value = doc[0].Value;
+			if (doc[0].Kind != TomlSettings.ValueKind.Float)
+				allFloat = false;
+			if (value.IndexOf('E') >= 0 || value.IndexOf('e') >= 0)
+			{
+				Console.WriteLine("  " + token + " normalized to an exponent: " + value);
+				allPlain = false;
+			}
+			// The decoded value must read back as the identical double: the
+			// span edit and the value grammar both depend on that.
+			double was, now;
+			double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out was);
+			if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out now)
+				|| was != now)
+			{
+				Console.WriteLine("  " + token + " normalized to " + value
+					+ ", which is a different number");
+				allExact = false;
+			}
+		}
+		Check("a float normalizes to the same number it was written as", allExact);
+		Check("a normalized float carries no exponent", allPlain);
+		Check("a normalized float keeps its kind", allFloat);
+
+		Check("zero is one zero",
+			TomlSettings.TryReadDocument("A = 0.0\n", out doc, out error)
+			&& doc[0].Value == "0", doc[0].Value);
+		Check("an int normalizes to its own digits",
+			TomlSettings.TryReadDocument("A = 12\nB = -3\nC = 007\n", out doc, out error)
+			&& doc[0].Value == "12" && doc[1].Value == "-3" && doc[2].Value == "7", error ?? "");
+		Check("long.MaxValue is not truncated",
+			TomlSettings.TryReadDocument("A = 9223372036854775807\n", out doc, out error)
+			&& doc[0].Value == "9223372036854775807", doc[0].Value);
+		// An int past long.MaxValue is refused, not wrapped into a negative
+		// or silently cut to the width that fitted.
+		Check("an int past long.MaxValue is refused",
+			!TomlSettings.TryReadDocument("A = 99999999999999999999\n", out doc, out error));
+
+		// An eight-hex-digit \U escape is 32 bits: read into an int it wraps,
+		// and \UFFFFFFFF came back as a small positive scalar.
+		Check("reject an eight-digit escape that overflows a code point",
+			!TomlSettings.TryReadDocument("A = \"\\UFFFFFFFF\"\n", out doc, out error));
+		Check("reject one just past the last code point",
+			!TomlSettings.TryReadDocument("A = \"\\U00110000\"\n", out doc, out error));
+		Check("accept the last code point",
+			TomlSettings.TryReadDocument("A = \"\\U0010FFFF\"\n", out doc, out error)
+			&& doc[0].Value == "\U0010FFFF", error ?? "");
 	}
 
 	static void TestLegacyEquivalence()
