@@ -23,7 +23,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from local_env import configured_game_dir, mod_dir  # noqa: E402
+from local_env import configured_game_dir, mod_dir
 
 MOD_DIR = str(mod_dir())
 

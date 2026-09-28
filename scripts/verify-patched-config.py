@@ -28,7 +28,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from local_env import configured_game_dir, mod_dir  # noqa: E402
+from local_env import game_dir, mod_dir
 
 MOD_DIR = str(mod_dir())
 # The checkout is named after the repo slug; ModInfo.xml Name is the mod
@@ -37,9 +37,6 @@ MOD_NAME = next(
     p.get("value") or ""
     for p in ET.parse(os.path.join(MOD_DIR, "ModInfo.xml")).getroot()
     if p.tag == "Name")
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from local_env import game_dir
 
 # Patches whose value depends on landing inside a specific parent. These are
 # the ones a wrong-but-valid XPath would silently misplace.

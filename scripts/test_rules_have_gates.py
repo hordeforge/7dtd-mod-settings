@@ -22,7 +22,11 @@ import re
 import subprocess
 import sys
 
-MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate_report import FAILURES, check
+from local_env import mod_dir
+
+MOD_DIR = str(mod_dir())
 SCRIPTS = os.path.join(MOD_DIR, "scripts")
 SELF = os.path.abspath(__file__)
 
@@ -38,9 +42,6 @@ ENFORCED_ELSEWHERE: dict[str, str] = {
     "Playtest / live-client exclusivity":
         "hordeforge/7dtd-playtest scripts/playtest_lock.py, exercised upstream",
 }
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check
 
 
 def sections(path: str) -> list[tuple[str, str]]:
@@ -79,7 +80,7 @@ def main() -> int:
               runs[0].stdout == runs[1].stdout and runs[0].returncode == runs[1].returncode,
               "two runs on an unchanged tree differed")
 
-    print(f"{len(FAILURES)} failures.")
+    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0
 
 

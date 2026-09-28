@@ -21,11 +21,12 @@ import os
 import re
 import sys
 
-MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPTS = os.path.join(MOD_DIR, "scripts")
-
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate_report import FAILURES, check
+from local_env import mod_dir
+
+MOD_DIR = str(mod_dir())
+SCRIPTS = os.path.join(MOD_DIR, "scripts")
 
 FAMILIES = ("codex", "claude", "grok", "gemini", "gpt", "shamway")
 CALL = re.compile(r"new-session-id\.sh\"?\s+(\S+)")

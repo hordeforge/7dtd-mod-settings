@@ -19,22 +19,16 @@ import os
 import re
 import sys
 
-MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate_report import FAILURES, check
+from local_env import mod_dir
+
+MOD_DIR = str(mod_dir())
 PROVIDER = os.path.join(MOD_DIR, "scripts", "playtest", "Source", "WrenchPlaytest.cs")
 
 RESTORE_CASE = 'CaseDef.Live(label, "restore_raidmode_byte_identical"'
 EDIT_CASE = 'CaseDef.Live(label, "edit_raidmode_applies_live"'
 SAVE_EDIT = re.compile(r"SaveEdit\(entry,\s*([^)]*)\)")
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-    else:
-        FAILURES.append(name)
-        print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
 
 
 def case_body(source: str, header: str) -> str:
@@ -75,7 +69,7 @@ def main() -> int:
           and edit.find("CaptureBaseline()") < edit.find("SaveEdit("),
           "the edit case must capture the baseline before it writes")
 
-    print(f"{len(FAILURES)} failures.")
+    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0
 
 

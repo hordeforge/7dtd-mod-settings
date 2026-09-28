@@ -17,7 +17,10 @@ import shutil
 import subprocess
 import sys
 
-MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from local_env import mod_dir
+
+MOD_DIR = str(mod_dir())
 GATE_DIR = os.path.join(MOD_DIR, "scripts", "toml_gate")
 
 

@@ -4,6 +4,33 @@ Technical implementation decisions. Significant, hard-to-reverse decisions
 also get an ADR in [`adr/`](adr/) — link it from here. Layer escalations
 (XML-only → Harmony, per docs/reference/agent-rules.md) always warrant one.
 
+## Repo map
+
+`src/Wrench/` is the mod, in three layers with dependencies running down:
+the TOML document (`TomlSettings.cs` parses, `TomlEdit.cs` writes) and the
+target-mod model (`TargetMod.cs`) know nothing about the UI; the XUi
+controllers (`ModSettingsScreen.cs`, `ModSettingsRows.cs`) sit on top of them;
+the entry points (`ModApi.cs`, `ConsoleCmdWrench.cs`, `ModSettings.cs`) wire
+the two together. One namespace, no subfolders: at eight files the folder
+would carry no information the names do not.
+
+`scripts/` splits three ways, and nothing crosses the lines:
+
+- `test_*.py` are the offline gates, at the top level because
+  `run-offline-tests.sh` globs for them there. `validate-*.py` and
+  `verify-*.py` need an installed game, so they are tools, not gates.
+- `lib/` is the only shared layer. `gate_report.py` owns the PASS/FAIL shape
+  every gate prints, and `local_env.py` owns both the `.local.env` lookup and
+  `mod_dir()`, the marker walk every script uses to find the mod root. A
+  script that needs either imports it; it does not keep a second copy.
+- `toml_gate/` and `playtest/` are the C# hosts: a console runner that
+  exercises the parser and writer, and the provider that drives the live
+  suite. They are build-time, so they sit under `scripts/`, not `src/`.
+
+Shell scripts sit beside the Python they drive (`server-common.sh` with the
+server lane, `run-offline-tests.sh` with the gates) and share no library
+with them.
+
 ## Decisions
 
 (Format: `## Decided YYYY-MM-DD: <topic>` — approach, alternatives, why.)

@@ -19,7 +19,11 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 
-MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate_report import FAILURES, check
+from local_env import mod_dir
+
+MOD_DIR = str(mod_dir())
 # The checkout is named after the repo slug, not the mod; ModInfo.xml is
 # the authority (test_static_checks.py holds it to the build tooling).
 MOD_NAME = next(
@@ -27,9 +31,6 @@ MOD_NAME = next(
     for p in ET.parse(os.path.join(MOD_DIR, "ModInfo.xml")).getroot()
     if p.tag == "Name")
 SRC = os.path.join(MOD_DIR, "src", MOD_NAME)
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check
 
 
 def main() -> int:
@@ -80,7 +81,7 @@ def main() -> int:
           and "File.Replace(tempPath, TomlPath, null)" in target
           and "DeleteTemp(tempPath)" in target)
 
-    print(f"{len(FAILURES)} failures.")
+    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0
 
 

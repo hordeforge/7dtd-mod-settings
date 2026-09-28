@@ -30,17 +30,8 @@ import threading
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
-from game_telnet import GameTelnet, TelnetError  # noqa: E402
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    if ok:
-        print("PASS " + name)
-        return
-    FAILURES.append(name)
-    print("FAIL " + name + (": " + detail if detail else ""), file=sys.stderr)
+from game_telnet import GameTelnet, TelnetError
+from gate_report import FAILURES, check
 
 
 def serve_on_ending(peer: socket.socket, reply: bytes, close_after: bool) -> list[str]:

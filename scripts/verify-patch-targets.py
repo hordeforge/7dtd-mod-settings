@@ -26,7 +26,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-import local_env  # noqa: E402
+import local_env
 
 MANAGED_SUBDIR = Path("7DaysToDie_Data") / "Managed"
 ASSEMBLY_NAME = "Assembly-CSharp.dll"
@@ -309,7 +309,8 @@ def main(argv: list[str]) -> int:
         usage()
         return 0
 
-    root = Path(__file__).resolve().parent.parent
+    root = local_env.mod_dir()
+    game_dir: Path | None
     if "--game-dir" in argv:
         index = argv.index("--game-dir")
         if index + 1 >= len(argv):

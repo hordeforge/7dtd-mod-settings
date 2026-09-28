@@ -18,7 +18,11 @@ from __future__ import annotations
 import os
 import sys
 
-MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate_report import FAILURES, check
+from local_env import mod_dir
+
+MOD_DIR = str(mod_dir())
 
 REQUIRED_ELEMENTS = (
     "git branch -D",
@@ -26,9 +30,6 @@ REQUIRED_ELEMENTS = (
     "git switch",
     "worktree add",
 )
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check
 
 
 def missing_elements(text: str) -> list[str]:

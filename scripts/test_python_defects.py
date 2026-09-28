@@ -23,12 +23,13 @@ import subprocess
 import sys
 from itertools import pairwise
 
-MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-JUMPS = (ast.Return, ast.Raise, ast.Break, ast.Continue)
-
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate_report import FAILURES, check
+from local_env import mod_dir
+
+MOD_DIR = str(mod_dir())
+
+JUMPS = (ast.Return, ast.Raise, ast.Break, ast.Continue)
 
 
 def tracked_py() -> list[str]:

@@ -32,7 +32,11 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 
-MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate_report import FAILURES, check
+from local_env import mod_dir
+
+MOD_DIR = str(mod_dir())
 # The checkout is named after the repo slug, not the mod; ModInfo.xml is
 # the authority (test_static_checks.py holds it to the build tooling).
 MOD_NAME = next(
@@ -40,16 +44,6 @@ MOD_NAME = next(
     for p in ET.parse(os.path.join(MOD_DIR, "ModInfo.xml")).getroot()
     if p.tag == "Name")
 SRC = os.path.join(MOD_DIR, "src", MOD_NAME)
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool) -> None:
-    if ok:
-        print("PASS " + name)
-    else:
-        FAILURES.append(name)
-        print("FAIL " + name, file=sys.stderr)
 
 
 def read(name: str) -> str:
@@ -158,7 +152,7 @@ def main() -> int:
     check("the reload latch does not survive the closing it was set in",
           "reloadSeen = false;" in opened and "watchedReloadMarker = null;" in opened)
 
-    print(f"{len(FAILURES)} failures.")
+    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0
 
 

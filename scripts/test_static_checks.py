@@ -26,15 +26,15 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
-MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate_report import FAILURES, check
+from local_env import mod_dir
+
+MOD_DIR = str(mod_dir())
 
 # Config XML files allowed a root other than <configs>, each with a reason.
 # A stale entry (file gone) fails, so this list cannot rot.
 NON_PATCH_CONFIG_XML: dict[str, str] = {}
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check
-
 
 # Build output, caches, and scratch/agent state. Skipping by directory name
 # at any depth: the dotnet gate writes into .tmp/, and a stray generated
@@ -45,12 +45,14 @@ SKIP_DIRS = {".git", "dist", "bin", "obj", "__pycache__", ".tmp", ".scratch", ".
 
 def walk(rel_suffix: str) -> list[str]:
     """Every file under the mod whose name ends with *rel_suffix*."""
-    found = []
+    found: list[str] = []
     for base, dirs, files in os.walk(MOD_DIR):
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
-        for f in sorted(files):
-            if f.endswith(rel_suffix):
-                found.append(os.path.relpath(os.path.join(base, f), MOD_DIR))
+        found.extend(
+            os.path.relpath(os.path.join(base, f), MOD_DIR)
+            for f in sorted(files)
+            if f.endswith(rel_suffix)
+        )
     return found
 
 
@@ -147,6 +149,7 @@ def main() -> int:
               ".gitattributes must pin " + pattern + " to LF")
 
     print(f"{len(FAILURES)} failures.")
+    print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0
 
 
