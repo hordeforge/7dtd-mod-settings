@@ -148,6 +148,45 @@ def test_close_sends_exit() -> None:
     server.close()
 
 
+class _ChunkedSocket:
+    """A socket whose reads hand back one preset chunk each, so a character
+    the server's bytes split across two of them is the case, not a race."""
+
+    def __init__(self, chunks: list[bytes]) -> None:
+        self.chunks = list(chunks)
+
+    def recv(self, _size: int) -> bytes:
+        return self.chunks.pop(0) if self.chunks else b""
+
+
+def test_a_character_split_across_reads_survives() -> None:
+    line = "日本語 mod: 設定ファイル\r\n"
+    raw = line.encode("utf-8")
+    # Every split point, including the ones inside a two-, three- and
+    # four-byte character: a socket picks its own, and each read is decoded
+    # on its own unless the tail is held for the next one.
+    for cut in range(1, len(raw)):
+        telnet = client_over(_ChunkedSocket([raw[:cut], raw[cut:]]))  # type: ignore[arg-type]
+        got = telnet._recv() + telnet._recv()
+        check(
+            f"a character split at byte {cut} of {len(raw)} reads back whole",
+            got == line,
+            repr(got),
+        )
+
+
+def test_a_byte_that_is_not_utf8_is_still_replaced() -> None:
+    # The replacement was there for invalid bytes, and holding the tail back
+    # must not turn it into a decoder that raises on them instead.
+    telnet = client_over(_ChunkedSocket([b"gr\xffse\r\n"]))  # type: ignore[arg-type]
+    got = telnet._recv()
+    check(
+        "a byte that is not UTF-8 still arrives as U+FFFD, not an exception",
+        got == "gr\ufffdse\r\n",
+        repr(got),
+    )
+
+
 def test_reconnect_releases_the_first_socket() -> None:
     # A second connect() replaces the session. The first socket has to go
     # with it, or its descriptor and the server-side session it pins outlive
@@ -292,6 +331,8 @@ def main() -> int:
     test_run_returns_output_without_the_echo()
     test_run_survives_a_session_ending_command()
     test_send_before_connect_raises()
+    test_a_character_split_across_reads_survives()
+    test_a_byte_that_is_not_utf8_is_still_replaced()
     test_close_sends_exit()
     test_reconnect_releases_the_first_socket()
     test_password_is_not_quoted_back_in_a_send_failure()

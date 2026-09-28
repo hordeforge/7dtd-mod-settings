@@ -27,7 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate_report import check, result
-from local_env import configured_game_dir, env_or_file
+from local_env import configured_game_dir, env_or_file, local_env_value
 
 SCRIPTS = Path(__file__).resolve().parent
 LOADER = SCRIPTS / "local-env.sh"
@@ -164,6 +164,24 @@ def main() -> int:
         missing = run_probe(tmp / "absent.env")
         check("a missing file is not an error", missing == ["", "", ""],
               f"got {missing!r}")
+
+        # A path a Windows checkout wrote in its own 8-bit encoding is a
+        # legal file this reader cannot decode. It counts as absent, the
+        # answer a missing file gives, rather than raising a decode error
+        # out of the import line of every gate that reads the inventory, or
+        # replacing the byte and naming a path that is not there.
+        undecodable = tmp / ".local.env"
+        undecodable.write_bytes(b'SEVEN_DAYS_TO_DIE_DIR="/games/\xff7dtd"\n')
+        try:
+            undecodable_python = local_env_value("SEVEN_DAYS_TO_DIE_DIR", tmp)
+            undecodable_error = ""
+        except Exception as exc:  # noqa: BLE001 - the failure under test
+            undecodable_python = "<raised>"
+            undecodable_error = f"{type(exc).__name__}: {exc}"
+        check("a .local.env that is not UTF-8 reads as unset, not as a crash",
+              undecodable_python == "" and not undecodable_error,
+              f"got {undecodable_python!r} ({undecodable_error})")
+        undecodable.write_bytes(env_file.read_bytes())
 
         # One grammar, two readers: a form one of them answers differently
         # is a build that reads a different install from the tooling.

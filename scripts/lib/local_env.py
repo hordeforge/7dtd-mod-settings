@@ -64,7 +64,15 @@ def local_env_value(key: str, root: Path | None = None) -> str:
     env_file = (root or mod_dir()) / ".local.env"
     try:
         lines = env_file.read_text(encoding="utf-8").splitlines()
-    except OSError:
+    except (OSError, UnicodeDecodeError):
+        # A byte that is not UTF-8 makes the whole file unreadable rather
+        # than one line of it, and a key holding a path someone else
+        # encoded in the locale's own 8-bit encoding is a file a Windows
+        # checkout produces on its own. Decoding with a replacement instead
+        # would hand back a path that differs from the real one by one
+        # character and say nothing about it, so the file counts as absent
+        # and the caller asks for the path, which is the outcome every
+        # missing key already has.
         return ""
     value = ""
     for line in lines:

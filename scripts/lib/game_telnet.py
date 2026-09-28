@@ -27,6 +27,7 @@ Import it with:
 
 from __future__ import annotations
 
+import codecs
 import contextlib
 import select
 import socket
@@ -55,6 +56,22 @@ def _encode(line: str) -> bytes:
     return (line + "\r\n").encode("utf-8", "replace")
 
 
+def _new_decoder() -> codecs.IncrementalDecoder:
+    """A UTF-8 decoder that carries a character cut in half by a read into
+    the next one.
+
+    A socket delivers bytes, and it splits them wherever it likes: one
+    `recv` is not one line, and it is not even one character. Decoding
+    each read on its own turns a mod name, a player name or a CJK line
+    that arrived across a boundary into U+FFFD, and the console output a
+    gate reads its answer out of is then not what the server printed. An
+    incremental decoder holds the incomplete tail instead of replacing
+    it, and still replaces a byte that is not valid UTF-8 at all, which
+    is the case the replacement was for.
+    """
+    return codecs.getincrementaldecoder("utf-8")("replace")
+
+
 class GameTelnet:
     """A minimal client for the 7DTD telnet console."""
 
@@ -66,6 +83,7 @@ class GameTelnet:
         self.timeout = timeout
         self._sock: socket.socket | None = None
         self.closed_by_server = False
+        self._decoder = _new_decoder()
 
     # -- connection -------------------------------------------------------
 
@@ -85,6 +103,9 @@ class GameTelnet:
         # this one, so the polite exit is owed again.
         self.close()
         self.closed_by_server = False
+        # A second session prints its own text: the first one's unfinished
+        # character must not be glued onto the front of it.
+        self._decoder = _new_decoder()
         # Deadlines use the monotonic clock: an NTP step mid-wait would make a
         # wall-clock deadline expire instantly or hang for the skew duration.
         deadline = time.monotonic() + wait
@@ -170,7 +191,7 @@ class GameTelnet:
             raise TelnetError(f"reading from the console failed: {exc}") from exc
         if not data:
             raise TelnetError("the server closed the telnet connection")
-        return data.decode("utf-8", "replace")
+        return self._decoder.decode(data)
 
     def _drain(self, seconds: float) -> str:
         """Collect whatever arrives over a short window.
