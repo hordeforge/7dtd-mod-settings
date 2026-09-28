@@ -44,6 +44,51 @@ def line_matching(text: str, pattern: str) -> str:
     return match.group(0) if match else ""
 
 
+def check_dotnet_resolution() -> None:
+    """Hold the .NET SDK lookup to one shared resolver, in Python and shell.
+
+    A machine that keeps its SDK off PATH sets DOTNET_ROOT, the key
+    AGENTS.md and .local.env.example document for exactly that. The build
+    has always honoured it; the gates that compile a C# harness did not, so
+    such a machine built the mod and then failed `make test` telling its
+    owner to put the SDK on PATH.
+    """
+    scripts_dir = os.path.join(MOD_DIR, "scripts")
+    with open(os.path.join(scripts_dir, "lib", "local_env.py"), encoding="utf-8") as handle:
+        reader = handle.read()
+    check("the shared reader takes dotnet from PATH, then $DOTNET_ROOT",
+          "def dotnet_executable(" in reader
+          and reader.index('shutil.which("dotnet")')
+          < reader.index("local_env_value(DOTNET_ROOT_KEY"))
+
+    # Every gate that shells out to the SDK goes through that reader, so none
+    # of them can fall back to PATH-only resolution again.
+    self_path = os.path.abspath(__file__)
+    sdk_consumer = 'shutil.which("dotnet")'
+    for name in sorted(os.listdir(scripts_dir)):
+        path = os.path.join(scripts_dir, name)
+        if name == os.path.basename(self_path) or not name.startswith("test_"):
+            continue
+        with open(path, encoding="utf-8") as handle:
+            source = handle.read()
+        check(f"{name} does not look for dotnet itself", sdk_consumer not in source)
+    # The two gates that compile a harness do not resolve the SDK at all:
+    # they build and run through the one shared host in scripts/lib.
+    for name in ("test_toml_document.py", "test_toml_fuzz.py"):
+        with open(os.path.join(scripts_dir, name), encoding="utf-8") as handle:
+            source = handle.read()
+        check(f"{name} builds and runs its harness through the shared host",
+              "from dotnet_host import run_harness" in source
+              and "run_harness(" in source
+              and "subprocess" not in source)
+
+    with open(os.path.join(scripts_dir, "build.sh"), encoding="utf-8") as handle:
+        build = handle.read()
+    check("scripts/build.sh resolves dotnet the same way, PATH then DOTNET_ROOT",
+          "command -v dotnet" in build
+          and '"$DOTNET_ROOT/dotnet"' in build)
+
+
 def main() -> int:
     with open(os.path.join(MOD_DIR, "pyproject.toml"), encoding="utf-8") as handle:
         floor = pyproject_floor(handle.read())
@@ -82,6 +127,8 @@ def main() -> int:
     check("README states the .NET SDK the offline suite needs",
           ".NET SDK" in line_matching(readme, r"^make test .*$"),
           "the `make test` line in README must name the .NET SDK")
+
+    check_dotnet_resolution()
 
     print(f"{len(FAILURES)} failures.")
     return 1 if FAILURES else 0

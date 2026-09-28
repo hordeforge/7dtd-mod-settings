@@ -32,6 +32,9 @@ if ! grep -iq '<property[[:space:]]\+name="EACEnabled"[[:space:]]\+value="false"
 	exit 1
 fi
 
+# Held for the whole run, deploy included: a concurrent deploy would swap
+# Mods/ out from under the server this test is about to start.
+hold_server_lock
 "$SCRIPT_DIR/deploy-server.sh"
 mkdir -p "$LOG_DIR"
 

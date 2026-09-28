@@ -18,6 +18,9 @@ if ! [[ "$APP_ID" =~ ^[0-9]+$ ]]; then
 fi
 
 echo "Installing 7 Days To Die dedicated server AppID $APP_ID into $SERVER_DIR"
+# Provisioning rewrites the install the deploy and smoke targets read, so it
+# takes the same lock they do.
+hold_server_lock
 "$STEAMCMD_BIN" +force_install_dir "$SERVER_DIR" +login anonymous +app_update "$APP_ID" validate +quit
 
 if [[ ! -x "$SERVER_DIR/7DaysToDieServer.x86_64" ]]; then

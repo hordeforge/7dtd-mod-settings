@@ -46,3 +46,27 @@ resolve_steamcmd() {
 		exit 1
 	fi
 }
+
+# One operation at a time against a server install. Provisioning, swapping
+# the mod in and booting it for a smoke test all write under $SERVER_DIR, so
+# a second run started while the first is in flight has to wait rather than
+# race it: the staging and rollback folders are replaced wholesale, and a
+# deploy under a booting server swaps files out from under it. Call it after
+# load_server_environment; the lock lives in the .wrench-deploy folder, which
+# is kept out of Mods/ on purpose.
+#
+# Re-entrant, because scripts/server-smoke.sh holds the lock across the boot
+# and then runs scripts/deploy-server.sh, which asks for it too. A child
+# inherits the held descriptor on fd 9, and flock is held per open file
+# description, so re-opening and re-locking there would wait on the very lock
+# its parent holds. Taking it once, at the outermost caller, is the rule.
+hold_server_lock() {
+	if { : >&9; } 2>/dev/null; then
+		return 0
+	fi
+	mkdir -p "$SERVER_DIR/.wrench-deploy"
+	if command -v flock >/dev/null 2>&1; then
+		exec 9>"$SERVER_DIR/.wrench-deploy/lock"
+		flock 9
+	fi
+}

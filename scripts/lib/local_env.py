@@ -17,9 +17,13 @@ documented format: no expansion, no `export`, no line continuations.
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 GAME_DIR_KEY = "SEVEN_DAYS_TO_DIE_DIR"
+DOTNET_ROOT_KEY = "DOTNET_ROOT"
 
 
 def mod_dir() -> Path:
@@ -57,3 +61,46 @@ def game_dir() -> Path | None:
     """The configured game install, or None when nothing names one."""
     path = configured_game_dir()
     return Path(path) if path else None
+
+
+def dotnet_executable(root: Path | None = None) -> Path | None:
+    """`dotnet` on PATH, else `$DOTNET_ROOT/dotnet`, else None.
+
+    The order is the one scripts/build.sh resolves in, so a build and the
+    gates that compile against its output find the same SDK. DOTNET_ROOT is
+    a documented inventory key for an SDK that is not on PATH
+    (AGENTS.md, .local.env.example).
+    """
+    on_path = shutil.which("dotnet")
+    if on_path:
+        return Path(on_path)
+    home = os.environ.get(DOTNET_ROOT_KEY) or local_env_value(DOTNET_ROOT_KEY, root)
+    if not home:
+        return None
+    candidate = Path(home) / "dotnet"
+    return candidate if candidate.is_file() and os.access(candidate, os.X_OK) else None
+
+
+def require_dotnet_sdk(root: Path | None = None) -> Path | None:
+    """The `dotnet` that can build, or None with the miss already reported.
+
+    A runtime-only install answers `dotnet` but not `dotnet build`, so the
+    SDK list is asked for up front: the missing piece is named here instead
+    of surfacing as a build failure of the harness that called this.
+    """
+    dotnet = dotnet_executable(root)
+    if dotnet is None:
+        print("FAIL dotnet SDK not found (required, same as make build): "
+              f"install the .NET SDK (https://aka.ms/dotnet/download), put it on "
+              f"PATH, or set {DOTNET_ROOT_KEY}",
+              file=sys.stderr)
+        return None
+    sdks = subprocess.run([str(dotnet), "--list-sdks"],
+                          capture_output=True, text=True, check=False)
+    if sdks.returncode != 0 or not sdks.stdout.strip():
+        print(f"FAIL dotnet SDK not found: `{dotnet}` lists no SDKs. Install the "
+              f".NET SDK (https://aka.ms/dotnet/download) and put it on PATH, "
+              f"or set {DOTNET_ROOT_KEY}",
+              file=sys.stderr)
+        return None
+    return dotnet

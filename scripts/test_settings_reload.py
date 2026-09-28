@@ -83,6 +83,15 @@ def main() -> int:
         return "\n".join(line for line in read(name).splitlines()
                          if not line.strip().startswith("//"))
 
+    def names_file_api(code: str) -> bool:
+        """True when *code* names System.IO's static `File` API itself.
+
+        The name must not be the tail of a longer identifier, or the
+        sanctioned `TomlFile` seam would read as a direct `File.` call. A
+        dotted qualifier still counts: `System.IO.File.Exists` is one.
+        """
+        return re.search(r"(?<!\w)File\.", code) is not None
+
     settings = read("ModSettings.cs")
     target = read("TargetMod.cs")
     clock = read("ModClock.cs")
@@ -247,6 +256,15 @@ def main() -> int:
           "ModManager" not in code_of("TargetMod.cs")
           and "ModManager" in code_of("TargetModDiscovery.cs")
           and "public TargetMod(string name" in target)
+    # The seam check reads a bare `File.` as System.IO's static API, so an
+    # identifier that merely ends in `File` must not read as one: TomlFile is
+    # the sanctioned reader for another mod's settings file, and the rule
+    # existed to catch a real File call slipping past the IFileSystem seam.
+    check("negative control: the seam check still catches a direct File. call",
+          names_file_api("var text = File.ReadAllText(path);")
+          and names_file_api("System.IO.File.Exists(path)")
+          and not names_file_api("text = TomlFile.ReadAllText(path, out encoding);")
+          and not names_file_api("ModFileSystem.Current.Replace(temp, path);"))
 
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0

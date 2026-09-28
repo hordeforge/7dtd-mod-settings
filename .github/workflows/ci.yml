@@ -13,7 +13,10 @@ concurrency:
 
 jobs:
   gates:
-    runs-on: ubuntu-latest
+    # Pinned image, not ubuntu-latest: the gates below are only as comparable
+    # as the toolchain they run on, and a new image means a new Python, zip
+    # and .NET SDK under the same commit.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

@@ -493,7 +493,11 @@ shipped bytes. Three leaks were there and are now closed:
   read by the build, so a machine whose SDK was off `PATH` failed even with
   the key set. `global.json` now pins the floor (8.0.100, rolling forward to a
   newer major) and `scripts/build.sh` resolves `dotnet` from `PATH` first,
-  then `$DOTNET_ROOT/dotnet`.
+  then `$DOTNET_ROOT/dotnet`. The offline gates that compile a C# harness
+  resolve it the same way, through `require_dotnet_sdk()` in
+  `scripts/lib/local_env.py`, so a machine that keeps its SDK off `PATH`
+  builds the mod and runs `make test` alike.
+  `scripts/test_toolchain_floor.py` holds that one order against both.
 
 Timestamps come from `SOURCE_DATE_EPOCH` (the last commit's time, overridable),
 never the wall clock, and entries are added in sorted order. Enforced by the

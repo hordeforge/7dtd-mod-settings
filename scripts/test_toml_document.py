@@ -6,8 +6,8 @@ Compiles src/Wrench/{TomlSettings,TomlEdit}.cs into a small net8 runner
 spans, kinds, and comment blocks are captured; an edit replaces exactly
 one value span and the file is byte-identical everywhere else; anything
 the parser rejects is never written. Requires the dotnet SDK, like
-`make build`; there is no fallback, because a skipped writer gate would
-pass silently forever.
+`make build`, resolved the same way (`PATH`, then `DOTNET_ROOT`); there is
+no fallback, because a skipped writer gate would pass silently forever.
 """
 
 from __future__ import annotations

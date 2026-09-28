@@ -35,6 +35,13 @@ shell still gets its `SEVEN_DAYS_TO_DIE_STEAMCMD` from the file. A missing
 `.local.env` is not an error; each caller then names the value it could
 not find. `scripts/test_local_env_precedence.py` holds this rule.
 
+`DOTNET_ROOT` is resolved the same way by everything that needs the .NET
+SDK: `scripts/build.sh` and the offline gates (through
+`require_dotnet_sdk()` in `scripts/lib/local_env.py`) take `dotnet` from
+`PATH` first and fall back to `$DOTNET_ROOT/dotnet`, so a machine that
+keeps its SDK off `PATH` needs the key set once, not once per tool.
+`scripts/test_toolchain_floor.py` holds the order.
+
 ### Optional dedicated-server overrides
 
 | Key | Default when unset |
@@ -93,6 +100,12 @@ rename; the deployment it replaced is kept at
 `<server>/.wrench-deploy/previous` and `make rollback-server` moves it back.
 Keep that directory out of `Mods/`: anything with a `ModInfo.xml` under
 `Mods/` is loaded as a second copy of the mod.
+
+`install-server`, `deploy-server` and `server-smoke` all take an exclusive
+`flock` on `<server>/.wrench-deploy/lock` first (`hold_server_lock` in
+`scripts/server-common.sh`), so a second run against the same install waits
+instead of racing the staging folder, the rollback point, or a server that
+is still booting with the mod it is about to swap out.
 
 ## Proton prefix / user data (saves, logs, per-user Mods)
 

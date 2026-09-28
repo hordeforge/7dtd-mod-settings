@@ -10,7 +10,9 @@ reader never throws, a refusal always says why, captured spans re-parse to
 their own value, an edit touches one value span and nothing else, what the
 writer encodes reads back unchanged, and a mod name that resolves stays
 inside the mod folder. Run by scripts/run-offline-tests.sh; the seed and
-case count are fixed, so the report is identical on two runs.
+case count are fixed, so the report is identical on two runs. The dotnet
+SDK it compiles the harness with is resolved as `make build` resolves it
+(`PATH`, then `DOTNET_ROOT`).
 """
 
 from __future__ import annotations

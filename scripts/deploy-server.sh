@@ -93,11 +93,8 @@ DISCARD="$SERVER_DIR/.wrench-deploy/discarded"
 # staging, rollback and discard folders. The lock is taken before either
 # direction, so a rollback cannot interleave with a deploy it shares the
 # .wrench-deploy folder with.
-mkdir -p "$SERVER_DIR/Mods" "$SERVER_DIR/.wrench-deploy"
-if command -v flock >/dev/null 2>&1; then
-	exec 9>"$SERVER_DIR/.wrench-deploy/lock"
-	flock 9
-fi
+mkdir -p "$SERVER_DIR/Mods"
+hold_server_lock
 
 if ((ROLLBACK)); then
 	rollback
