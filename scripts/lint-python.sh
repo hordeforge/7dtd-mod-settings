@@ -3,7 +3,9 @@
 #
 # Blocking in CI (.github/workflows/ci.yml) and runnable locally with the
 # same config, so a green local run and a green remote run mean the same
-# thing. Both read pyproject.toml at the repo root; nothing here overrides it.
+# thing. Both read pyproject.toml at the repo root; nothing here overrides
+# it. The two versions are pinned in requirements-dev.txt, which is what CI
+# installs and what the error below names.
 #
 # `test_python_defects.py` keeps the one defect class ruff has no rule for
 # (a statement after a jump in the same block); ruff owns parse errors, bare
@@ -18,7 +20,8 @@ MOD_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 for tool in ruff mypy; do
 	command -v "$tool" >/dev/null 2>&1 || {
-		echo "ERROR: $tool not found; run your package manager." >&2
+		echo "ERROR: $tool not found. Install the pinned toolchain first:" >&2
+		echo "  python3 -m pip install -r requirements-dev.txt" >&2
 		exit 1
 	}
 done

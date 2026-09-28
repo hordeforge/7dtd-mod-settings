@@ -1,0 +1,11 @@
+# Developer and CI tools, pinned, installed with:
+#
+#   python3 -m pip install -r requirements-dev.txt
+#
+# scripts/lint-python.sh runs both, and .github/workflows/ci.yml installs
+# this file, so a local green run and a remote green run mean the same thing.
+# This is the only place a version is written down;
+# scripts/test_lint_toolchain_declared.py fails if a pin is repeated in
+# README, the workflow or any other tracked file, where it would drift.
+ruff==0.16.4
+mypy==2.3.1

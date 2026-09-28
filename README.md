@@ -42,7 +42,7 @@ an authenticated channel, and a WebMod panel over the same file surface.
 
 ```bash
 make help                   # list every target with a one-line description
-make test                   # offline gates (scripts/test_*.py)
+make test                   # offline gates (scripts/test_*.py; needs the .NET SDK)
 make lint                   # ruff + mypy --strict over scripts/, then shellcheck
 make build                  # stage dist/Wrench/ (needs .local.env, see below)
 make package                # dist/Wrench.zip — extracts to Mods/Wrench/
@@ -60,13 +60,15 @@ One gate at a time: `make test TF="toml"` runs only the offline tests whose
 name contains `toml`.
 
 Host tools: Python 3.10+ (the floor `pyproject.toml` and `make test` both
-enforce), `git`, `make`, `zip`; `ruff` and `mypy` at the versions CI pins
-(`ruff==0.16.4 mypy==2.3.1`, so a green local run and a green remote run mean
-the same thing), `shellcheck`; the .NET SDK (not just the runtime) for the
-net48 build and for `make test`'s TOML round-trip gate — `global.json` pins
-the floor at 8.0.100 and rolls forward to a newer major, `ilspycmd`
-(`dotnet tool install -g ilspycmd`) for patch-target validation, `steamcmd`
-for the dedicated-server lane.
+enforce), `git`, `make`, `zip`; the pinned `ruff` and `mypy` that `make lint`
+runs, installed with `python3 -m pip install -r requirements-dev.txt` (the
+one place their versions are written down, and what CI installs, so a green
+local run and a green remote run mean the same thing); `shellcheck`; the .NET
+SDK, not just the runtime, for the net48 build and for the two TOML
+round-trip gates inside `make test` (`global.json` pins the floor at
+8.0.100 and rolls forward to a newer major, so a runtime-only install is not
+enough); `ilspycmd` (`dotnet tool install -g ilspycmd`) for patch-target
+validation, `steamcmd` for the dedicated-server lane.
 
 Machine-local paths (game install, hordeforge tool checkouts) live in the
 ignored `.local.env` — copy `.local.env.example` and fill it in.

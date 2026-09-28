@@ -282,6 +282,16 @@ private launcher. A new case belongs to the suite whose feature it proves,
 never dropped into another feature's fixture (shared world/inventory state
 makes a borrowed case change every case after it).
 
+Corrected 2026-09-28: `make test` was described as needing nothing but a
+Python interpreter, but `test_toml_document.py` and `test_toml_fuzz.py`
+compile `src/Wrench/*.cs` and have no fallback, so a runtime-only .NET
+install failed two of eighteen gates part way through a run; `make help` and
+the README now say so, held by `scripts/test_toolchain_floor.py`. The lint
+tool versions were written down twice (the CI workflow and the README) with
+no gate, so a bump of one silently left the other stale; they now live only
+in `requirements-dev.txt`, which CI installs, held by
+`scripts/test_lint_toolchain_declared.py`.
+
 ## Git workflow
 
 This is a standalone hordeforge repository and the clone may be shared by

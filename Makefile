@@ -14,7 +14,7 @@ SOURCE_DATE_EPOCH ?= $(shell git log -1 --format=%ct 2>/dev/null || date +%s)
 help:
 	@echo "Targets (SUITE=<id> selects a playtest suite, TF=<substr> filters make test):"
 	@echo "  help                      this list"
-	@echo "  test                      offline gates: every scripts/test_*.py (no game install)"
+	@echo "  test                      offline gates: every scripts/test_*.py (no game install; needs the .NET SDK for the two TOML round-trip gates)"
 	@echo "  lint                      ruff + mypy --strict over scripts/, then shellcheck"
 	@echo "  lint-python               ruff + mypy --strict only"
 	@echo "  lint-shell                shellcheck only"
@@ -31,6 +31,8 @@ help:
 	@echo "  clean                     remove dist/, build outputs and .tmp/"
 
 # Offline contract/unit suite: every scripts/test_*.py must exit 0.
+# No game install, but the two TOML round-trip gates compile C# and need the
+# .NET SDK (the runtime alone answers `dotnet` and lists no SDKs).
 # Optional substring filters: make test TF="xml layout"
 TF ?=
 test:
