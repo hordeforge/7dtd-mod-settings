@@ -457,14 +457,17 @@ static class Program
 		var original = preamble.Concat(encoding.GetBytes(body)).ToArray();
 		File.WriteAllBytes(path, original);
 
+		// The shipped seam, not a local copy of it: the read and the write a
+		// save makes reach the disk through the same object the game uses.
+		var files = new SystemFileSystem();
 		Encoding read;
-		var text = TomlFile.ReadAllText(path, out read);
+		var text = TomlFile.Decode(files.ReadAllBytes(path), out read);
 		Check(name + ": read decodes the body", text == body);
 		Check(name + ": read keeps the declared encoding", read.GetPreamble().SequenceEqual(preamble));
 
-		TomlFile.WriteAllText(path, text, read);
+		files.WriteAllText(path, text, read);
 		Check(name + ": write without an edit is byte-identical",
-			File.ReadAllBytes(path).SequenceEqual(original));
+			files.ReadAllBytes(path).SequenceEqual(original));
 
 		List<TomlSettings.DocEntry> doc;
 		string error, newText;
@@ -478,8 +481,8 @@ static class Program
 		Check(name + ": edit replaces the value span",
 			TomlEdit.TryReplaceValue(text, doc, entry, "7", out newText, out after, out error)
 			&& text.Replace("A = 1", "A = 7") == newText, error ?? "");
-		TomlFile.WriteAllText(path, newText, read);
-		var reread = File.ReadAllBytes(path);
+		files.WriteAllText(path, newText, read);
+		var reread = files.ReadAllBytes(path);
 		Check(name + ": edit leaves every other byte alone",
 			reread.Length == original.Length
 			&& reread.Take(3).SequenceEqual(original.Take(3))
@@ -493,15 +496,16 @@ static class Program
 	static void SharedAccessWhileOpen(string dir)
 	{
 		var path = Path.Combine(dir, "shared.toml");
-		TomlFile.WriteAllText(path, "A = 1\n", new UTF8Encoding(false));
+		var files = new SystemFileSystem();
+		files.WriteAllText(path, "A = 1\n", new UTF8Encoding(false));
 		Encoding read;
 		try
 		{
 			using (var watcher = new FileStream(path, FileMode.Open, FileAccess.ReadWrite,
 				FileShare.ReadWrite | FileShare.Delete))
 			{
-				TomlFile.ReadAllText(path, out read);
-				TomlFile.WriteAllText(path, "A = 2\n", new UTF8Encoding(false));
+				TomlFile.Decode(files.ReadAllBytes(path), out read);
+				files.WriteAllText(path, "A = 2\n", new UTF8Encoding(false));
 			}
 			Check("read and write tolerate a concurrent holder", read != null && File.ReadAllText(path) == "A = 2\n");
 		}

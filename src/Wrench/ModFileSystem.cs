@@ -29,9 +29,13 @@ namespace Wrench
 		long GetLength(string path);
 
 		/// <summary>
-		/// Reads a text file while another process holds it open, which the
-		/// mod whose settings are being read does for the few milliseconds
-		/// of its own watch.
+		/// Reads and decodes a text file whose encoding is already fixed
+		/// (Wrench's own), while another process holds it open, which the mod
+		/// whose settings are being read does for the few milliseconds of
+		/// its own watch. A file whose bytes declare their encoding is read
+		/// with <see cref="ReadAllBytes"/> and decoded with
+		/// <see cref="TomlFile"/>, so the declared encoding survives the
+		/// round trip.
 		/// </summary>
 		string ReadAllText(string path);
 
@@ -61,6 +65,8 @@ namespace Wrench
 		/// Share mode that tolerates the concurrent reader or writer: the
 		/// hot-reloading mod's own save watcher holds the same file open for
 		/// read and write, and the default modes fail on a sharing violation.
+		/// Every open below states it, the one place a reader can fail on
+		/// Windows while the mod that owns the file is reading it.
 		/// </summary>
 		const FileShare SharedAccess = FileShare.ReadWrite | FileShare.Delete;
 
@@ -89,12 +95,19 @@ namespace Wrench
 
 		public byte[] ReadAllBytes(string path)
 		{
-			return File.ReadAllBytes(path);
+			using (var stream = File.Open(path, FileMode.Open, FileAccess.Read, SharedAccess))
+			using (var buffer = new MemoryStream())
+			{
+				stream.CopyTo(buffer);
+				return buffer.ToArray();
+			}
 		}
 
 		public void WriteAllText(string path, string text, Encoding encoding)
 		{
-			TomlFile.WriteAllText(path, text, encoding);
+			var bytes = TomlFile.Encode(text, encoding);
+			using (var stream = File.Open(path, FileMode.Create, FileAccess.Write, SharedAccess))
+				stream.Write(bytes, 0, bytes.Length);
 		}
 
 		public void Replace(string sourcePath, string destinationPath)

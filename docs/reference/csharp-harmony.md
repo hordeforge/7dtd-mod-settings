@@ -91,9 +91,10 @@ carries the full contract, taken from AtomicDoomsday (its ADRs 0006/0015):
 - `ModSettings.Applied` fires after each apply — the hook for anything
   that must react to changed values (synced CVars, a future settings UI)
 - a mod that **writes another mod's** `Config/<Mod>.toml` goes through
-  `TomlFile.cs`, not `File.ReadAllText`/`File.WriteAllText`: the byte order
-  mark the file was saved with survives the round trip, and both sides open
-  with `FileShare.ReadWrite | FileShare.Delete`, the mode the save watcher
+  `ModFileSystem.cs` and its codec `TomlFile.cs`, not
+  `File.ReadAllText`/`File.WriteAllText`: the byte order mark the file was
+  saved with survives the round trip, and both sides open with
+  `FileShare.ReadWrite | FileShare.Delete`, the mode the save watcher
   above polls with, so a save on a Windows client is not refused with a
   sharing violation while the watcher's handle is open. The in-place
   writer is gated by `scripts/test_toml_document.py`.

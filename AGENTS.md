@@ -219,7 +219,8 @@ subfolder.
 
 - Wrench's own `Config/Wrench.toml` is read and written as UTF-8 without a
   byte order mark, through `ModFileText`; a BOM on read is still honoured.
-  Another mod's file is read and written through `TomlFile` in whatever
+  Another mod's file is read and written through `ModFileSystem` (the one
+  filesystem) with `TomlFile` as the byte-faithful codec, in whatever
   encoding its bytes declare, so a non-ASCII comment in it survives a save
   unchanged, mark included.
 - The TOML string grammar is TOML's, both directions: the reader

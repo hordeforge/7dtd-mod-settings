@@ -80,6 +80,12 @@ def body(source: str, signature: str) -> str:
     return ""
 
 
+def code_of(source: str) -> str:
+    """The file without its comment-only lines, so a check reads the code."""
+    return "\n".join(line for line in source.splitlines()
+                     if not line.strip().startswith("//"))
+
+
 def main() -> int:
     if not os.path.isdir(SRC):
         print("no src/ directory; no Mod Settings screen to hold to the contract")
@@ -141,10 +147,12 @@ def main() -> int:
           "TryDeleteTemp(tempPath);" in write)
 
     read_body = body(target, "bool TryRead(")
-    check("a read takes the file's bytes and its encoding, not just its text",
-          "TomlFile.ReadAllText(TomlPath, out encoding)" in read_body
+    check("a read takes the file's bytes and its encoding, not just its text, "
+          "and reaches the disk through the same seam a save writes with",
+          "ModFileSystem.Current.ReadAllBytes(TomlPath)" in read_body
+          and "TomlFile.Decode(" in read_body
           and "File.ReadAllBytes(" not in target
-          and target.count("ReadAllText(") == 1)
+          and "TomlFile.ReadAllText(" not in target)
     check("a save writes the encoding the file is in",
           "out currentEncoding" in save
           and "TryWrite(newText, currentEncoding" in save)
@@ -157,13 +165,28 @@ def main() -> int:
           and "new UTF32Encoding(false, true)" in toml_file
           and "new UTF32Encoding(true, true)" in toml_file
           and "new UTF8Encoding(false)" in toml_file)
+    # The codec takes and returns bytes and names no path, so every open a
+    # save and its re-read make is the seam's, and a simulated run can drive
+    # both halves of one save.
+    check("the codec names no path, so one object reaches every disk",
+          "FileStream" not in code_of(toml_file)
+          and "File." not in code_of(toml_file))
+    seam = read("ModFileSystem.cs")
     check("a read and a write tolerate a hot-reloading mod's own holder",
-          "FileShare.ReadWrite | FileShare.Delete" in toml_file
-          and toml_file.count("SharedAccess") >= 3)
+          "FileShare.ReadWrite | FileShare.Delete" in seam
+          and seam.count("SharedAccess") >= 4
+          and "File.ReadAllBytes(" not in code_of(seam))
 
     opened = body(screen, "public override void OnOpen()")
     check("the reload latch does not survive the closing it was set in",
           "DisarmReloadWatch()" in opened)
+    # A mod is identified by its folder, not by the name its ModInfo carries:
+    # two installed mods can ship the same name, and reopening on the name
+    # would land the player on a different mod's settings.
+    check("reopening keeps the selection on the same mod, matched by path",
+          "selected.Mod.Path" in opened
+          and "t.Mod.Path == keep" in opened
+          and "t.Mod.Name == keep" not in opened)
     check("a rejected save and a new selection both disarm the latch",
           "ArmReloadWatch(" in body(screen, "internal bool SaveEdit(")
           and "DisarmReloadWatch()" in body(screen, "internal void SelectMod("))

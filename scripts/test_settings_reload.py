@@ -118,13 +118,16 @@ def main() -> int:
     # The staged sibling is `TomlPath + ".wrench-tmp"` in TryWrite: the
     # temp file is a sibling of the target, the replace is what puts it
     # in, and the same name is unlinked on the failure path (TryDeleteTemp)
-    # so a failed save leaves nothing behind.
+    # so a failed save leaves nothing behind. The read half of the same save
+    # goes through the seam too, so a simulated run drives the read and the
+    # write of one save on one filesystem.
     check("a save is staged and swapped in, never written over in place",
           "WriteAllText(TomlPath" not in target
           and 'var tempPath = TomlPath + ".wrench-tmp";' in target
           and "files.WriteAllText(tempPath, newText, encoding)" in target
           and "files.Replace(tempPath, TomlPath)" in target
-          and "TryDeleteTemp(tempPath)" in target)
+          and "TryDeleteTemp(tempPath)" in target
+          and "ModFileSystem.Current.ReadAllBytes(TomlPath)" in target)
     # The mod name comes out of another mod's ModInfo.xml, and this screen
     # writes to the file it names: the path must be resolved, not
     # concatenated. scripts/toml_gate exercises the resolver itself.
@@ -164,12 +167,22 @@ def main() -> int:
     def calls_static_file(name: str) -> bool:
         return re.search(r"(?<!\w)File\.", code_of(name)) is not None
 
+    # The disk-touching spellings that do not go through `File.` are named
+    # separately, so a stream or a directory reached for directly past the
+    # seam fails the gate too.
+    other_disk_calls = ("FileStream", "StreamReader", "Directory.")
+
+    def calls_disk(name: str) -> bool:
+        return any(call in code_of(name) for call in other_disk_calls)
+
     check("the shipped sources touch a disk only through the two seams",
           "interface IFileSystem" in files
           and "class SystemFileSystem : IFileSystem" in files
           and "static IFileSystem Current { get; set; }" in files
           and not calls_static_file("ModSettings.cs")
-          and not calls_static_file("TargetMod.cs"))
+          and not calls_static_file("TargetMod.cs")
+          and not calls_disk("ModSettings.cs")
+          and not calls_disk("TargetMod.cs"))
 
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0

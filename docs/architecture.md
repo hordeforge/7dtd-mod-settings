@@ -8,7 +8,8 @@ also get an ADR in [`adr/`](adr/) — link it from here. Layer escalations
 
 `src/Wrench/` is the mod, in three layers with dependencies running down:
 the TOML document (`TomlSettings.cs` parses, `TomlEdit.cs` writes, and
-`TomlFile.cs` is the byte-faithful file I/O both go through) and the
+`TomlFile.cs` is the byte-faithful codec both go through, over
+`ModFileSystem.cs`, the one filesystem) and the
 target-mod model (`TargetMod.cs`, `ModTomlPath.cs`) know nothing about the
 UI; the XUi controllers (`ModSettingsScreen.cs`, `ModSettingsRows.cs`) sit on
 top of them; the entry points (`ModApi.cs`, `ConsoleCmdWrench.cs`,
@@ -193,8 +194,8 @@ be able to destroy it. Two properties, both held by
   which still never writes over the target in place.
 - `TargetMod.TryRead` reads bytes, not text, and reports the encoding it
   decoded; the save writes that same encoding back. Both go through
-  `TomlFile`, which detects the declared mark (UTF-8, UTF-16 or UTF-32, a
-  mark either way round) and falls back to UTF-8 with none;
+  `ModFileSystem.Current`, which detects the declared mark (UTF-8, UTF-16
+  or UTF-32, a mark either way round) and falls back to UTF-8 with none;
   `File.ReadAllText` decodes a mark away and keeps no record of it, so a
   plain UTF-8 write stripped a mark the file was carrying: an edit that
   changed one value token had silently changed the file's first three bytes
@@ -258,12 +259,17 @@ write one back, so the first save of a mod's `Config/<Mod>.toml` changes
 bytes outside the edited span, which ADR 0001 forbids; and both open with
 `FileShare.Read`, which Windows refuses with a sharing violation while the
 hot-reloading mod's own save watcher holds the same file open for read and
-write, the mode `ModSettings.Poll` uses. `TomlFile.cs` reads the bytes,
-detects the declared encoding (UTF-8 with or without a mark, UTF-16 and
-UTF-32 either way round), and writes the file back in it, both sides with
-`FileShare.ReadWrite | FileShare.Delete`. `TargetMod` reads and writes the
-target through it, temp sibling included, so this is the shipped path and
-not a helper only the gate exercises. Enforced by
+write, the mode `ModSettings.Poll` uses. `TomlFile.cs` detects the
+declared encoding (UTF-8 with or without a mark, UTF-16 and UTF-32 either
+way round) and codes a file's bytes to text and back, and `ModFileSystem`
+makes every open, both sides, with `FileShare.ReadWrite | FileShare.Delete`.
+`TargetMod` reads and writes the target through that one seam, temp sibling
+included, so this is the shipped path and not a helper only the gate
+exercises. The split is deliberate: the codec takes and returns bytes and
+names no path, so the read half of a save and the write half of the same
+save cannot reach two different filesystems, which is the one thing a
+simulated run needs and what a static that opened a path could not give it.
+Enforced by
 `scripts/test_toml_document.py`, which round-trips each of those file
 shapes through the shipped writer, and by `test_target_save_coherence.py`,
 which holds the shape `TargetMod` keeps.
@@ -377,7 +383,10 @@ read one, and the replace that loses to the target's own reader.
 `ModClock` (`IMonotonicClock`, `StopwatchClock`, one settable `Current`)
 is the only clock the shipped sources read, and `ModFileSystem`
 (`IFileSystem`, `SystemFileSystem`, one settable `Current`) is the only
-filesystem they read or write through. The production implementations
+filesystem they read or write through: the codec it codes with,
+`TomlFile`, takes and returns bytes and names no path, so no other
+route to a disk is left open to the code that makes a decision. The
+production implementations
 hold the behavior that was already there: monotonic elapsed time rather
 than `Time.unscaledTime` (a float loses sub-second resolution on a
 dedicated server with weeks of uptime, and a saved file silently stops

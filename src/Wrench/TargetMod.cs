@@ -283,7 +283,7 @@ namespace Wrench
 		{
 			try
 			{
-				text = TomlFile.ReadAllText(TomlPath, out encoding);
+				text = TomlFile.Decode(ModFileSystem.Current.ReadAllBytes(TomlPath), out encoding);
 				error = null;
 				return true;
 			}

@@ -1,28 +1,31 @@
 using System;
-using System.IO;
 using System.Text;
 
 namespace Wrench
 {
 	/// <summary>
-	/// Byte-faithful text I/O for a mod's <c>Config/&lt;Mod&gt;.toml</c>.
+	/// Byte-faithful coding for a mod's <c>Config/&lt;Mod&gt;.toml</c>: the
+	/// bytes a file is in become text, and the same text becomes those bytes
+	/// again, mark included.
 	///
-	/// <see cref="File"/>/<see cref="StreamReader"/> defaults get two things
-	/// wrong on the platform most players run. A byte-order mark the file was
-	/// saved with is stripped on read and never written back, so the first
-	/// edit changes bytes outside the edited span, which is exactly what
-	/// ADR 0001 forbids. And <c>File.ReadAllText</c> and
-	/// <c>File.WriteAllText</c> open with <see cref="FileShare.Read"/>,
-	/// which fails with a sharing violation on Windows while the
-	/// hot-reloading mod's own save watcher holds the same file open for
-	/// read and write (the mode <c>ModSettings</c> polls with). Both sides
-	/// here share that tolerant mode.
+	/// Pure by contract: it takes and returns bytes and never names a path, so
+	/// the one filesystem this mod reads and writes through
+	/// (<see cref="ModFileSystem"/>) is the only code that opens a file. A
+	/// read and a write of the same save then reach the same disk, which is
+	/// what lets a simulated run drive a save end to end.
+	///
+	/// The defaults of <c>File.ReadAllText</c> and <c>File.WriteAllText</c>
+	/// get two things wrong on the platform most players run. A byte order
+	/// mark the file was saved with is stripped on read and never written
+	/// back, so the first edit changes bytes outside the edited span, which
+	/// ADR 0001 forbids. And both open with <c>FileShare.Read</c>, which fails
+	/// with a sharing violation on Windows while the hot-reloading mod's own
+	/// save watcher holds the same file open for read and write (the mode
+	/// <c>ModSettings</c> polls with), so the share mode lives with the opens
+	/// in <see cref="SystemFileSystem"/>.
 	/// </summary>
 	internal static class TomlFile
 	{
-		/// <summary>Share mode that tolerates a concurrent reader or writer.</summary>
-		const FileShare SharedAccess = FileShare.ReadWrite | FileShare.Delete;
-
 		static readonly Encoding[] KnownEncodings =
 		{
 			new UTF8Encoding(true),
@@ -34,37 +37,30 @@ namespace Wrench
 		};
 
 		/// <summary>
-		/// Reads a settings file, reporting the encoding its bytes declared
-		/// so <see cref="WriteAllText"/> can write the same file back.
+		/// Decodes a settings file's bytes, reporting the encoding its mark
+		/// declared so <see cref="Encode"/> can write the same file back.
 		/// </summary>
-		public static string ReadAllText(string path, out Encoding encoding)
+		public static string Decode(byte[] bytes, out Encoding encoding)
 		{
-			byte[] bytes;
-			using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, SharedAccess))
-			using (var buffer = new MemoryStream())
-			{
-				stream.CopyTo(buffer);
-				bytes = buffer.ToArray();
-			}
 			int preambleLength;
 			encoding = DetectEncoding(bytes, out preambleLength);
 			return encoding.GetString(bytes, preambleLength, bytes.Length - preambleLength);
 		}
 
 		/// <summary>
-		/// Writes a settings file in the encoding it was read with, byte
+		/// Encodes a settings file in the encoding it was decoded with, byte
 		/// order mark included when it had one.
 		/// </summary>
-		public static void WriteAllText(string path, string text, Encoding encoding)
+		public static byte[] Encode(string text, Encoding encoding)
 		{
-			byte[] preamble = encoding.GetPreamble();
+			var preamble = encoding.GetPreamble();
 			var body = encoding.GetBytes(text);
-			using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write, SharedAccess))
-			{
-				if (preamble.Length > 0)
-					stream.Write(preamble, 0, preamble.Length);
-				stream.Write(body, 0, body.Length);
-			}
+			if (preamble.Length == 0)
+				return body;
+			var bytes = new byte[preamble.Length + body.Length];
+			Buffer.BlockCopy(preamble, 0, bytes, 0, preamble.Length);
+			Buffer.BlockCopy(body, 0, bytes, preamble.Length, body.Length);
+			return bytes;
 		}
 
 		/// <summary>

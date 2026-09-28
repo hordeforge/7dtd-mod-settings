@@ -86,9 +86,12 @@ namespace Wrench
 			// a save that never happened.
 			DisarmReloadWatch();
 			watchedReloadTarget = null;
-			var keep = selected == null ? null : selected.Mod.Name;
+			// The folder, not the name, is a mod's identity here: a second
+			// modlet shipping the same ModInfo name is a different mod, and
+			// the path is the identity the hot-reload cache already keys on.
+			var keep = selected == null ? null : selected.Mod.Path;
 			targets = TargetMod.Discover();
-			var index = targets.FindIndex(t => t.Mod.Name == keep);
+			var index = targets.FindIndex(t => t.Mod.Path == keep);
 			PopulateModRows();
 			SelectMod(index < 0 ? 0 : index);
 			// Subscribed last: OnClose is the only unhook, so a failure
