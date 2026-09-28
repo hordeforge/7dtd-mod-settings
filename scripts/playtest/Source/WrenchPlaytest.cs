@@ -46,8 +46,24 @@ namespace WrenchPlaytest
 				return;
 			var label = Suite + (lap > 0 ? "#" + lap : "");
 
-			// Shared across the cases below, in queue order.
+			// The pristine file text and its RaidMode raw token, captured once
+			// before the suite's first write and never re-captured: a re-run or
+			// a retried case must not take its baseline from a file the suite
+			// already edited, or the restore would put the edited value back.
 			string originalToml = null;
+			string originalRaidMode = null;
+
+			void CaptureBaseline()
+			{
+				if (originalToml != null)
+					return;
+				var screen = Screen();
+				var index = screen.targets.FindIndex(t => t.Mod.Name == "AtomicDoomsday");
+				screen.SelectMod(index);
+				originalToml = screen.selected.Text;
+				var entry = screen.selected.Entries.Find(e => e.Name == "RaidMode");
+				originalRaidMode = originalToml.Substring(entry.ValueStart, entry.ValueLength);
+			}
 
 			queue.Add(CaseDef.Live(label, "options_tab_present", new[] { "ui", "xui" },
 				assert: ctx =>
@@ -91,7 +107,7 @@ namespace WrenchPlaytest
 					var screen = Screen();
 					var index = screen.targets.FindIndex(t => t.Mod.Name == "AtomicDoomsday");
 					screen.SelectMod(index);
-					originalToml = screen.selected.Text;
+					CaptureBaseline();
 					var entry = screen.selected.Entries.Find(e => e.Name == "RaidMode");
 					if (!screen.SaveEdit(entry, "true"))
 						ctx.Detail = "SaveEdit refused: " + screen.selected.SaveError;
@@ -110,8 +126,13 @@ namespace WrenchPlaytest
 				act: ctx =>
 				{
 					var screen = Screen();
+					if (originalRaidMode == null)
+					{
+						ctx.Detail = "no baseline captured; the edit case never ran";
+						return;
+					}
 					var entry = screen.selected.Entries.Find(e => e.Name == "RaidMode");
-					if (!screen.SaveEdit(entry, "false"))
+					if (!screen.SaveEdit(entry, originalRaidMode))
 						ctx.Detail = "SaveEdit refused: " + screen.selected.SaveError;
 				},
 				wait: ctx => Target("AtomicDoomsday") != null

@@ -74,6 +74,17 @@ Known ceiling: the mouse wheel over a row hits the row's collider, which
 does not forward scroll, so wheel-scrolling works only beside the rows
 and via the scrollbar. Lists currently fit without scrolling.
 
+## Decided 2026-09-28: the suite's restore writes the captured baseline
+
+`wrench-mod-settings` edits AtomicDoomsday's shipped
+`Config/AtomicDoomsday.toml` and then puts it back. The restore therefore
+has to be re-runnable: a retried case, a second lap, or a re-run of the
+suite must end in the same file the first run started from. It writes the
+`RaidMode` raw token captured before the first write, not a hardcoded
+`false`, and the baseline is captured once through a guarded
+`CaptureBaseline()`, so no execution can take its baseline from a file the
+suite already edited. Enforced by `scripts/test_playtest_rerun_safety.py`.
+
 ## Open questions
 
 - (none yet)

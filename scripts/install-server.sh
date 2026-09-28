@@ -25,10 +25,17 @@ if [[ ! -f "$SERVER_DIR/serverconfig.xml" ]]; then
 	exit 1
 fi
 
-if [[ ! -f "$SERVER_CONFIG" ]]; then
+eac_disabled() {
+	grep -iq '<property[[:space:]]\+name="EACEnabled"[[:space:]]\+value="false"' "$1"
+}
+
+# Re-derive whenever the mod-owned config is missing or does not already
+# carry the required property, so a run interrupted mid-write converges
+# on the next run instead of failing forever on its own truncated file.
+if [[ ! -f "$SERVER_CONFIG" ]] || ! eac_disabled "$SERVER_CONFIG"; then
 	python3 "$SCRIPT_DIR/configure-server-config.py" "$SERVER_DIR/serverconfig.xml" "$SERVER_CONFIG"
 fi
-if ! grep -iq '<property[[:space:]]\+name="EACEnabled"[[:space:]]\+value="false"' "$SERVER_CONFIG"; then
+if ! eac_disabled "$SERVER_CONFIG"; then
 	echo "ERROR: $SERVER_CONFIG must set EACEnabled=false for Harmony/DLL testing." >&2
 	exit 1
 fi
