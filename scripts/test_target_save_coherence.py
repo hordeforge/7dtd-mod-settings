@@ -404,7 +404,7 @@ def main() -> int:
     atomic = write
     check("a save is staged in a temp file and swapped in, never truncated "
           "in place",
-          'var temp = path + ".wrench-tmp." + stagingOwner;' in atomic
+          'var temp = path + ".wrench-tmp." + StagingOwner;' in atomic
           and "files.WriteAllText(temp," in atomic
           and "files.Replace(temp, path);" in atomic
           and "TryDeleteTemp(temp)" in atomic
@@ -413,11 +413,14 @@ def main() -> int:
     # The staging name is shared state too: one name for every writer means
     # two savers of one file truncate and rename each other's staging file,
     # and the file ends up carrying one save's text under the other save's
-    # name, with both reporting success.
+    # name, with both reporting success. The id is per process, and settable
+    # so a simulated run can put one of its own there: left as the process
+    # id it made two runs of one seed print different staging names.
     check("each writing process stages under a name of its own",
-          'path + ".wrench-tmp." + stagingOwner' in atomic
-          and "static readonly int stagingOwner = StagingOwnerId();" in target
-          and "Process.GetCurrentProcess()" in target)
+          'path + ".wrench-tmp." + StagingOwner' in atomic
+          and "public static int StagingOwner = StagingOwnerId();" in target
+          and "Process.GetCurrentProcess()" in target
+          and "static int StagingOwnerId()" in target)
     # Two savers of one file that overlap anywhere in the read-modify-write
     # lose an edit silently: the second write carries the file as the first
     # read it. The gate is keyed by path so two mods still save in parallel,

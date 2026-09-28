@@ -45,6 +45,14 @@ sealed class MemoryFileSystem : IFileSystem
 	public const string OtherWriterLine = "# written by another program\n";
 
 	readonly Dictionary<string, byte[]> contents = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+	/// <summary>
+	/// When each file was written, fixed when it was written. A real disk
+	/// answers a stat with the moment the bytes landed, so a simulated one
+	/// that computed it from the clock at stat time would report a file as
+	/// changed by the passing of time alone, and a signature taken before a
+	/// wait would no longer match the same file after it.
+	/// </summary>
+	readonly Dictionary<string, DateTime> writtenAt = new Dictionary<string, DateTime>(StringComparer.Ordinal);
 	readonly SortedSet<string> names = new SortedSet<string>(StringComparer.Ordinal);
 	readonly VirtualClock clock;
 
@@ -68,11 +76,20 @@ sealed class MemoryFileSystem : IFileSystem
 	/// <summary>The file that outside writer saves to.</summary>
 	public string RacingPath;
 	/// <summary>
-	/// Moves still to be failed, which is what turns the no-atomic-replace
-	/// fallback into a window where the destination is gone and the staging
-	/// file is the only copy of the settings left.
+	/// The two moves that put the staged text in the destination's place and
+	/// put the old text back, still to be failed. Failing both is what turns
+	/// the no-atomic-replace fallback into a window where the destination is
+	/// gone and the staging file is the only copy of the settings left.
 	/// </summary>
 	public int PendingMoveFaults;
+	/// <summary>
+	/// The move that puts the old text aside, still to be failed. It is the
+	/// move that keeps the player's settings recoverable, so it is counted
+	/// apart from the two above: a scenario that wants the window where the
+	/// settings file does not exist has to get past it first, and one that
+	/// failed it instead never reached the window at all.
+	/// </summary>
+	public int PendingAsideFaults;
 
 	public MemoryFileSystem(VirtualClock clock)
 	{
@@ -140,9 +157,8 @@ sealed class MemoryFileSystem : IFileSystem
 		writeUtc = default(DateTime);
 		length = -1;
 		error = null;
-		if (!contents.ContainsKey(path))
+		if (!contents.ContainsKey(path) || !writtenAt.TryGetValue(path, out writeUtc))
 			return false;
-		writeUtc = Epoch.AddSeconds(clock.NowSeconds);
 		length = contents[path].Length;
 		return true;
 	}
@@ -219,22 +235,36 @@ sealed class MemoryFileSystem : IFileSystem
 	public void Move(string sourcePath, string destinationPath)
 	{
 		Require(sourcePath);
-		if (PendingMoveFaults > 0)
+		if (IsMoveAside(destinationPath))
+		{
+			if (PendingAsideFaults > 0)
+			{
+				PendingAsideFaults--;
+				throw new IOException("injected: the move of " + sourcePath
+					+ " aside failed");
+			}
+		}
+		else if (PendingMoveFaults > 0)
 		{
 			PendingMoveFaults--;
 			throw new IOException("injected: the move of " + sourcePath + " failed");
 		}
 		Moves++;
 		var bytes = contents[sourcePath];
+		// A rename carries the write time with the bytes, as a real one does.
+		var written = writtenAt[sourcePath];
 		contents.Remove(sourcePath);
+		writtenAt.Remove(sourcePath);
 		names.Remove(sourcePath);
 		contents[destinationPath] = bytes;
+		writtenAt[destinationPath] = written;
 		names.Add(destinationPath);
 	}
 
 	public void Delete(string path)
 	{
 		contents.Remove(path);
+		writtenAt.Remove(path);
 		names.Remove(path);
 	}
 
@@ -246,7 +276,18 @@ sealed class MemoryFileSystem : IFileSystem
 		Buffer.BlockCopy(preamble, 0, bytes, 0, preamble.Length);
 		Buffer.BlockCopy(body, 0, bytes, preamble.Length, body.Length);
 		contents[path] = bytes;
+		writtenAt[path] = Epoch.AddSeconds(clock.NowSeconds);
 		names.Add(path);
+	}
+
+	/// <summary>
+	/// Whether this move is the fallback's move of the old text out of the
+	/// destination's place, named by its destination: the sibling a save
+	/// leaves the old text at.
+	/// </summary>
+	static bool IsMoveAside(string destinationPath)
+	{
+		return destinationPath.EndsWith(TargetMod.PreviousSuffix, StringComparison.Ordinal);
 	}
 
 	void Require(string path)
@@ -295,6 +336,17 @@ static class Simulation
 	/// <summary>What the outside writer's save leaves behind.</summary>
 	public const string OtherWriterLine = "# written by another program\n";
 
+	/// <summary>
+	/// The staging id a run saves under: a function of its seed and of
+	/// nothing else. Distinct per seed, so a trace still says which run it
+	/// came from, and the same on every machine, so two runs of one seed
+	/// print the same file names.
+	/// </summary>
+	public static int OwnerId(int seed)
+	{
+		return 10000 + seed;
+	}
+
 	/// <summary>Runs one seed and returns its trace; throws on a broken invariant.</summary>
 	public static string Run(int seed)
 	{
@@ -307,8 +359,14 @@ static class Simulation
 		// the code the game runs.
 		var savedFiles = ModFileSystem.Current;
 		var savedClock = ModClock.Current;
+		var savedOwner = TargetMod.StagingOwner;
 		ModFileSystem.Current = files;
 		ModClock.Current = clock;
+		// A staging id of the run's own, one the seed decides: the name a save
+		// stages under is part of the trace, and the game answers with the
+		// process id, which is a property of the machine the gate ran on
+		// rather than of the run.
+		TargetMod.StagingOwner = OwnerId(seed);
 		var trace = new StringBuilder();
 		trace.Append("seed ").Append(seed).Append('\n');
 		try
@@ -337,6 +395,7 @@ static class Simulation
 		{
 			ModFileSystem.Current = savedFiles;
 			ModClock.Current = savedClock;
+			TargetMod.StagingOwner = savedOwner;
 		}
 	}
 
@@ -357,8 +416,10 @@ static class Simulation
 
 		var savedFiles = ModFileSystem.Current;
 		var savedClock = ModClock.Current;
+		var savedOwner = TargetMod.StagingOwner;
 		ModFileSystem.Current = files;
 		ModClock.Current = clock;
+		TargetMod.StagingOwner = OwnerId(0);
 		try
 		{
 			var target = new TargetMod("Example", "Example", ModPath,
@@ -385,6 +446,7 @@ static class Simulation
 		{
 			ModFileSystem.Current = savedFiles;
 			ModClock.Current = savedClock;
+			TargetMod.StagingOwner = savedOwner;
 		}
 	}
 

@@ -28,12 +28,15 @@ from pathlib import Path
 from local_env import mod_dir, require_dotnet_sdk
 
 
-def run_harness(project: str, run_failure: str) -> int:
+def run_harness(project: str, run_failure: str, *run_args: str) -> int:
     """Build `scripts/<project>/<project>.csproj` and run what it built.
 
     *run_failure* is the report line for a harness that built and then
-    reported a failed assertion. Returns 0 when every assertion held, and 1
-    after printing the reason otherwise.
+    reported a failed assertion. *run_args* is passed to the harness, which
+    is how a seed the run printed is replayed: a harness that takes a seed
+    and a gate that cannot forward it leaves a failing case reproducible only
+    by editing the harness's source. Returns 0 when every assertion held, and
+    1 after printing the reason otherwise.
     """
     dotnet = require_dotnet_sdk()
     if dotnet is None:
@@ -56,7 +59,7 @@ def run_harness(project: str, run_failure: str) -> int:
         print(f"FAIL {project} build")
         return 1
 
-    run = subprocess.run([dotnet, str(Path(out_dir) / f"{project}.dll")],
+    run = subprocess.run([dotnet, str(Path(out_dir) / f"{project}.dll"), *run_args],
                          capture_output=True, text=True, encoding="utf-8",
                          errors="replace", cwd=str(root), check=False)
     sys.stdout.write(run.stdout)

@@ -515,6 +515,13 @@ clock and filesystem in those two slots and drive the same decisions the
 game makes, including a save that loses the replace race, a write that
 fails, and a reload that lands at a chosen moment.
 
+`TargetMod.StagingOwner` is the third, and it is a value rather than a
+whole seam: the staging name a save writes carries it, and the game fills
+it with the process id. Left to the machine it reached a simulated run's
+trace as well, so two runs of one seed printed different file names and a
+diff of the two could not tell a real difference from a new process. A
+simulated run puts an id of its own there, drawn from its seed.
+
 `scripts/test_settings_reload.py` holds both seams: no direct
 `System.IO` file call (`File.` or `Directory.` on a word boundary) and no
 `Thread.Sleep` outside a comment in `ModSettings.cs` or `TargetMod.cs`,

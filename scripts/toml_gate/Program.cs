@@ -142,8 +142,13 @@ static class Program
 
 		var savedFiles = ModFileSystem.Current;
 		var savedClock = ModClock.Current;
+		var savedOwner = TargetMod.StagingOwner;
 		ModFileSystem.Current = files;
 		ModClock.Current = new VirtualClock();
+		// The third seam, and the one the game fills from the machine: the
+		// staging name a save writes carries this, so leaving it the process
+		// id puts a different number in this gate's output on every run.
+		TargetMod.StagingOwner = Simulation.OwnerId(0);
 		string error = null;
 		var saved = true;
 		try
@@ -164,6 +169,7 @@ static class Program
 		{
 			ModFileSystem.Current = savedFiles;
 			ModClock.Current = savedClock;
+			TargetMod.StagingOwner = savedOwner;
 		}
 
 		var tempPath = staged.Count == 1 ? staged[0] : null;
@@ -191,8 +197,13 @@ static class Program
 
 		var savedFiles = ModFileSystem.Current;
 		var savedClock = ModClock.Current;
+		var savedOwner = TargetMod.StagingOwner;
 		ModFileSystem.Current = files;
 		ModClock.Current = new VirtualClock();
+		// The third seam, and the one the game fills from the machine: the
+		// staging name a save writes carries this, so leaving it the process
+		// id puts a different number in this gate's output on every run.
+		TargetMod.StagingOwner = Simulation.OwnerId(0);
 		string error = null;
 		string once = null;
 		var twice = false;
@@ -213,6 +224,7 @@ static class Program
 		{
 			ModFileSystem.Current = savedFiles;
 			ModClock.Current = savedClock;
+			TargetMod.StagingOwner = savedOwner;
 		}
 
 		Check("a save run twice succeeds", twice, error ?? "");
@@ -242,17 +254,29 @@ static class Program
 
 		var savedFiles = ModFileSystem.Current;
 		var savedClock = ModClock.Current;
+		var savedOwner = TargetMod.StagingOwner;
 		ModFileSystem.Current = files;
 		ModClock.Current = new VirtualClock();
+		// The third seam, and the one the game fills from the machine: the
+		// staging name a save writes carries this, so leaving it the process
+		// id puts a different number in this gate's output on every run.
+		TargetMod.StagingOwner = Simulation.OwnerId(0);
 		string error = null;
 		var recovered = false;
 		var again = true;
 		var landed = false;
+		string recoveredText = null;
+		var unchanged = false;
 		try
 		{
 			// What the screen's discovery asks on the next run.
 			recovered = TargetMod.RecoverInterruptedSave(tomlPath);
+			// What the recovery left, read here: the owed save below puts the
+			// new value in this file, so a check made after it asserts about a
+			// state the run no longer holds.
+			recoveredText = files.Peek(tomlPath);
 			again = TargetMod.RecoverInterruptedSave(tomlPath);
+			unchanged = files.Peek(tomlPath) == recoveredText;
 			// And the save that was owed, made against the file that is back.
 			var target = new TargetMod("Example", "Example", tomlPath, true);
 			landed = target.TrySave(Find(target, "Count"), "13", out error);
@@ -261,15 +285,16 @@ static class Program
 		{
 			ModFileSystem.Current = savedFiles;
 			ModClock.Current = savedClock;
+			TargetMod.StagingOwner = savedOwner;
 		}
 
 		Check("a re-run puts the settings file back", recovered,
 			"nothing at " + previousPath);
 		Check("the file it puts back holds the text the save was about to replace",
-			files.Peek(tomlPath) == "Count = 12\n", files.Peek(tomlPath));
+			recoveredText == "Count = 12\n", recoveredText ?? "(absent)");
 		Check("the sibling is gone once the file is back", !files.Exists(previousPath));
 		Check("a further re-run recovers nothing and changes nothing",
-			!again && files.Peek(tomlPath) == "Count = 12\n", files.Peek(tomlPath));
+			!again && unchanged, "recovered again: " + unchanged);
 		Check("the interrupted save is still owed and lands on the recovered file",
 			landed && files.Peek(tomlPath) == "Count = 13\n", error ?? files.Peek(tomlPath));
 	}

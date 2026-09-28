@@ -165,8 +165,8 @@ def main() -> int:
           "WriteAllText(TomlPath" not in target
           and "TryWrite(TomlPath, newText, currentEncoding, writeUtc, length,"
               in target
-          and 'var temp = path + ".wrench-tmp." + stagingOwner;' in write
-          and "static readonly int stagingOwner = StagingOwnerId();" in target
+          and 'var temp = path + ".wrench-tmp." + StagingOwner;' in write
+          and "public static int StagingOwner = StagingOwnerId();" in target
           and "process.Id" in target
           and "files.WriteAllText(temp, text, encoding)" in write
           and "files.Replace(temp, path)" in write

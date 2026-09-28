@@ -16,6 +16,27 @@ its own numbered heading when the version it ships under is declared.
 
 ### Fixed
 
+- A simulated save's trace no longer carries the process id of whatever
+  process ran it. The staging file's name is built from
+  `TargetMod.StagingOwner`, which the game fills with the process id and a
+  simulated run now fills from its own seed, so two runs of one seed print
+  the same names and a difference between them is a difference in the run.
+- The fault injection in the TOML simulation failed the swap's move aside
+  instead of the two moves that replace the file, so the scenario meant to
+  reach the window where a kill leaves the settings file with no copy of
+  either text never got there and the gate's checks of it failed. The move
+  that keeps the old text recoverable is counted apart now, from
+  `PendingAsideFaults`.
+- The in-memory disk the simulation saves into stamped a file with the
+  clock's value at the moment it was asked about, so a file read twice
+  across a wait came back with two different write times. The write time
+  is now fixed when the bytes land, as a real disk's is, and a rename
+  carries it with the bytes.
+- A seed the TOML fuzz run printed can be replayed from the gate:
+  `scripts/test_toml_fuzz.py -- --seed <hex> [--iterations <n>]`. The gate
+  forwarded no arguments to the harness, so a failing seed could only be
+  replayed by rebuilding the harness with its constant changed.
+
 - A save killed between the two moves of the swap that stands in for a
   runtime with no atomic replace no longer costs a mod its settings file.
   The run left the file at a `.wrench-prev` sibling and the new text at a

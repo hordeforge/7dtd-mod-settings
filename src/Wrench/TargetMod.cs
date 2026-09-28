@@ -98,7 +98,13 @@ namespace Wrench
 		// first save reports success having written the other's text. The
 		// gate above already serializes writers inside this process; the
 		// process id is what separates the ones it cannot.
-		static readonly int stagingOwner = StagingOwnerId();
+		//
+		// Settable, like the clock and the filesystem, because the id
+		// reaches a simulated run's trace: left as the process id it made
+		// two runs of one seed differ in the one value a trace is compared
+		// on, and a difference there is either invisible or mistaken for a
+		// real one. A simulated run puts an id of its own choosing there.
+		public static int StagingOwner = StagingOwnerId();
 
 		static int StagingOwnerId()
 		{
@@ -355,7 +361,7 @@ namespace Wrench
 			DateTime writeUtc, long length, out bool moved, out string error)
 		{
 			moved = false;
-			var temp = path + ".wrench-tmp." + stagingOwner;
+			var temp = path + ".wrench-tmp." + StagingOwner;
 			var previous = path + PreviousSuffix;
 			var files = ModFileSystem.Current;
 			try
