@@ -191,7 +191,12 @@ Never commit the file or copy its absolute values into tracked files;
 ignore rule. An exported environment variable always wins over the file, and
 a file-only key still applies: load through `scripts/local-env.sh` (shell) or
 `scripts/lib/local_env.py` (Python), never by sourcing the file yourself —
-`scripts/test_local_env_precedence.py` holds that rule. If a needed key is
+`scripts/test_local_env_precedence.py` holds that rule. A knob is read
+through `require_env_flag` (0 or 1) or `require_env_path` (absolute) from
+`scripts/local-env.sh`, or against the integer range its caller states, and
+it is read before the script acts on it, so a value the check does not name
+stops the run instead of being read as "off"
+(`scripts/test_env_knob_values.py`). If a needed key is
 missing or invalid, **ask the user for the path** — never guess or reuse one
 from docs or history. The game install is **read-only reference**: read
 `Data/Config/*.xml` freely, never write under the install directory.

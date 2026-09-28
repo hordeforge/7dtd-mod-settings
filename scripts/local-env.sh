@@ -7,6 +7,12 @@
 # over the file. Each value the file defines that is also in the environment
 # is saved before the source and restored after it, so a CI run or a
 # one-off override is never silently undone by a developer's file.
+#
+# The two value checks the shell scripts share live here for the same
+# reason: a knob read with a "is it 1" or "is it a path" test of its own
+# accepts every value the check does not name, and a mistyped knob then
+# reads as a knob that was honoured (docs/reference/environment.md;
+# scripts/test_env_knob_values.py).
 
 # load_local_env [FILE]
 # Reads FILE (default $ROOT/.local.env) into the current shell. A missing
@@ -36,4 +42,35 @@ load_local_env() {
 		# shellcheck disable=SC2163
 		export "${entry?}"
 	done
+}
+
+# require_env_flag NAME
+# Exits 1 unless $NAME is unset or holds exactly 0 or 1. A flag knob read
+# with a "is it 1" test treats every other value as off, so WRENCH_SKIP_DLL=yes
+# staged a DLL-bearing package and FRESH=no wiped the playtest save, both
+# after the spelling that was asked for. An exported value is a value even
+# when it is empty (the rule above), so a blank knob is refused rather than
+# read as off; an unset one is the caller's default, and the caller's own
+# `:-` still supplies it.
+require_env_flag() {
+	local name="$1" value="${!1-}"
+	[[ -v "$name" ]] || return 0
+	case "$value" in
+		0 | 1) return 0 ;;
+	esac
+	echo "ERROR: $name must be 0 or 1, not '$value'." >&2
+	exit 1
+}
+
+# require_env_path NAME VALUE
+# Exits 1 unless VALUE is an absolute path. A relative one names a different
+# file per working directory, so the same .local.env booted a server with
+# one serverconfig from the mod root and another from a shell that happened
+# to be one level down, and the difference surfaces as a boot that ignored
+# the config the file named.
+require_env_path() {
+	local name="$1" value="$2"
+	[[ "$value" == /* ]] && return 0
+	echo "ERROR: $name must be an absolute path, not '$value'." >&2
+	exit 1
 }

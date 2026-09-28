@@ -20,12 +20,16 @@ OPTIONS
 
 ENVIRONMENT
   SEVEN_DAYS_TO_DIE_DIR  game install, for the C# reference assemblies
-  WRENCH_SKIP_DLL        1 stages the XML-only package, no DLL
+  WRENCH_SKIP_DLL        1 stages the XML-only package, no DLL (0 or 1)
 
 EXIT STATUS
   0  the modlet is staged under dist/
-  1  the game install is missing or a build step failed
+  1  the game install is missing, a knob is malformed, or a build step failed
   2  unknown option" "$@"
+
+# Before any staging, so a knob nothing reads this run cannot be a typo
+# that only surfaces on the machine with the game install.
+require_env_flag WRENCH_SKIP_DLL
 
 MOD_NAME="Wrench"
 OUT="$ROOT/dist/$MOD_NAME"

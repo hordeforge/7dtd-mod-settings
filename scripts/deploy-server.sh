@@ -97,6 +97,9 @@ while (($#)); do
 done
 
 # After the flags: --help must work on a machine with no server install.
+# The knob is checked before the install is read, so a mistyped one is named
+# instead of reaching the package check below with the wrong meaning.
+require_env_flag WRENCH_SKIP_DLL
 load_server_environment
 
 TARGET="$SERVER_DIR/Mods/Wrench"

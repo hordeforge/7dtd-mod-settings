@@ -53,7 +53,7 @@ usage() {
 		  PLAYTEST_SESSION_ID     generated
 		  MODS_DIR                the Proton per-user Mods directory
 		  CONNECT_NAME            7dtd-fastconnect
-		  FRESH                   1      0 keeps the existing playtest save
+		  FRESH                   1      0 or 1; 0 keeps the existing playtest save
 	EOF
 }
 
@@ -90,6 +90,10 @@ require_text() {
 # shellcheck source=local-env.sh
 source "$SCRIPT_DIR/local-env.sh"
 load_local_env "$MOD_DIR/.local.env"
+# FRESH is the one knob here whose misspelling is destructive: every value
+# but "0" means a fresh save, so FRESH=no deleted the playtest world the
+# operator meant to keep and the next run looked like a world bug.
+require_env_flag FRESH
 PLAYTEST_ROOT="${PLAYTEST_ROOT:-}"
 CONNECT_ROOT="${CONNECT_ROOT:-}"
 ATOMIC_DIR="${WRENCH_ATOMIC_MOD_DIR:-}"
