@@ -276,8 +276,7 @@ namespace Wrench
 				while (!AtEnd && Peek != ']')
 				{
 					string item;
-					ValueKind itemKind;
-					if (!ReadValue(out item, out itemKind, out error))
+					if (!ReadValue(out item, out _, out error))
 						return false;
 					parts.Add(item);
 					SkipIgnorable();

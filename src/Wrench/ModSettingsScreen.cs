@@ -91,6 +91,11 @@ namespace Wrench
 		internal void SelectMod(int index)
 		{
 			selected = (index >= 0 && index < targets.Count) ? targets[index] : null;
+			// A reload line still in flight belongs to the mod selected until
+			// now; attributing it to the new selection would mark the wrong
+			// mod as applied live.
+			watchedReloadMarker = null;
+			reloadSeen = false;
 			for (var i = 0; i < modRows.Length; i++)
 			{
 				modRows[i].IsSelectedMod = modRows[i].Target != null && modRows[i].Target == selected;
@@ -107,13 +112,12 @@ namespace Wrench
 				return false;
 			var mod = selected;
 			var saved = mod.TrySave(entry, newRaw, out _);
-			if (saved && mod.HotReloads)
-			{
-				// The Anvil component logs the re-read; until that line
-				// arrives the status stays at "saved".
-				watchedReloadMarker = mod.ReloadLogMarker;
-				reloadSeen = false;
-			}
+			// The Anvil component logs the re-read; until that line arrives
+			// the status stays at "saved". A refused edit disarms the watch,
+			// so a line from an earlier save cannot resurrect "applied live"
+			// over the failure this edit just recorded.
+			watchedReloadMarker = saved && mod.HotReloads ? mod.ReloadLogMarker : null;
+			reloadSeen = false;
 			// Spans moved with the edit: rebind rows to the re-parsed
 			// entries (also restores the file value after a refused edit).
 			PopulateSettingRows();
@@ -154,7 +158,7 @@ namespace Wrench
 
 		void PopulateSettingRows()
 		{
-			var entries = selected == null ? null : selected.Entries;
+			var entries = selected?.Entries;
 			for (var i = 0; i < settingRows.Length; i++)
 			{
 				var entry = entries != null && i < entries.Count ? entries[i] : null;

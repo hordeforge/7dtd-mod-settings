@@ -69,8 +69,7 @@ namespace Wrench
 		{
 			newText = null;
 			string normalized;
-			TomlSettings.ValueKind kind;
-			if (!TryParseRawValue(newRaw, out normalized, out kind, out error))
+			if (!TryParseRawValue(newRaw, out normalized, out _, out error))
 				return false;
 			newRaw = newRaw.Trim();
 

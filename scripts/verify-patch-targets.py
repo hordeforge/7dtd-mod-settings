@@ -24,6 +24,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+import local_env  # noqa: E402
+
 # src/<ModName> mirrors the mod directory name (Repo layout rule in AGENTS.md).
 SOURCE_DIR = Path("src") / Path(__file__).resolve().parent.parent.name
 MANAGED_SUBDIR = Path("7DaysToDie_Data") / "Managed"
@@ -72,22 +75,9 @@ def usage() -> None:
 
 
 def configured_game_dir(root: Path) -> Path | None:
-    game_dir = os.environ.get("SEVEN_DAYS_TO_DIE_DIR")
-    if game_dir:
-        return Path(game_dir)
-
-    env_file = root / ".local.env"
-    if not env_file.is_file():
-        return None
-
-    for line in env_file.read_text(encoding="utf-8").splitlines():
-        if not line.startswith("SEVEN_DAYS_TO_DIE_DIR="):
-            continue
-        value = line.split("=", 1)[1].strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
-            value = value[1:-1]
-        return Path(value)
-    return None
+    """`SEVEN_DAYS_TO_DIE_DIR` resolved by scripts/lib/local_env.py."""
+    path = local_env.configured_game_dir(root)
+    return Path(path) if path else None
 
 
 class Target:

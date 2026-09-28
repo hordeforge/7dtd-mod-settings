@@ -22,20 +22,17 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 
-MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from local_env import configured_game_dir, mod_dir  # noqa: E402
+
+MOD_DIR = str(mod_dir())
 
 CHECK_PARENT_ONLY = {"append", "insertBefore", "insertAfter", "setattribute"}
 CHECK_FULL = {"set", "remove", "removeattribute", "csv"}
 
 
 def game_dir() -> str:
-    path = os.environ.get("SEVEN_DAYS_TO_DIE_DIR", "")
-    env_file = os.path.join(MOD_DIR, ".local.env")
-    if not path and os.path.isfile(env_file):
-        with open(env_file, encoding="utf-8") as handle:
-            for line in handle:
-                if line.startswith("SEVEN_DAYS_TO_DIE_DIR="):
-                    path = line.split("=", 1)[1].strip().strip('"')
+    path = configured_game_dir()
     if not path or not os.path.isdir(os.path.join(path, "Data", "Config")):
         sys.exit("ERROR: set SEVEN_DAYS_TO_DIE_DIR or .local.env to a valid game install.")
     return path

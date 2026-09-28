@@ -41,37 +41,39 @@ namespace Wrench
 		{
 			var subcommand = _params.Count > 0 ? _params[0].ToLowerInvariant() : "settings";
 
-			if (subcommand == "settings")
+			switch (subcommand)
 			{
+			case "settings":
 				foreach (var line in ModSettings.Describe())
-					SingletonMonoBehaviour<SdtdConsole>.Instance.Output(line);
+					Output(line);
 				return;
-			}
 
-			if (subcommand == "reload")
-			{
-				string message;
-				ModSettings.ReloadNow(out message);
-				SingletonMonoBehaviour<SdtdConsole>.Instance.Output(message ?? "no settings file watched.");
+			case "reload":
+				string reloadMessage;
+				ModSettings.ReloadNow(out reloadMessage);
+				Output(reloadMessage ?? "no settings file watched.");
 				return;
-			}
 
-			if (subcommand == "set")
-			{
+			case "set":
 				if (_params.Count != 3)
 				{
-					SingletonMonoBehaviour<SdtdConsole>.Instance.Output(
-						"Usage: wrench set <name> <value>");
+					Output("Usage: wrench set <name> <value>");
 					return;
 				}
-				string message;
-				ModSettings.TrySet(_params[1], _params[2], out message);
-				SingletonMonoBehaviour<SdtdConsole>.Instance.Output(message);
+				string setMessage;
+				ModSettings.TrySet(_params[1], _params[2], out setMessage);
+				Output(setMessage);
+				return;
+
+			default:
+				Output("Unknown subcommand '" + subcommand + "'. See: help wrench");
 				return;
 			}
+		}
 
-			SingletonMonoBehaviour<SdtdConsole>.Instance.Output(
-				"Unknown subcommand '" + subcommand + "'. See: help wrench");
+		static void Output(string line)
+		{
+			SingletonMonoBehaviour<SdtdConsole>.Instance.Output(line);
 		}
 	}
 }

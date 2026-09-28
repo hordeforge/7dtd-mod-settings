@@ -27,7 +27,10 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
-MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from local_env import configured_game_dir, mod_dir  # noqa: E402
+
+MOD_DIR = str(mod_dir())
 # The checkout is named after the repo slug; ModInfo.xml Name is the mod
 # (test_static_checks.py holds it to the build tooling).
 MOD_NAME = next(
@@ -45,17 +48,6 @@ MOD_NAME = next(
 CONTAINER_EXPECTATIONS: tuple[tuple[str, str, str, str], ...] = ()
 
 APPENDED_BY = re.compile(r'appended by:\s*"([^"]+)"')
-
-
-def configured_game_dir() -> str:
-    path = os.environ.get("SEVEN_DAYS_TO_DIE_DIR", "")
-    env_file = os.path.join(MOD_DIR, ".local.env")
-    if not path and os.path.isfile(env_file):
-        with open(env_file, encoding="utf-8") as handle:
-            for line in handle:
-                if line.startswith("SEVEN_DAYS_TO_DIE_DIR="):
-                    path = line.split("=", 1)[1].strip().strip('"')
-    return path
 
 
 class VerifyError(RuntimeError):
@@ -205,7 +197,7 @@ def main() -> int:
         return 1
     total = sum(applied.values())
     print(f"  PASS: all {total} shipped patch elements are present in the running")
-    print(f"        game's own configuration, in their intended parents.")
+    print("        game's own configuration, in their intended parents.")
     return 0
 
 

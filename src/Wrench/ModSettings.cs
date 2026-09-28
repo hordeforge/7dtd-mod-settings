@@ -120,16 +120,7 @@ namespace Wrench
 					message = "defaults (no " + RelativePath + ")";
 					return false;
 				}
-				ResetToDefaults();
-				appliedWriteUtc = default(DateTime);
-				appliedLength = -1;
-				appliedText = null;
-				seenWriteUtc = default(DateTime);
-				seenLength = -1;
-				LogCurrent("defaults (no " + RelativePath + ")");
-				message = RelativePath + " is missing; using defaults.";
-				Applied?.Invoke();
-				return true;
+				return ApplyMissingFileDefaults(out message);
 			}
 
 			DateTime writeUtc;
@@ -160,12 +151,10 @@ namespace Wrench
 			if (!TryReadText(watchedPath, out text))
 			{
 				if (startup)
-				{
 					LogCurrent("defaults (unreadable " + RelativePath + ")");
-					message = RelativePath + " could not be read; using defaults.";
-					return false;
-				}
-				message = RelativePath + " could not be read; keeping current settings.";
+				message = startup
+					? RelativePath + " could not be read; using defaults."
+					: RelativePath + " could not be read; keeping current settings.";
 				return false;
 			}
 
@@ -180,14 +169,10 @@ namespace Wrench
 			string error;
 			if (!TomlSettings.TryRead(text, out entries, out error))
 			{
+				Debug.LogError("[Wrench] " + RelativePath + ": " + error
+					+ (startup ? "; using default settings." : "; keeping current settings."));
 				if (startup)
-				{
-					Debug.LogError("[Wrench] " + RelativePath + ": " + error + "; using default settings.");
 					LogCurrent("defaults");
-					message = error;
-					return false;
-				}
-				Debug.LogError("[Wrench] " + RelativePath + ": " + error + "; keeping current settings.");
 				message = error;
 				return false;
 			}
@@ -213,6 +198,25 @@ namespace Wrench
 		static void ResetToDefaults()
 		{
 			ExampleEnabled = ExampleEnabledDefault;
+		}
+
+		/// <summary>
+		/// The watched file is gone: fall back to shipped defaults and forget
+		/// every stamp, so a file reappearing is read as a fresh change
+		/// rather than compared against a stale signature.
+		/// </summary>
+		static bool ApplyMissingFileDefaults(out string message)
+		{
+			ResetToDefaults();
+			appliedWriteUtc = default(DateTime);
+			appliedLength = -1;
+			appliedText = null;
+			seenWriteUtc = default(DateTime);
+			seenLength = -1;
+			LogCurrent("defaults (no " + RelativePath + ")");
+			message = RelativePath + " is missing; using defaults.";
+			Applied?.Invoke();
+			return true;
 		}
 
 		static bool TryStamp(string path, out DateTime writeUtc, out long length)
