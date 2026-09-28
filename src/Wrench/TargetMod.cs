@@ -42,8 +42,8 @@ namespace Wrench
 
 		public readonly Mod Mod;
 		public readonly string TomlPath;
-		/// <summary>Encoding the file declared; the save writes it back unchanged.</summary>
-		Encoding encoding;
+		/// <summary>The file's own name, safe to show and to match in a log line.</summary>
+		public readonly string TomlFileName;
 		/// <summary>The Anvil settings component was found, so a save applies without a restart.</summary>
 		public readonly bool HotReloads;
 
@@ -56,10 +56,11 @@ namespace Wrench
 		public ESaveState SaveState;
 		public string SaveError;
 
-		TargetMod(Mod mod)
+		TargetMod(Mod mod, string tomlPath)
 		{
 			Mod = mod;
-			TomlPath = Path.Combine(mod.Path, "Config", mod.Name + ".toml");
+			TomlPath = tomlPath;
+			TomlFileName = Path.GetFileName(tomlPath);
 			HotReloads = CachedHasSettingsComponent(mod);
 			Reload();
 		}
@@ -91,7 +92,7 @@ namespace Wrench
 		/// </summary>
 		public string ReloadLogMarker
 		{
-			get { return "reload Config/" + Mod.Name + ".toml"; }
+			get { return "reload Config/" + TomlFileName; }
 		}
 
 		public void Reload()
@@ -330,11 +331,22 @@ namespace Wrench
 			{
 				if (mod == null || string.IsNullOrEmpty(mod.Path))
 					continue;
-				if (!File.Exists(Path.Combine(mod.Path, "Config", mod.Name + ".toml")))
+				// The mod's name is its own ModInfo's, so the file it points
+				// at is resolved, never concatenated: a name carrying a
+				// directory part would make this screen read, and its save
+				// write, outside the mod folder.
+				string tomlPath;
+				string error;
+				if (!ModTomlPath.TryResolve(mod.Path, mod.Name, out tomlPath, out error))
+				{
+					Log.Warning(ModApi.LogPrefix + " skipped " + mod.Name + " (" + error + ")");
+					continue;
+				}
+				if (!File.Exists(tomlPath))
 					continue;
 				try
 				{
-					result.Add(new TargetMod(mod));
+					result.Add(new TargetMod(mod, tomlPath));
 				}
 				catch (Exception ex)
 				{
@@ -342,8 +354,7 @@ namespace Wrench
 					// whole screen down; the rest stay editable, and the mod
 					// that was dropped says so in the log.
 					Log.Warning(ModApi.LogPrefix + " skipped " + mod.Name
-						+ " (" + Path.Combine(mod.Path, "Config", mod.Name + ".toml")
-						+ "): " + ex.Message);
+						+ " (" + tomlPath + "): " + ex.Message);
 				}
 			}
 			return result;

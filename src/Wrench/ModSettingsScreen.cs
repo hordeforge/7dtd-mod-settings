@@ -230,7 +230,7 @@ namespace Wrench
 				_value = selected == null ? "" : selected.Mod.DisplayName;
 				return true;
 			case "selmodfile":
-				_value = selected == null ? "" : "Config/" + selected.Mod.Name + ".toml";
+				_value = selected == null ? "" : "Config/" + selected.TomlFileName;
 				return true;
 			case "selmodstatus":
 				_value = StatusLine();

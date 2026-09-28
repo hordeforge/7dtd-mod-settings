@@ -80,6 +80,13 @@ def main() -> int:
           and "File.WriteAllText(tempPath, newText)" in target
           and "File.Replace(tempPath, TomlPath, null)" in target
           and "DeleteTemp(tempPath)" in target)
+    # The mod name comes out of another mod's ModInfo.xml, and this screen
+    # writes to the file it names: the path must be resolved, not
+    # concatenated. scripts/toml_gate exercises the resolver itself.
+    check("another mod's name cannot steer the settings file out of its folder",
+          read("ModTomlPath.cs") != ""
+          and "ModTomlPath.TryResolve(mod.Path, mod.Name" in target
+          and 'Path.Combine(mod.Path, "Config", mod.Name' not in target)
 
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0

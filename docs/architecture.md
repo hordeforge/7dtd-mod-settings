@@ -226,6 +226,22 @@ UTF-32 either way round), and writes the file back in it, both sides with
 `scripts/test_toml_document.py`, which round-trips each of those file
 shapes through the shipped writer.
 
+## Decided 2026-09-28: a mod's settings file is resolved, never concatenated
+
+`Mod.Name` is not this mod's to choose: it comes out of whichever
+`ModInfo.xml` a downloaded modlet carries, and the Mod Settings screen both
+reads and writes `Config/<Name>.toml` under that mod's folder. So the path
+goes through `ModTomlPath.TryResolve`, which requires the name to be one
+plain file name (no directory separator on any platform, no drive or stream
+colon, nothing the platform forbids in a file name) and then requires the
+composed path to still resolve inside `<mod>/Config/`. A mod that fails is
+skipped with a line in the log rather than half-listed. The second check is
+the guarantee; the name filter only makes the failure message say why.
+
+Enforced by `scripts/toml_gate/Program.cs` (`TestModTomlPath`, run by
+`scripts/test_toml_document.py`) and, at source level, by
+`scripts/test_settings_reload.py`.
+
 ## Open questions
 
 - (none yet)

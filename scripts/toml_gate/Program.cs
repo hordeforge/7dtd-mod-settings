@@ -5,9 +5,11 @@ using System.Linq;
 using System.Text;
 using Wrench;
 
-// Offline gate for the TOML document parser and the in-place writer:
-// parse captures spans, kinds, and comment blocks; an edit changes one
-// value span and nothing else, byte-for-byte. Run by
+// Offline gate for the TOML document parser, the in-place writer and the
+// mod settings path resolver: parse captures spans, kinds, and comment
+// blocks; an edit changes one value span and nothing else, byte-for-byte;
+// a mod name taken from another mod's ModInfo.xml cannot steer the screen's
+// read or write out of that mod's folder. Run by
 // scripts/test_toml_document.py; output must be deterministic.
 static class Program
 {
@@ -53,6 +55,7 @@ static class Program
 		TestUnicodeAndEscapes();
 		TestCrlf();
 		TestFileIo();
+		TestModTomlPath();
 		TestShippedFile();
 		Console.WriteLine(failures + " failures.");
 		Environment.Exit(failures > 0 ? 1 : 0);
@@ -266,6 +269,43 @@ static class Program
 			TomlEdit.TryReplaceValue(crlf, doc, a, "7", out newText, out after, out error)
 			&& newText == "# help\r\nA = 7\r\nB = 2\r\n",
 			error ?? "");
+	}
+
+	static void TestModTomlPath()
+	{
+		var root = Path.Combine(Path.GetTempPath(), "wrench-gate", "Mods", "Example");
+		string tomlPath, error;
+
+		Check("a plain mod name resolves inside the mod folder",
+			ModTomlPath.TryResolve(root, "Example", out tomlPath, out error)
+			&& tomlPath == Path.Combine(root, "Config", "Example.toml"), error ?? "");
+
+		Check("a name with a dot in it is still plain",
+			ModTomlPath.TryResolve(root, "Some.Mod 2", out tomlPath, out error)
+			&& tomlPath == Path.Combine(root, "Config", "Some.Mod 2.toml"), error ?? "");
+
+		Rejected("a parent-directory name", root, "../Escape");
+		Rejected("a nested path", root, "sub/Escape");
+		Rejected("a backslash path", root, "..\\Escape");
+		Rejected("an absolute path", root, "/etc/Config");
+		Rejected("a drive-qualified name", root, "C:Config");
+		Rejected("a stream name", root, "Escape:stream");
+		Rejected("a current-directory name", root, ".");
+		Rejected("a parent-directory token", root, "..");
+		Rejected("an empty name", root, "");
+		Rejected("a null name", root, null);
+		Rejected("an empty mod path", "", "Example");
+		Rejected("a null mod path", null, "Example");
+	}
+
+	static void Rejected(string name, string modPath, string modName)
+	{
+		string tomlPath, error;
+		Check("reject " + name,
+			!ModTomlPath.TryResolve(modPath, modName, out tomlPath, out error)
+			&& tomlPath == null
+			&& !string.IsNullOrEmpty(error),
+			"resolved to " + (tomlPath ?? "(null)"));
 	}
 
 	static void TestShippedFile()

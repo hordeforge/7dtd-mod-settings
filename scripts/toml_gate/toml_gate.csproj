@@ -15,5 +15,6 @@
     <Compile Include="../../src/Wrench/TomlSettings.cs" />
     <Compile Include="../../src/Wrench/TomlEdit.cs" />
     <Compile Include="../../src/Wrench/TomlFile.cs" />
+    <Compile Include="../../src/Wrench/ModTomlPath.cs" />
   </ItemGroup>
 </Project>
