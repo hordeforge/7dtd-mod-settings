@@ -251,13 +251,24 @@ def main() -> int:
           and "TryWrite(TomlPath, newText, currentEncoding" in save)
 
     toml_file = read("TomlFile.cs")
-    check("a byte order mark is decoded away and written back",
+    # Every candidate decodes strictly, and the three-argument constructors
+    # are what says so: in UnicodeEncoding(bigEndian, byteOrderMark) the
+    # second argument is the mark, not the fallback, so a two-argument
+    # UTF-16 or UTF-32 candidate reads a marked file leniently and a save
+    # writes the replacement characters back into a file this mod does not
+    # own. UTF-8's second argument is throwOnInvalidBytes either way, so its
+    # two-argument form already means what it looks like.
+    check("a byte order mark is decoded away and written back, strictly",
           "new UTF8Encoding(true, true)" in toml_file
-          and "new UnicodeEncoding(false, true)" in toml_file
-          and "new UnicodeEncoding(true, true)" in toml_file
-          and "new UTF32Encoding(false, true)" in toml_file
-          and "new UTF32Encoding(true, true)" in toml_file
-          and "new UTF8Encoding(false, true)" in toml_file)
+          and "new UnicodeEncoding(false, true, true)" in toml_file
+          and "new UnicodeEncoding(true, true, true)" in toml_file
+          and "new UTF32Encoding(false, true, true)" in toml_file
+          and "new UTF32Encoding(true, true, true)" in toml_file
+          and "new UTF8Encoding(false, true)" in toml_file
+          and "new UnicodeEncoding(false, true)" not in toml_file
+          and "new UnicodeEncoding(true, true)" not in toml_file
+          and "new UTF32Encoding(false, true)" not in toml_file
+          and "new UTF32Encoding(true, true)" not in toml_file)
     # The codec takes and returns bytes and names no path, so every open a
     # save and its re-read make is the seam's, and a simulated run can drive
     # both halves of one save.

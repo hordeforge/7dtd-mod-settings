@@ -16,6 +16,16 @@ its own numbered heading when the version it ships under is declared.
 
 ### Fixed
 
+- Another mod's settings file marked UTF-16 or UTF-32 is refused when it
+  holds a byte that is not valid in the encoding its own mark names,
+  instead of being read with replacement characters. The marked
+  candidates were built with the two-argument constructors, whose second
+  argument is the byte order mark and not the fallback, so those two
+  decoders were lenient where the unmarked UTF-8 one is strict; a save
+  after such a read wrote the replacement characters back into a file
+  this mod does not own. A marked file is now read under the same rule
+  as every other one.
+
 - The packaged modlet is no longer staged read-only, so saving a setting
   works on an install whose extractor restored the modes the zip records.
   A save writes a staged file into `Config/` and replaces

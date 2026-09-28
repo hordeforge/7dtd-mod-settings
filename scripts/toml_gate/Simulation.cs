@@ -41,6 +41,9 @@ sealed class MemoryFileSystem : IFileSystem
 	/// <summary>The virtual mtime a file written at t=0 answers with.</summary>
 	static readonly DateTime Epoch = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+	/// <summary>What the outside writer's save leaves behind.</summary>
+	public const string OtherWriterLine = "# written by another program\n";
+
 	readonly Dictionary<string, byte[]> contents = new Dictionary<string, byte[]>(StringComparer.Ordinal);
 	readonly SortedSet<string> names = new SortedSet<string>(StringComparer.Ordinal);
 	readonly VirtualClock clock;
@@ -98,10 +101,8 @@ sealed class MemoryFileSystem : IFileSystem
 	{
 		if (!contents.ContainsKey(path))
 			return "";
-		var bytes = contents[path];
-		int preambleLength;
-		var encoding = TomlFile.DetectEncoding(bytes, out preambleLength);
-		return encoding.GetString(bytes, preambleLength, bytes.Length - preambleLength);
+		Encoding encoding;
+		return TomlFile.Decode(contents[path], out encoding);
 	}
 
 	/// <summary>Names present, ordered, so a trace never depends on a hash.</summary>
@@ -171,9 +172,7 @@ sealed class MemoryFileSystem : IFileSystem
 			throw new IOException("injected read fault on " + path);
 		}
 		var bytes = contents[path];
-		int preambleLength;
-		encoding = TomlFile.DetectEncoding(bytes, out preambleLength);
-		return encoding.GetString(bytes, preambleLength, bytes.Length - preambleLength);
+		return TomlFile.Decode(bytes, out encoding);
 	}
 
 	public void WriteAllText(string path, string text, Encoding encoding)
@@ -374,7 +373,7 @@ static class Simulation
 			Check(saved, "the save reported failure: " + error);
 
 			var text = files.Peek(TomlPath);
-			Check(text.Contains(OtherWriterLine.TrimEnd('\n')),
+			Check(text.Contains(MemoryFileSystem.OtherWriterLine.TrimEnd('\n')),
 				"the save wrote its stale copy over the other program's save: " + text);
 			Check(text.Contains(CountKey + " = 77"),
 				"the save did not land its own value: " + text);

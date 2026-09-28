@@ -37,10 +37,15 @@ namespace Wrench
 		{
 			new UTF8Encoding(true, true),
 			// UTF-32LE's mark starts with UTF-16LE's, so it is tested first.
-			new UTF32Encoding(false, true),
-			new UTF32Encoding(true, true),
-			new UnicodeEncoding(false, true),
-			new UnicodeEncoding(true, true),
+			// The third argument is throwOnInvalidBytes: without it a marked
+			// UTF-16 or UTF-32 file decodes leniently, a byte that is not
+			// valid in the encoding it is marked as arrives as U+FFFD, and
+			// the save that follows writes that replacement back into a file
+			// this mod does not own.
+			new UTF32Encoding(false, true, true),
+			new UTF32Encoding(true, true, true),
+			new UnicodeEncoding(false, true, true),
+			new UnicodeEncoding(true, true, true),
 		};
 
 		/// <summary>

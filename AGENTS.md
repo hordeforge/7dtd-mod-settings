@@ -269,7 +269,8 @@ on the read-only tree they replaced.
 Corrected 2026-09-28: escapes, encoding, and key case in the TOML path;
 enforced by `scripts/test_toml_document.py` (spans, escapes, non-ASCII
 round trips, a file whose bytes are not valid in the encoding it declares
-refused on read), `scripts/test_toml_fuzz.py` (mutated documents against the
+refused on read, marked UTF-16 and UTF-32 included), `scripts/test_toml_fuzz.py`
+(mutated documents and mutated byte arrays against the
 reader/writer/resolver invariants, fixed seed), and
 `scripts/test_python_defects.py` (text output without an
 explicit encoding).

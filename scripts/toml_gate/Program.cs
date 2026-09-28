@@ -650,6 +650,23 @@ static class Program
 		File.WriteAllBytes(marked, new byte[] { 0xEF, 0xBB, 0xBF }.Concat(bytes).ToArray());
 		Check("a marked file with invalid UTF-8 is refused the same way",
 			RefusesRead(marked));
+
+		// A file is only as strict as the encoding its own mark names. The
+		// UTF-16 and UTF-32 candidates are offered the same file, and a
+		// lenient one of those loses a mod author's bytes on the first save
+		// exactly as a lenient UTF-8 decoder would.
+		var utf16 = Path.Combine(dir, "utf16-invalid.toml");
+		// "A" is 41 00 in UTF-16LE, then a lone high surrogate (00 D8).
+		File.WriteAllBytes(utf16, new byte[] { 0xFF, 0xFE, 0x41, 0x00, 0x00, 0xD8 });
+		Check("a marked UTF-16 file with an unpaired surrogate is refused, not replaced",
+			RefusesRead(utf16));
+
+		var utf32 = Path.Combine(dir, "utf32-invalid.toml");
+		// One UTF-32LE code point above U+10FFFF: 41 00 00 D8.
+		File.WriteAllBytes(utf32, new byte[] { 0xFF, 0xFE, 0x00, 0x00, 0x41, 0x00, 0x00, 0xD8 });
+		Check("a marked UTF-32 file with a code point out of range is refused, not replaced",
+			RefusesRead(utf32));
+
 		Check("a refused read leaves the file's bytes untouched",
 			File.ReadAllBytes(path).SequenceEqual(bytes));
 	}

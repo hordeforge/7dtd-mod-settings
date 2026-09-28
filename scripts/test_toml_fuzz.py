@@ -9,8 +9,13 @@ settings documents and asserts the invariants the screen depends on: the
 reader never throws, a refusal always says why, captured spans re-parse to
 their own value, an edit touches one value span and nothing else, what the
 writer encodes reads back unchanged, and a mod name that resolves stays
-inside the mod folder. Run by scripts/run-offline-tests.sh; the seed and
-case count are fixed, so the report is identical on two runs. The dotnet
+inside the mod folder. A second pass mutates the file's bytes rather than
+its text, the level a downloaded modlet actually arrives in, and asserts
+that a file this mod can read it can also write back byte for byte mark
+included, that an invalid byte is refused in every marked encoding and not
+only the unmarked one, and that the mark picks the encoding without
+deciding whether the body decodes. Run by scripts/run-offline-tests.sh; the
+seed and case count are fixed, so the report is identical on two runs. The dotnet
 SDK it compiles the harness with is resolved as `make build` resolves it
 (`PATH`, then `DOTNET_ROOT`).
 """

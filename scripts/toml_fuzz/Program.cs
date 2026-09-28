@@ -27,6 +27,13 @@ using Wrench;
 //   - a mod name that resolves does so inside the mod folder, whatever the
 //     name holds.
 //
+// The second half of that file never reaches the string cases: a modlet
+// arrives as bytes, and the mark on them picks the encoding. The byte pass
+// mutates byte arrays and asserts the pair across the file boundary (bytes in,
+// the same bytes out), that a refusal is a refusal and never a crash, and
+// that the mark decides the encoding without deciding whether the body
+// decodes at all.
+//
 // The seed and case count are fixed, so two runs on an unchanged tree print
 // the same report. Run by scripts/test_toml_fuzz.py.
 static class Program
@@ -42,6 +49,8 @@ static class Program
 	static int thrown;
 	static int accepted;
 	static int refused;
+	static int bytesAccepted;
+	static int bytesRefused;
 
 	static readonly string[] Alphabet =
 	{
@@ -126,10 +135,27 @@ static class Program
 			}
 		}
 
+		var byteSeeds = ByteCorpus();
+		for (var i = 0; i < iterations / 4; i++)
+		{
+			var bytes = MutateBytes(byteSeeds[Next(byteSeeds.Count)]);
+			try
+			{
+				CheckBytes(i, bytes);
+			}
+			catch (Exception ex)
+			{
+				thrown++;
+				Fail(i, "the byte pass threw " + ex.GetType().Name, EscapeBytes(bytes), ex.Message);
+			}
+		}
+
 		Console.WriteLine("fuzz seed " + seed.ToString("x8", CultureInfo.InvariantCulture)
 			+ ", " + iterations + " cases: "
 			+ accepted + " accepted, " + refused + " refused, "
 			+ failures + " invariant failures, " + thrown + " exceptions.");
+		Console.WriteLine(bytesAccepted + " byte cases decoded, "
+			+ bytesRefused + " refused.");
 		Console.WriteLine(failures + " failures.");
 		return failures > 0 || thrown > 0 ? 1 : 0;
 	}
@@ -522,6 +548,343 @@ static class Program
 		"/etc/Config", "C:Config", "Escape:stream", ".", "..", "",
 		"caf\u00e9", "A B", "....//..", ".. ", " .", "\u65e5", "a\0b",
 	};
+
+	// -- the byte layer ---------------------------------------------------
+
+	// Bytes that separate one decoder's answer from another's: the mark
+	// sequences, the NUL half of a UTF-16 code unit, truncated and overlong
+	// UTF-8 forms, and a surrogate half on its own.
+	static readonly byte[] ByteAlphabet =
+	{
+		0x00, 0x09, 0x0A, 0x20, 0x22, 0x3D, 0x41, 0x61, 0x7F,
+		0x80, 0x9F, 0xA0, 0xBF, 0xC0, 0xC2, 0xC3, 0xA9, 0xE0,
+		0xED, 0xEF, 0xBB, 0xF0, 0xF4, 0xFE, 0xFF, 0x90,
+	};
+
+	static readonly byte[][] Marks =
+	{
+		new byte[] { 0xEF, 0xBB, 0xBF },
+		new byte[] { 0xFF, 0xFE, 0x00, 0x00 },
+		new byte[] { 0x00, 0x00, 0xFE, 0xFF },
+		new byte[] { 0xFF, 0xFE },
+		new byte[] { 0xFE, 0xFF },
+	};
+
+	/// <summary>
+	/// Real settings bytes first: the file this mod ships, then that same
+	/// text in each encoding the decoder knows, so a marked case starts from
+	/// a body that is already valid rather than from noise. The encoders
+	/// replace rather than throw, so a generated seed is always a byte array
+	/// this harness can hand to the decoder.
+	/// </summary>
+	static List<byte[]> ByteCorpus()
+	{
+		var corpus = new List<byte[]>();
+		var text = "AllowThing = true\nCount = 12\nLabel = \"café 日本\"\n";
+		var root = AppContext.BaseDirectory;
+		while (root != null && !File.Exists(Path.Combine(root, "ModInfo.xml")))
+			root = Path.GetDirectoryName(root);
+		if (root != null)
+		{
+			var shipped = Path.Combine(root, "Config", "Wrench.toml");
+			if (File.Exists(shipped))
+			{
+				var bytes = File.ReadAllBytes(shipped);
+				corpus.Add(bytes);
+				text = new UTF8Encoding(false, false).GetString(bytes);
+			}
+		}
+		corpus.Add(new UTF8Encoding(false, false).GetBytes(text));
+		corpus.Add(WithMark(new UTF8Encoding(false, false), text));
+		corpus.Add(WithMark(new UnicodeEncoding(false, false), text));
+		corpus.Add(WithMark(new UnicodeEncoding(true, false), text));
+		corpus.Add(WithMark(new UTF32Encoding(false, false), text));
+		corpus.Add(WithMark(new UTF32Encoding(true, false), text));
+		// A mark on its own, and a mark cut short: a file a writer was
+		// interrupted while saving.
+		foreach (var mark in Marks)
+			corpus.Add(mark);
+		corpus.Add(new byte[] { 0xEF, 0xBB });
+		corpus.Add(new byte[] { 0xFF });
+		return corpus;
+	}
+
+	static byte[] WithMark(Encoding encoding, string text)
+	{
+		var body = encoding.GetBytes(text);
+		var mark = encoding.GetPreamble();
+		if (mark.Length == 0)
+			return body;
+		var bytes = new byte[mark.Length + body.Length];
+		Buffer.BlockCopy(mark, 0, bytes, 0, mark.Length);
+		Buffer.BlockCopy(body, 0, bytes, mark.Length, body.Length);
+		return bytes;
+	}
+
+	/// <summary>
+	/// One to three byte edits over a seed: the same damage the string pass
+	/// applies, at the level a downloaded file actually arrives in, plus
+	/// whole marks spliced in and cut short.
+	/// </summary>
+	static byte[] MutateBytes(byte[] seed)
+	{
+		var bytes = new List<byte>(seed);
+		var edits = 1 + Next(3);
+		for (var edit = 0; edit < edits && bytes.Count > 0; edit++)
+		{
+			switch (Next(10))
+			{
+				case 0:
+					bytes.Add(ByteAlphabet[Next(ByteAlphabet.Length)]);
+					break;
+				case 1:
+				{
+					var at = Next(bytes.Count);
+					var mark = Next(3) == 0 ? RandomMark() : new byte[] { ByteAlphabet[Next(ByteAlphabet.Length)] };
+					bytes.InsertRange(at, mark);
+					break;
+				}
+				case 2:
+					bytes.RemoveAt(Next(bytes.Count));
+					break;
+				case 3:
+					bytes[Next(bytes.Count)] = ByteAlphabet[Next(ByteAlphabet.Length)];
+					break;
+				case 4:
+					bytes.InsertRange(Next(bytes.Count), RandomMark());
+					break;
+				case 5:
+				{
+					// A truncation: a file caught mid-save, or a mark cut off.
+					var at = Next(bytes.Count);
+					bytes.RemoveRange(at, 1 + Next(bytes.Count - at));
+					break;
+				}
+				case 6:
+				{
+					// A document that grew a second copy of itself.
+					bytes.AddRange(RandomByteDocument());
+					break;
+				}
+				default:
+				{
+					var at = Next(bytes.Count);
+					var take = 1 + Next(bytes.Count - at);
+					var chunk = new byte[take];
+					bytes.CopyTo(at, chunk, 0, take);
+					bytes.InsertRange(at, chunk);
+					break;
+				}
+			}
+		}
+		return bytes.ToArray();
+	}
+
+	static byte[] RandomMark()
+	{
+		return Marks[Next(Marks.Length)];
+	}
+
+	static byte[] RandomByteDocument()
+	{
+		var text = Generated();
+		switch (Next(5))
+		{
+			case 0: return WithMark(new UTF32Encoding(false, false), text);
+			case 1: return WithMark(new UTF32Encoding(true, false), text);
+			case 2: return WithMark(new UnicodeEncoding(false, false), text);
+			case 3: return WithMark(new UnicodeEncoding(true, false), text);
+			default: return WithMark(new UTF8Encoding(false, false), text);
+		}
+	}
+
+	/// <summary>
+	/// The whole file boundary in one case: bytes in, the same bytes out.
+	///
+	/// A settings file arrives inside a downloaded modlet, so the decoder is
+	/// the first thing untrusted bytes meet. What has to hold is that a file
+	/// this mod can read it can also write back byte for byte, mark included,
+	/// because a save replaces the file with a re-encoding of what was read;
+	/// that a file it refuses costs nothing and is refused, never a crash
+	/// inside the game; and that the mark picks the encoding without changing
+	/// whether the body decodes, which is what keeps a replacement character
+	/// out of another mod's file.
+	/// </summary>
+	static void CheckBytes(int index, byte[] bytes)
+	{
+		currentInput = EscapeBytes(bytes);
+		int preambleLength;
+		var detected = TomlFile.DetectEncoding(bytes, out preambleLength);
+		if (preambleLength < 0 || preambleLength > bytes.Length)
+		{
+			Report("the detected mark runs past the end of the file");
+			return;
+		}
+		var mark = detected.GetPreamble();
+		if (preambleLength == 0)
+		{
+			if (mark.Length != 0)
+				Report("a file with no mark was read as carrying one");
+		}
+		else if (mark.Length != preambleLength || !StartsWith(bytes, mark, 0))
+		{
+			Report("the bytes stripped as a mark are not the detected encoding's mark");
+		}
+
+		string text;
+		Encoding encoding;
+		try
+		{
+			text = TomlFile.Decode(bytes, out encoding);
+		}
+		catch (DecoderFallbackException)
+		{
+			bytesRefused++;
+			return; // a strict decoder refusing is the contract, not a failure
+		}
+		bytesAccepted++;
+
+		// The pair assertion across the persistence boundary: the file this
+		// mod read is the file it writes back, byte for byte.
+		byte[] written;
+		try
+		{
+			written = TomlFile.Encode(text, encoding);
+		}
+		catch (Exception ex)
+		{
+			thrown++;
+			Fail(index, "the encoder threw " + ex.GetType().Name, currentInput, ex.Message);
+			return;
+		}
+		if (written.Length != bytes.Length)
+			Report("a decoded file re-encodes to a different length");
+		else if (!SameBytes(written, bytes))
+			Report("a decoded file does not re-encode to the bytes it was read from");
+
+		// The same bytes twice, the same answer twice: no clock, order, or
+		// static state between a read and the save that follows it.
+		Encoding againEncoding;
+		var again = TomlFile.Decode(bytes, out againEncoding);
+		if (again != text || !SameMark(encoding, againEncoding))
+			Report("two decodes of one file disagree");
+
+		CheckMarkMakesNoDifference(bytes, preambleLength, mark);
+		CheckParsedText(text);
+	}
+
+	/// <summary>
+	/// Whether a 3-byte mark is on the front must not decide whether an
+	/// invalid byte throws or arrives as U+FFFD, so the body and the same
+	/// body behind the mark have to decode alike. Only the UTF-8 encodings
+	/// can be compared this way: a UTF-16 body read on its own is not the
+	/// text it holds, and a body that opens with a mark of its own is read
+	/// as that mark first.
+	/// </summary>
+	static void CheckMarkMakesNoDifference(byte[] bytes, int preambleLength, byte[] mark)
+	{
+		if (mark.Length != 3 || preambleLength != 3)
+			return; // the UTF-8 encoding carrying its own mark
+		var body = new byte[bytes.Length - 3];
+		Buffer.BlockCopy(bytes, 3, body, 0, body.Length);
+		if (body.Length == 0 || StartsWithAnyMark(body))
+			return;
+		string plainText, markedText;
+		Encoding plainEncoding, markedEncoding;
+		var plainOk = TryDecode(body, out plainText, out plainEncoding);
+		var markedOk = TryDecode(bytes, out markedText, out markedEncoding);
+		if (plainOk != markedOk)
+			Report("a byte order mark decided whether a file decodes at all");
+		else if (plainOk && plainText != markedText)
+			Report("a byte order mark changed the text a file decodes to");
+	}
+
+	/// <summary>
+	/// What the screen then does with the text: the grammar refuses it or
+	/// reads it, and a refusal says why, because that message is the only
+	/// thing a player sees about a broken file.
+	/// </summary>
+	static void CheckParsedText(string text)
+	{
+		List<TomlSettings.DocEntry> doc;
+		string error;
+		if (TomlSettings.TryReadDocument(text, out doc, out error))
+		{
+			if (doc == null)
+				Report("accepted with no entries");
+			return;
+		}
+		if (string.IsNullOrEmpty(error))
+			Report("a refused file gave no reason");
+	}
+
+	static bool TryDecode(byte[] bytes, out string text, out Encoding encoding)
+	{
+		try
+		{
+			text = TomlFile.Decode(bytes, out encoding);
+			return true;
+		}
+		catch (DecoderFallbackException)
+		{
+			text = null;
+			encoding = null;
+			return false;
+		}
+	}
+
+	static bool StartsWithAnyMark(byte[] bytes)
+	{
+		foreach (var mark in Marks)
+		{
+			if (StartsWith(bytes, mark, 0))
+				return true;
+		}
+		return false;
+	}
+
+	static bool StartsWith(byte[] bytes, byte[] prefix, int offset)
+	{
+		if (prefix.Length == 0 || bytes.Length - offset < prefix.Length)
+			return false;
+		for (var i = 0; i < prefix.Length; i++)
+		{
+			if (bytes[offset + i] != prefix[i])
+				return false;
+		}
+		return true;
+	}
+
+	static bool SameBytes(byte[] a, byte[] b)
+	{
+		if (a.Length != b.Length)
+			return false;
+		for (var i = 0; i < a.Length; i++)
+		{
+			if (a[i] != b[i])
+				return false;
+		}
+		return true;
+	}
+
+	static bool SameMark(Encoding a, Encoding b)
+	{
+		if (a == null || b == null)
+			return a == b;
+		return SameBytes(a.GetPreamble(), b.GetPreamble());
+	}
+
+	static string EscapeBytes(byte[] bytes)
+	{
+		var shown = bytes.Length > 96 ? 96 : bytes.Length;
+		var builder = new StringBuilder(shown * 2 + 8);
+		builder.Append("0x");
+		for (var i = 0; i < shown; i++)
+			builder.Append(bytes[i].ToString("X2", CultureInfo.InvariantCulture));
+		if (shown < bytes.Length)
+			builder.Append("...");
+		return builder.ToString();
+	}
 
 	// -- reporting ---------------------------------------------------------
 

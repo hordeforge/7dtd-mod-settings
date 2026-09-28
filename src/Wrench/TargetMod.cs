@@ -288,7 +288,10 @@ namespace Wrench
 
 		/// <summary>
 		/// The file's write time and length, the pair every change of this
-		/// file is recognised by elsewhere in the mod as well.
+		/// file is recognised by elsewhere in the mod as well, read through
+		/// the one metadata call the settings watch makes, so a file that
+		/// cannot be stat is reported the way the watch reports it rather
+		/// than by an exception caught here.
 		/// </summary>
 		static bool TryStamp(string path, out DateTime writeUtc, out long length, out string error)
 		{
