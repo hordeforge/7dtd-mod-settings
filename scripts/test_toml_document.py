@@ -27,7 +27,20 @@ GATE_DIR = os.path.join(MOD_DIR, "scripts", "toml_gate")
 def main() -> int:
     dotnet = shutil.which("dotnet")
     if dotnet is None:
-        print("FAIL dotnet SDK not found (required, same as make build)",
+        print("FAIL dotnet SDK not found (required, same as make build): "
+              "install the .NET SDK and put it on PATH",
+              file=sys.stderr)
+        return 1
+    # A runtime-only install (dotnet-runtime, some distro packages) answers
+    # `dotnet` but not `dotnet build`; asking for the SDK first names the
+    # missing piece instead of passing the resolver's "No .NET SDKs were
+    # found" back as if the gate itself had failed to build.
+    sdks = subprocess.run([dotnet, "--list-sdks"],
+                          capture_output=True, text=True, check=False)
+    if sdks.returncode != 0 or not sdks.stdout.strip():
+        print("FAIL dotnet SDK not found: `dotnet` is on PATH at "
+              f"{dotnet} but it lists no SDKs. Install the .NET SDK "
+              "(https://aka.ms/dotnet/download) and put it on PATH.",
               file=sys.stderr)
         return 1
 

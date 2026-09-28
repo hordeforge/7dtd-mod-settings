@@ -32,6 +32,7 @@ REQUIRED_ELEMENTS = (
 )
 
 
+
 def missing_elements(text: str) -> list[str]:
     return [item for item in REQUIRED_ELEMENTS if item not in text]
 

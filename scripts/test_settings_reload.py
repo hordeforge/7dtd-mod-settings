@@ -33,6 +33,7 @@ MOD_NAME = next(
 SRC = os.path.join(MOD_DIR, "src", MOD_NAME)
 
 
+
 def main() -> int:
     if not os.path.isdir(SRC):
         print("no src/ directory; no settings reader to hold to the contract")
@@ -75,10 +76,18 @@ def main() -> int:
           and "error = ex.Message;" in settings
           and "catch (Exception ex)" in settings
           and "catch (Exception)" not in settings)
+    # The spliced text reaches disk through one write, and it must name the
+    # staged path: the writer is TomlFile.WriteAllText, which encodes for the
+    # file's own byte order mark, so a check on the File.* spelling would
+    # only pin whichever writer happens to be current.
+    spliced_writes = [line.strip() for line in target.splitlines()
+                      if "newText" in line and "WriteAllText" in line]
     check("a save is staged and swapped in, never written over in place",
-          "File.WriteAllText(TomlPath" not in target
-          and "File.WriteAllText(tempPath, newText)" in target
+          len(spliced_writes) == 1
+          and all("tempPath" in line and "TomlPath" not in line
+                  for line in spliced_writes)
           and "File.Replace(tempPath, TomlPath, null)" in target
+          and "File.Move(tempPath, TomlPath)" in target
           and "DeleteTemp(tempPath)" in target)
     # The mod name comes out of another mod's ModInfo.xml, and this screen
     # writes to the file it names: the path must be resolved, not

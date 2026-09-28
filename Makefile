@@ -7,7 +7,28 @@ SOURCE_DATE_EPOCH ?= $(shell git log -1 --format=%ct 2>/dev/null || date +%s)
 # This mod ships no asset bundles, so there is deliberately no
 # build-assets or validate-assets target: both are for a mod that owns
 # bundles built by the sibling asset pipeline.
-.PHONY: build package test lint lint-python lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke playtest clean
+.PHONY: help build package test lint lint-python lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server rollback-server server-smoke playtest clean
+
+# Every target a contributor is expected to use, with what it needs. The
+# only list that cannot drift out of date is the one make prints itself.
+help:
+	@echo "Targets (SUITE=<id> selects a playtest suite, TF=<substr> filters make test):"
+	@echo "  help                      this list"
+	@echo "  test                      offline gates: every scripts/test_*.py (no game install)"
+	@echo "  lint                      ruff + mypy --strict over scripts/, then shellcheck"
+	@echo "  lint-python               ruff + mypy --strict only"
+	@echo "  lint-shell                shellcheck only"
+	@echo "  build                     stage dist/Wrench/ (needs .local.env, net48 SDK)"
+	@echo "  package                   dist/Wrench.zip, extracting to Mods/Wrench/ (needs build)"
+	@echo "  validate-xml              every Config xpath against the installed game (needs .local.env)"
+	@echo "  verify-patched-config     every patch element proven applied, from a save's ConfigsDump"
+	@echo "  validate-patch-targets    every [HarmonyPatch] target against Assembly-CSharp (needs ilspycmd)"
+	@echo "  install-server            provision the dedicated server via SteamCMD (EAC off)"
+	@echo "  deploy-server             swap the packaged mod into the server's Mods/"
+	@echo "  rollback-server           put back the deployment the last one replaced"
+	@echo "  server-smoke              deploy + boot the server briefly, prove the mod loaded"
+	@echo "  playtest                  live wrench-mod-settings suite via hordeforge/7dtd-playtest"
+	@echo "  clean                     remove dist/, build outputs and .tmp/"
 
 # Offline contract/unit suite: every scripts/test_*.py must exit 0.
 # Optional substring filters: make test TF="xml layout"

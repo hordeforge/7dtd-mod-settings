@@ -15,6 +15,20 @@
 #   scripts/run-offline-tests.sh nuke fuse    # run tests whose name matches any substring
 set -uo pipefail
 
+# Interpreter floor, kept equal to pyproject.toml's mypy python_version by
+# scripts/test_toolchain_floor.py. Checked here, before any test runs, so an
+# old interpreter is named as such instead of surfacing as an ImportError
+# from whichever test first used a newer stdlib feature.
+MIN_PY="3.10"
+py_version="$(python3 -V 2>&1 | sed -E 's/^[^0-9]+//')" || true
+py_major="${py_version%%.*}"
+py_minor="${py_version#*.}"; py_minor="${py_minor%%.*}"
+if [[ "$py_major" =~ ^[0-9]+$ && "$py_minor" =~ ^[0-9]+$ ]] &&
+	(( py_major < ${MIN_PY%%.*} || (py_major == ${MIN_PY%%.*} && py_minor < ${MIN_PY##*.}) )); then
+	echo "ERROR: Python $MIN_PY+ required (the floor pyproject.toml's mypy runs against); found $(python3 -V 2>&1)." >&2
+	exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Elapsed time is read from the monotonic clock, so an NTP step or a manual

@@ -41,8 +41,9 @@ an authenticated channel, and a WebMod panel over the same file surface.
 ## Build and test
 
 ```bash
+make help                   # list every target with a one-line description
 make test                   # offline gates (scripts/test_*.py)
-make lint                  # ruff + mypy --strict over scripts/, then shellcheck
+make lint                   # ruff + mypy --strict over scripts/, then shellcheck
 make build                  # stage dist/Wrench/ (needs .local.env, see below)
 make package                # dist/Wrench.zip — extracts to Mods/Wrench/
 make validate-xml           # every Config xpath against the installed game
@@ -55,9 +56,16 @@ make server-smoke           # deploy + boot the server briefly, prove the mod lo
 make playtest               # live wrench-mod-settings suite via hordeforge/7dtd-playtest
 ```
 
-Host tools: `python3`, `git`, `make`, `ruff`, `mypy`, `shellcheck`, `zip`; `dotnet` (net48
-build) for C# mods, `ilspycmd` (`dotnet tool install -g ilspycmd`) for
-patch-target validation, `steamcmd` for the dedicated-server lane.
+One gate at a time: `make test TF="toml"` runs only the offline tests whose
+name contains `toml`.
+
+Host tools: Python 3.10+ (the floor `pyproject.toml` and `make test` both
+enforce), `git`, `make`, `zip`; `ruff` and `mypy` at the versions CI pins
+(`ruff==0.16.4 mypy==2.3.1`, so a green local run and a green remote run mean
+the same thing), `shellcheck`; the .NET SDK (not just the runtime) for the
+net48 build and for `make test`'s TOML round-trip gate, `ilspycmd`
+(`dotnet tool install -g ilspycmd`) for patch-target validation, `steamcmd`
+for the dedicated-server lane.
 
 Machine-local paths (game install, hordeforge tool checkouts) live in the
 ignored `.local.env` — copy `.local.env.example` and fill it in.

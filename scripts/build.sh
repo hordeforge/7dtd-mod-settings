@@ -32,6 +32,11 @@ if [[ -d "$SRC" && "${WRECH_SKIP_DLL:-0}" != "1" ]]; then
 	[[ -f "$MANAGED/Assembly-CSharp.dll" ]] || { echo "ERROR: Assembly-CSharp.dll not found under $MANAGED." >&2; exit 1; }
 	[[ -f "$HARMONY" ]] || { echo "ERROR: stock 0_TFP_Harmony/0Harmony.dll not found in the game install." >&2; exit 1; }
 	command -v dotnet >/dev/null 2>&1 || { echo "ERROR: dotnet not found; required to build the net48 mod DLL." >&2; exit 1; }
+	# A runtime-only dotnet answers `command -v` but cannot build; name that
+	# here instead of letting the resolver's "No .NET SDKs were found" land
+	# in the middle of a build log.
+	sdks="$(dotnet --list-sdks 2>/dev/null || true)"
+	[[ -n "$sdks" ]] || { echo "ERROR: no .NET SDK found; $(command -v dotnet) is a runtime-only install. Install the .NET SDK (https://aka.ms/dotnet/download) and put it on PATH." >&2; exit 1; }
 	dotnet build "$SRC/$MOD_NAME.csproj" -c Release -o "$OUT" \
 		-p:GameManagedDir="$MANAGED" -p:HarmonyPath="$HARMONY"
 fi

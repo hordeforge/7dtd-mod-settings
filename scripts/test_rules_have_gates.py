@@ -44,6 +44,7 @@ ENFORCED_ELSEWHERE: dict[str, str] = {
 }
 
 
+
 def sections(path: str) -> list[tuple[str, str]]:
     with open(path, encoding="utf-8") as handle:
         parts = re.split(r"^## (.+)$", handle.read(), flags=re.M)
