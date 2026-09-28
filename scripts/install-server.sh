@@ -12,6 +12,10 @@ load_server_environment
 resolve_steamcmd
 
 APP_ID="${SEVEN_DAYS_TO_DIE_SERVER_APP_ID:-294420}"
+if ! [[ "$APP_ID" =~ ^[0-9]+$ ]]; then
+	echo "ERROR: SEVEN_DAYS_TO_DIE_SERVER_APP_ID must be a Steam AppID number, not '$APP_ID'." >&2
+	exit 1
+fi
 
 echo "Installing 7 Days To Die dedicated server AppID $APP_ID into $SERVER_DIR"
 "$STEAMCMD_BIN" +force_install_dir "$SERVER_DIR" +login anonymous +app_update "$APP_ID" validate +quit

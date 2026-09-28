@@ -45,7 +45,6 @@ BANNED: dict[str, str] = {
 ALLOW: dict[str, dict[str, str]] = {}
 
 
-
 def main() -> int:
     word = {n: re.compile(re.escape(n)) for n in BANNED}
     for base, dirs, files in os.walk(SCRIPTS):

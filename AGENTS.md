@@ -156,10 +156,13 @@ UNITY_EDITOR="/absolute/Unity"
 
 Never commit the file or copy its absolute values into tracked files;
 `scripts/test_local_path_inventory.py` enforces the documented keys and the
-ignore rule. If a needed key is missing or invalid, **ask the user for the
-path** — never guess or reuse one from docs or history. The game install is
-**read-only reference**: read `Data/Config/*.xml` freely, never write under
-the install directory.
+ignore rule. An exported environment variable always wins over the file, and
+a file-only key still applies: load through `scripts/local-env.sh` (shell) or
+`scripts/lib/local_env.py` (Python), never by sourcing the file yourself —
+`scripts/test_local_env_precedence.py` holds that rule. If a needed key is
+missing or invalid, **ask the user for the path** — never guess or reuse one
+from docs or history. The game install is **read-only reference**: read
+`Data/Config/*.xml` freely, never write under the install directory.
 
 ## Repo layout
 

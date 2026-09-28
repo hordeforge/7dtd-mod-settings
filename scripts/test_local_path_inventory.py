@@ -29,6 +29,16 @@ REQUIRED_KEYS = (
     "UNITY_EDITOR",
 )
 
+# Optional overrides the shell targets read; a key that exists in code but
+# in no documented inventory is one a machine can set and never discover.
+DOCUMENTED_OPTIONAL_KEYS = (
+    "SEVEN_DAYS_TO_DIE_SERVER_APP_ID",
+    "SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS",
+    "SEVEN_DAYS_TO_DIE_SERVER_CONFIG",
+    "SEVEN_DAYS_TO_DIE_STEAMCMD",
+    "SEVEN_DAYS_TO_DIE_STEAMCMD_DIR",
+)
+
 
 def missing_contract_elements(agent_rules: str, ignore_rules: str) -> list[str]:
     missing = [key for key in REQUIRED_KEYS if f'{key}="' not in agent_rules]
@@ -51,6 +61,27 @@ def main() -> int:
         "negative control rejects rules without PLAYTEST_ROOT",
         "PLAYTEST_ROOT" in missing_contract_elements(broken_rules, ignore_rules),
         "negative control accepted rules without PLAYTEST_ROOT",
+    )
+
+    # .local.env.example is the authoritative list a machine copies
+    # (docs/reference/environment.md); AGENTS.md's prose is the index.
+    example = (MOD_DIR / ".local.env.example").read_text(encoding="utf-8")
+    environment_doc = (MOD_DIR / "docs" / "reference" / "environment.md").read_text(
+        encoding="utf-8")
+    undocumented = [key for key in REQUIRED_KEYS + DOCUMENTED_OPTIONAL_KEYS
+                    if f'{key}="' not in example]
+    check(
+        ".local.env.example carries the full inventory",
+        not undocumented,
+        ", ".join(undocumented),
+    )
+    undeclared = [key for key in DOCUMENTED_OPTIONAL_KEYS
+                  if key not in environment_doc]
+    check(
+        "the optional server overrides are documented in "
+        "docs/reference/environment.md",
+        not undeclared,
+        ", ".join(undeclared),
     )
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0

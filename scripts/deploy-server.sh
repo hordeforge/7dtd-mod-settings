@@ -49,7 +49,7 @@ fi
 "$ROOT/scripts/build.sh"
 
 SOURCE="$ROOT/dist/Wrench"
-if [[ -d "$ROOT/src" && "${WRECH_SKIP_DLL:-0}" != "1" && ! -f "$SOURCE/Wrench.dll" ]]; then
+if [[ -d "$ROOT/src" && "${WRENCH_SKIP_DLL:-0}" != "1" && ! -f "$SOURCE/Wrench.dll" ]]; then
 	echo "ERROR: expected packaged DLL missing from $SOURCE." >&2
 	exit 1
 fi

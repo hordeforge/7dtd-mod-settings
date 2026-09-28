@@ -56,13 +56,10 @@ done
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 # Fill in unset paths from this mod's machine-local inventory; an explicit
-# environment always wins.
-if [[ -f "$MOD_DIR/.local.env" ]]; then
-	set -a
-	# shellcheck disable=SC1091  # machine-specific, intentionally untracked
-	. "$MOD_DIR/.local.env"
-	set +a
-fi
+# environment always wins (scripts/local-env.sh owns that rule).
+# shellcheck source=local-env.sh
+source "$SCRIPT_DIR/local-env.sh"
+load_local_env "$MOD_DIR/.local.env"
 PLAYTEST_ROOT="${PLAYTEST_ROOT:-}"
 CONNECT_ROOT="${CONNECT_ROOT:-}"
 ATOMIC_DIR="${WRENCH_ATOMIC_MOD_DIR:-}"

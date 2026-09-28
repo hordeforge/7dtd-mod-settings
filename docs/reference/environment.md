@@ -23,6 +23,31 @@ A mod may add its own keys (`Wrench` adds `WRENCH_ATOMIC_MOD_DIR`, the
 AtomicDoomsday checkout its live suite edits); read `.local.env.example`
 rather than this list when you need the full inventory.
 
+### One precedence rule, everywhere
+
+An exported environment variable wins over the same key in `.local.env`.
+The shell scripts share one loader (`scripts/local-env.sh`) that saves every
+already-exported value across the source and restores it afterwards; the
+Python tools share `scripts/lib/local_env.py`, which reads the environment
+first. A key present only in the file always applies, whether or not some
+other key was exported: a machine that sets `SEVEN_DAYS_TO_DIE_DIR` in its
+shell still gets its `SEVEN_DAYS_TO_DIE_STEAMCMD` from the file. A missing
+`.local.env` is not an error; each caller then names the value it could
+not find. `scripts/test_local_env_precedence.py` holds this rule.
+
+### Optional dedicated-server overrides
+
+| Key | Default when unset |
+|---|---|
+| `SEVEN_DAYS_TO_DIE_SERVER_APP_ID` | `294420` (the 7 Days to Die dedicated server) |
+| `SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS` | `90`, the `make server-smoke` boot window |
+| `SEVEN_DAYS_TO_DIE_SERVER_CONFIG` | `<server>/serverconfig.wrench.xml` |
+| `SEVEN_DAYS_TO_DIE_STEAMCMD` | SteamCMD on `PATH` |
+| `SEVEN_DAYS_TO_DIE_STEAMCMD_DIR` | `~/.local/share/steamcmd` |
+
+`WRENCH_SKIP_DLL=1` is a build-time knob, not a path: it stages the XML-only
+package, which is how CI exercises packaging without the game assemblies.
+
 `new-mod.sh` writes this file at scaffold time. On a machine where it is
 missing, blank, or invalid: **ask the user for the absolute path before
 doing any game-file work.** Do not guess a platform path or reuse one from

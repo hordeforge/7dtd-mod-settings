@@ -33,7 +33,6 @@ MOD_NAME = next(
 SRC = os.path.join(MOD_DIR, "src", MOD_NAME)
 
 
-
 def main() -> int:
     if not os.path.isdir(SRC):
         print("no src/ directory; no settings reader to hold to the contract")

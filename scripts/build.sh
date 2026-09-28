@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Stage the deployable modlet under dist/<Name>/. Compiles the C# DLL first
 # when src/ exists (requires SEVEN_DAYS_TO_DIE_DIR via env or .local.env).
-# WRECH_SKIP_DLL=1 stages the XML-only package instead, which is how CI
+# WRENCH_SKIP_DLL=1 stages the XML-only package instead, which is how CI
 # exercises the packaging path without the proprietary game assemblies.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=local-env.sh
+source "$ROOT/scripts/local-env.sh"
 MOD_NAME="Wrench"
 OUT="$ROOT/dist/$MOD_NAME"
 SRC="$ROOT/src/$MOD_NAME"
@@ -13,16 +15,11 @@ SRC="$ROOT/src/$MOD_NAME"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
-if [[ -d "$SRC" && "${WRECH_SKIP_DLL:-0}" != "1" ]]; then
+if [[ -d "$SRC" && "${WRENCH_SKIP_DLL:-0}" != "1" ]]; then
+	# The ignored file is the documented machine-local game reference; an
+	# exported SEVEN_DAYS_TO_DIE_DIR still wins over it.
+	load_local_env "$ROOT/.local.env"
 	GAME_DIR="${SEVEN_DAYS_TO_DIE_DIR:-}"
-	if [[ -z "$GAME_DIR" && -f "$ROOT/.local.env" ]]; then
-		# The ignored file is the documented machine-local game reference.
-		set -a
-		# shellcheck disable=SC1090,SC1091
-		source "$ROOT/.local.env"
-		set +a
-		GAME_DIR="${SEVEN_DAYS_TO_DIE_DIR:-}"
-	fi
 	if [[ -z "$GAME_DIR" ]]; then
 		echo "ERROR: set SEVEN_DAYS_TO_DIE_DIR or create .local.env with the client game-install directory before building." >&2
 		exit 1

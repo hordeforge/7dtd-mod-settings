@@ -31,5 +31,5 @@ jobs:
         # The DLL build needs the proprietary game assemblies; stage the
         # XML-only package instead of deleting src/ from the checkout.
         run: |
-          WRECH_SKIP_DLL=1 make package
+          WRENCH_SKIP_DLL=1 make package
           unzip -l dist/Wrench.zip | grep -q "Wrench/ModInfo.xml"

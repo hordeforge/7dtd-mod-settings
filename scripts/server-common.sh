@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # Shared helpers for the dedicated-server targets. Sourced, not executed.
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=local-env.sh
+source "$SCRIPT_DIR/local-env.sh"
+
 load_server_environment() {
 	ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+	# Always read the file, not just when one variable is missing: a machine
+	# that exports SEVEN_DAYS_TO_DIE_SERVER_DIR used to lose every other key
+	# its .local.env set (the SteamCMD location, the mod-owned config path).
+	load_local_env "$ROOT/.local.env"
 	SERVER_DIR="${SEVEN_DAYS_TO_DIE_SERVER_DIR:-}"
-
-	if [[ -z "$SERVER_DIR" && -f "$ROOT/.local.env" ]]; then
-		set -a
-		# shellcheck disable=SC1090,SC1091
-		source "$ROOT/.local.env"
-		set +a
-		SERVER_DIR="${SEVEN_DAYS_TO_DIE_SERVER_DIR:-}"
-	fi
 
 	if [[ -z "$SERVER_DIR" ]]; then
 		echo "ERROR: set SEVEN_DAYS_TO_DIE_SERVER_DIR or add it to .local.env." >&2
@@ -28,7 +28,11 @@ load_server_environment() {
 }
 
 resolve_steamcmd() {
-	if [[ -n "${SEVEN_DAYS_TO_DIE_STEAMCMD:-}" && -x "$SEVEN_DAYS_TO_DIE_STEAMCMD" ]]; then
+	if [[ -n "${SEVEN_DAYS_TO_DIE_STEAMCMD:-}" ]]; then
+		if [[ ! -x "$SEVEN_DAYS_TO_DIE_STEAMCMD" ]]; then
+			echo "ERROR: SEVEN_DAYS_TO_DIE_STEAMCMD is set but not executable: $SEVEN_DAYS_TO_DIE_STEAMCMD" >&2
+			exit 1
+		fi
 		STEAMCMD_BIN="$SEVEN_DAYS_TO_DIE_STEAMCMD"
 		return
 	fi
