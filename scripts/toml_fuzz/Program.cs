@@ -15,8 +15,7 @@ using Wrench;
 // the screen relies on, and a failure prints the case that broke them:
 //
 //   - the reader never throws: a malformed file is a message on screen, not
-//     a crash; a rejected document always says why, and the flat reader
-//     never accepts what the document reader refused;
+//     a crash; a rejected document always says why;
 //   - the same text parses the same way twice (no order, clock, or
 //     static-state dependence between reads);
 //   - every captured span is inside the text and is the raw token that
@@ -320,11 +319,6 @@ static class Program
 			refused++;
 			if (string.IsNullOrEmpty(error))
 				Report("a refused document gave no reason");
-			// The flat reader is the same grammar; it must not be more
-			// permissive than the document reader.
-			List<TomlSettings.Entry> flat;
-			if (TomlSettings.TryRead(text, out flat, out _))
-				Report("TryRead accepted what TryReadDocument refused");
 			return;
 		}
 		accepted++;
@@ -341,21 +335,6 @@ static class Program
 		TomlSettings.TryReadDocument(text, out again, out error);
 		if (again == null || !Same(doc, again))
 			Report("two parses of one text disagree");
-
-		List<TomlSettings.Entry> legacy;
-		if (TomlSettings.TryRead(text, out legacy, out error))
-		{
-			if (legacy == null || legacy.Count != doc.Count)
-				Report("TryRead and TryReadDocument disagree on the entry count");
-			else
-			{
-				for (var i = 0; i < doc.Count; i++)
-				{
-					if (legacy[i].Name != doc[i].Name || legacy[i].Value != doc[i].Value)
-						Report("TryRead and TryReadDocument disagree on an entry");
-				}
-			}
-		}
 
 		for (var i = 0; i < doc.Count; i++)
 		{

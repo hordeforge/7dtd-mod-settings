@@ -239,9 +239,9 @@ namespace Wrench
 				return false;
 			}
 
-			List<TomlSettings.Entry> entries;
+			List<TomlSettings.DocEntry> entries;
 			string error;
-			if (!TomlSettings.TryRead(text, out entries, out error))
+			if (!TomlSettings.TryReadDocument(text, out entries, out error))
 			{
 				// Record the rejected save as handled: the watch is on the
 				// file's stamp, so the same broken content is not re-read (and

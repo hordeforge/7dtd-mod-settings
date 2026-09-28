@@ -37,7 +37,7 @@ not find. `scripts/test_local_env_precedence.py` holds this rule.
 
 `DOTNET_ROOT` is resolved the same way by everything that needs the .NET
 SDK: `scripts/build.sh` and the offline gates (through
-`require_dotnet_sdk()` in `scripts/lib/local_env.py`) take `dotnet` from
+`dotnet_executable()` in `scripts/lib/local_env.py`) take `dotnet` from
 `PATH` first and fall back to `$DOTNET_ROOT/dotnet`, so a machine that
 keeps its SDK off `PATH` needs the key set once, not once per tool.
 `scripts/test_toolchain_floor.py` holds the order.

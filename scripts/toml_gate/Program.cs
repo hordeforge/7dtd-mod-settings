@@ -51,7 +51,6 @@ static class Program
 	{
 		TestParse();
 		TestNumbers();
-		TestLegacyEquivalence();
 		TestEdits();
 		TestRejections();
 		TestUnicodeAndEscapes();
@@ -288,19 +287,6 @@ static class Program
 		Check("accept the last code point",
 			TomlSettings.TryReadDocument("A = \"\\U0010FFFF\"\n", out doc, out error)
 			&& doc[0].Value == "\U0010FFFF", error ?? "");
-	}
-
-	static void TestLegacyEquivalence()
-	{
-		List<TomlSettings.DocEntry> doc;
-		List<TomlSettings.Entry> flat;
-		string error;
-		TomlSettings.TryReadDocument(Fixture, out doc, out error);
-		Check("TryRead still parses", TomlSettings.TryRead(Fixture, out flat, out error), error ?? "");
-		Check("TryRead matches the document entries",
-			flat.Count == doc.Count
-			&& string.Join(";", flat.ConvertAll(e => e.Name + "=" + e.Value))
-			== string.Join(";", doc.ConvertAll(e => e.Name + "=" + e.Value)));
 	}
 
 	static void EditCase(string name, string key, string newRaw, string expectValue)

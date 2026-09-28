@@ -15,13 +15,12 @@ namespace Wrench
 	/// Array values are joined with commas so <see cref="ModSettings.TrySet"/>
 	/// can keep one value grammar with the console command.
 	///
-	/// <see cref="TryReadDocument"/> is the same grammar with capture: each
-	/// entry also carries its raw value span in the text, its value kind, and
-	/// the comment block directly above the key (contiguous <c>#</c> lines;
-	/// a blank line breaks the block; a comment trailing a value on the same
-	/// line belongs to no key). The Mod Settings screen edits other mods'
-	/// TOML files through these spans so everything outside the edited value
-	/// survives byte-for-byte (<see cref="TomlEdit"/>).
+	/// Each entry carries its raw value span in the text, its value kind,
+	/// and the comment block directly above the key (contiguous <c>#</c>
+	/// lines; a blank line breaks the block; a comment trailing a value on
+	/// the same line belongs to no key). The Mod Settings screen edits other
+	/// mods' TOML files through these spans so everything outside the edited
+	/// value survives byte-for-byte (<see cref="TomlEdit"/>).
 	/// </summary>
 	internal static class TomlSettings
 	{
@@ -32,18 +31,6 @@ namespace Wrench
 			Float,
 			String,
 			Array,
-		}
-
-		internal sealed class Entry
-		{
-			public readonly string Name;
-			public readonly string Value;
-
-			public Entry(string name, string value)
-			{
-				Name = name;
-				Value = value;
-			}
 		}
 
 		internal sealed class DocEntry
@@ -72,17 +59,6 @@ namespace Wrench
 				ValueLength = valueLength;
 				Comment = comment;
 			}
-		}
-
-		public static bool TryRead(string text, out List<Entry> entries, out string error)
-		{
-			entries = new List<Entry>();
-			List<DocEntry> doc;
-			if (!TryReadDocument(text, out doc, out error))
-				return false;
-			for (var i = 0; i < doc.Count; i++)
-				entries.Add(new Entry(doc[i].Name, doc[i].Value));
-			return true;
 		}
 
 		public static bool TryReadDocument(string text, out List<DocEntry> entries, out string error)

@@ -63,20 +63,7 @@ def mod_name() -> str:
 
 MOD_NAME = mod_name()
 
-# Patches whose value depends on landing inside a specific parent. These are
-# the ones a wrong-but-valid XPath would silently misplace.
-# Placement-sensitive patches: (file, parent tag, parent name, regex the
-# element must match inside that parent). A wrong-but-valid XPath lands an
-# append in the wrong container silently; list such patches here, e.g.:
-#   ("progression.xml", "crafting_skill", "craftingExplosives",
-#    r'item="myModItem"'),
-CONTAINER_EXPECTATIONS: tuple[tuple[str, str, str, str], ...] = ()
-
 APPENDED_BY = re.compile(r'appended by:\s*"([^"]+)"')
-
-# 7 Days To Die's Steam app id, the compatdata directory the Proton prefix
-# keeps its saves in.
-STEAM_APP_ID = "251570"
 
 
 class VerifyError(RuntimeError):
@@ -122,45 +109,6 @@ def applied_elements(dump_dir: str) -> dict[str, int]:
         if hits:
             counts[os.path.relpath(path, dump_dir).replace(os.sep, "/")] = hits
     return counts
-
-
-def check_containers(dump_dir: str) -> list[str]:
-    """Verify the placement-sensitive patches landed in the right parent."""
-    failures = []
-    for filename, parent_tag, parent_name, pattern in CONTAINER_EXPECTATIONS:
-        path = os.path.join(dump_dir, filename)
-        if not os.path.exists(path):
-            failures.append(f"{filename} is not in the dump")
-            continue
-        current = None
-        found = False
-        wrong_parent = None
-        parent_re = re.compile(rf'<{parent_tag} name="([^"]+)"')
-        target_re = re.compile(pattern)
-        with open(path, encoding="utf-8", errors="replace") as handle:
-            for line in handle:
-                match = parent_re.search(line)
-                if match:
-                    current = match.group(1)
-                if target_re.search(line):
-                    if current == parent_name:
-                        found = True
-                        break
-                    # One item may be appended under several parents by
-                    # design (the timed nuke unlocks at Explosives 65 and
-                    # Electrician 45), so keep scanning for the expected one
-                    # and only report the first wrong parent if none matches.
-                    if wrong_parent is None:
-                        wrong_parent = current
-        if not found:
-            if wrong_parent is not None:
-                failures.append(
-                    f"{filename}: {pattern!r} landed under "
-                    f"{parent_tag} {wrong_parent!r}, expected {parent_name!r}"
-                )
-            elif not any(pattern in f for f in failures):
-                failures.append(f"{filename}: {pattern!r} is not present at all")
-    return failures
 
 
 def saves_dir(game_dir: str) -> str:
@@ -223,17 +171,6 @@ def main() -> int:
             )
     print()
 
-    container_failures = check_containers(dump)
-    print("PLACEMENT")
-    if container_failures:
-        for failure in container_failures:
-            print(f"  FAIL  {failure}")
-    else:
-        print("  OK    no placement-sensitive patches declared, or all landed"
-              " in their intended parents")
-    print()
-
-    failures += container_failures
     print("RESULT")
     if failures:
         for failure in failures:
@@ -244,7 +181,7 @@ def main() -> int:
         return 1
     total = sum(applied.values())
     print(f"  PASS: all {total} shipped patch elements are present in the running")
-    print("        game's own configuration, in their intended parents.")
+    print("        game's own configuration.")
     return 0
 
 

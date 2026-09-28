@@ -595,7 +595,7 @@ shipped bytes. Three leaks were there and are now closed:
   so an unpinned major builds different bytes from the same source) and
   `scripts/build.sh` resolves `dotnet` from `PATH` first,
   then `$DOTNET_ROOT/dotnet`. The offline gates that compile a C# harness
-  resolve it the same way, through `require_dotnet_sdk()` in
+  resolve it the same way, through `dotnet_executable()` in
   `scripts/lib/local_env.py`, so a machine that keeps its SDK off `PATH`
   builds the mod and runs `make test` alike.
   `scripts/test_toolchain_floor.py` holds that one order against both.

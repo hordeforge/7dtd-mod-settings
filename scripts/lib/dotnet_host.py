@@ -18,38 +18,37 @@ Import it with:
 
 from __future__ import annotations
 
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-from local_env import mod_dir
+from local_env import DOTNET_ROOT_KEY, dotnet_executable, mod_dir
 
 SDK_MISSING = (
     "FAIL dotnet SDK not found (required, same as make build): install the "
-    ".NET SDK (https://aka.ms/dotnet/download) and put it on PATH"
+    ".NET SDK (https://aka.ms/dotnet/download) and put it on PATH, or set "
+    f"{DOTNET_ROOT_KEY}"
 )
 
 
 def require_sdk() -> str | None:
     """The path to `dotnet`, or None once the missing-SDK reason is printed."""
-    dotnet = shutil.which("dotnet")
+    dotnet = dotnet_executable()
     if dotnet is None:
         print(SDK_MISSING, file=sys.stderr)
         return None
     # A runtime-only install (dotnet-runtime, some distro packages) answers
     # `dotnet` but not `dotnet build`; asking for the SDK first names the
     # missing piece instead of surfacing as a build failure of the harness.
-    sdks = subprocess.run([dotnet, "--list-sdks"], capture_output=True,
+    sdks = subprocess.run([str(dotnet), "--list-sdks"], capture_output=True,
                           text=True, encoding="utf-8", errors="replace",
                           check=False)
     if sdks.returncode != 0 or not sdks.stdout.strip():
-        print(f"FAIL dotnet SDK not found: `dotnet` is on PATH at {dotnet} "
-              "but it lists no SDKs. Install the .NET SDK "
-              "(https://aka.ms/dotnet/download) and put it on PATH.",
-              file=sys.stderr)
+        print(f"FAIL dotnet SDK not found: `{dotnet}` lists no SDKs. Install "
+              "the .NET SDK (https://aka.ms/dotnet/download) and put it on "
+              f"PATH, or set {DOTNET_ROOT_KEY}", file=sys.stderr)
         return None
-    return dotnet
+    return str(dotnet)
 
 
 def run_harness(project: str, run_failure: str) -> int:
