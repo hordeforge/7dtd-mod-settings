@@ -55,11 +55,15 @@ build:
 
 # Zip dist/Wrench/ so extracting into Mods/ yields
 # Mods/Wrench/ModInfo.xml immediately. Entries are added in sorted order at a
-# fixed timestamp, so the archive is byte-reproducible across machines.
+# fixed timestamp, with the entry modes normalized by scripts/build.sh and
+# TZ pinned to UTC, so the archive is byte-reproducible across machines: zip
+# writes the DOS timestamp in the local zone, so an unset TZ put the build
+# machine's offset into the shipped bytes.
 package: build
 	cd $(ROOT)/dist && rm -f Wrench.zip && \
+		export TZ=UTC LC_ALL=C && \
 		find Wrench -exec touch -h -d "@$(SOURCE_DATE_EPOCH)" {} + && \
-		find Wrench -print | LC_ALL=C sort | zip -q -X -@ Wrench.zip
+		find Wrench -print | sort | zip -q -X -@ Wrench.zip
 	@echo "OK -> dist/Wrench.zip"
 
 # Every Config/*.xml xpath checked against the installed game's vanilla
@@ -100,4 +104,5 @@ playtest:
 	$(ROOT)/scripts/playtest-maci.sh $(if $(SUITE),--suite "$(SUITE)",)
 
 clean:
+	chmod -R u+w $(ROOT)/dist 2>/dev/null || true
 	rm -rf $(ROOT)/dist $(ROOT)/src/Wrench/bin $(ROOT)/src/Wrench/obj $(ROOT)/scripts/playtest/dist $(ROOT)/.tmp

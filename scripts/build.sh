@@ -12,6 +12,12 @@ MOD_NAME="Wrench"
 OUT="$ROOT/dist/$MOD_NAME"
 SRC="$ROOT/src/$MOD_NAME"
 
+# A tree staged by a previous run is read-only (see the chmod at the end), and
+# unlinking a file needs write permission on the directory holding it, so
+# restore owner-write before removing one.
+if [[ -d "$OUT" ]]; then
+	chmod -R u+w "$OUT"
+fi
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
@@ -26,15 +32,23 @@ if [[ -d "$SRC" && "${WRENCH_SKIP_DLL:-0}" != "1" ]]; then
 	fi
 	MANAGED="$GAME_DIR/7DaysToDie_Data/Managed"
 	HARMONY="$GAME_DIR/Mods/0_TFP_Harmony/0Harmony.dll"
+	# dotnet on PATH wins; DOTNET_ROOT (the inventory's "toolchain location
+	# when not on PATH") is the documented way to point at an SDK that is not
+	# on PATH, and a build that ignored it failed on a machine that had
+	# configured it correctly.
+	DOTNET="$(command -v dotnet || true)"
+	if [[ -z "$DOTNET" && -n "${DOTNET_ROOT:-}" && -x "$DOTNET_ROOT/dotnet" ]]; then
+		DOTNET="$DOTNET_ROOT/dotnet"
+	fi
 	[[ -f "$MANAGED/Assembly-CSharp.dll" ]] || { echo "ERROR: Assembly-CSharp.dll not found under $MANAGED." >&2; exit 1; }
 	[[ -f "$HARMONY" ]] || { echo "ERROR: stock 0_TFP_Harmony/0Harmony.dll not found in the game install." >&2; exit 1; }
-	command -v dotnet >/dev/null 2>&1 || { echo "ERROR: dotnet not found; required to build the net48 mod DLL." >&2; exit 1; }
+	[[ -n "$DOTNET" ]] || { echo "ERROR: no dotnet found; required to build the net48 mod DLL. Put it on PATH or set DOTNET_ROOT in .local.env." >&2; exit 1; }
 	# A runtime-only dotnet answers `command -v` but cannot build; name that
 	# here instead of letting the resolver's "No .NET SDKs were found" land
 	# in the middle of a build log.
-	sdks="$(dotnet --list-sdks 2>/dev/null || true)"
-	[[ -n "$sdks" ]] || { echo "ERROR: no .NET SDK found; $(command -v dotnet) is a runtime-only install. Install the .NET SDK (https://aka.ms/dotnet/download) and put it on PATH." >&2; exit 1; }
-	dotnet build "$SRC/$MOD_NAME.csproj" -c Release -o "$OUT" \
+	sdks="$("$DOTNET" --list-sdks 2>/dev/null || true)"
+	[[ -n "$sdks" ]] || { echo "ERROR: no .NET SDK found; $DOTNET is a runtime-only install. Install the .NET SDK (https://aka.ms/dotnet/download) and put it on PATH." >&2; exit 1; }
+	"$DOTNET" build "$SRC/$MOD_NAME.csproj" -c Release -o "$OUT" \
 		-p:GameManagedDir="$MANAGED" -p:HarmonyPath="$HARMONY"
 fi
 
@@ -49,5 +63,12 @@ for entry in Config Prefabs Resources UIAtlases WebMod; do
 		cp -R "$ROOT/$entry" "$OUT/$entry"
 	fi
 done
+
+# The staged tree is what the package is made of, and the zip records every
+# entry's unix mode. `cp` creates each file through the builder's umask, so
+# without this the same source packaged under umask 077 and under umask 022
+# produced two different zips. Normalize once, here, at the point the
+# artifact is declared complete: world-readable, writable by nobody.
+chmod -R a-w,a+rX "$OUT"
 
 echo "OK -> $OUT"

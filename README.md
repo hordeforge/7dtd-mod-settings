@@ -63,7 +63,8 @@ Host tools: Python 3.10+ (the floor `pyproject.toml` and `make test` both
 enforce), `git`, `make`, `zip`; `ruff` and `mypy` at the versions CI pins
 (`ruff==0.16.4 mypy==2.3.1`, so a green local run and a green remote run mean
 the same thing), `shellcheck`; the .NET SDK (not just the runtime) for the
-net48 build and for `make test`'s TOML round-trip gate, `ilspycmd`
+net48 build and for `make test`'s TOML round-trip gate — `global.json` pins
+the floor at 8.0.100 and rolls forward to a newer major, `ilspycmd`
 (`dotnet tool install -g ilspycmd`) for patch-target validation, `steamcmd`
 for the dedicated-server lane.
 

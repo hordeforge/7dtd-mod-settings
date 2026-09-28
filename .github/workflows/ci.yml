@@ -33,3 +33,17 @@ jobs:
         run: |
           WRENCH_SKIP_DLL=1 make package
           unzip -l dist/Wrench.zip | grep -q "Wrench/ModInfo.xml"
+      - name: The package is byte-reproducible
+        # Same source, different umask, locale and timezone. Every entry's
+        # mode and mtime is normalized, so the two archives must be equal;
+        # this is the check that catches a builder-local leak into the
+        # shipped bytes.
+        run: |
+          first="$(sha256sum dist/Wrench.zip | cut -d' ' -f1)"
+          (umask 077; LC_ALL=C.UTF-8 TZ=Asia/Tokyo WRENCH_SKIP_DLL=1 make package)
+          second="$(sha256sum dist/Wrench.zip | cut -d' ' -f1)"
+          if [ "$first" != "$second" ]; then
+            echo "::error::package is not reproducible: $first != $second"
+            exit 1
+          fi
+          echo "reproducible: $first"

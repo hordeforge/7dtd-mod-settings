@@ -330,6 +330,33 @@ fails, and a reload that lands at a chosen moment.
 `Thread.Sleep` outside a comment in `ModSettings.cs` or `TargetMod.cs`,
 and each caller reading its clock and its filesystem through the seam.
 
+## Decided 2026-09-28: the package carries nothing about the machine that made it
+
+`make package` zips the staged tree, so every entry's stored metadata is
+shipped bytes. Three leaks were there and are now closed:
+
+- entry **modes**. `cp` creates each staged file through the builder's umask
+  and `zip` stores the result, so the same source packaged under umask 077 and
+  under umask 022 produced two archives that differ in every entry.
+  `scripts/build.sh` ends by normalizing the staged tree to `a-w,a+rX`, which
+  also means a later run (and `make clean`) has to restore owner-write before
+  removing it: unlinking a file needs write permission on its directory.
+- the build machine's **timezone**. `zip` writes the DOS timestamp in the
+  local zone, so a builder in UTC+9 stamped every entry nine hours later than
+  one in UTC. The package recipe exports `TZ=UTC` and `LC_ALL=C` (the sort was
+  already `LC_ALL=C`; the whole pipeline is now under it).
+- the **toolchain**. The net48 DLL was built by whatever `dotnet` the host
+  happened to carry, and the documented `DOTNET_ROOT` inventory key was never
+  read by the build, so a machine whose SDK was off `PATH` failed even with
+  the key set. `global.json` now pins the floor (8.0.100, rolling forward to a
+  newer major) and `scripts/build.sh` resolves `dotnet` from `PATH` first,
+  then `$DOTNET_ROOT/dotnet`.
+
+Timestamps come from `SOURCE_DATE_EPOCH` (the last commit's time, overridable),
+never the wall clock, and entries are added in sorted order. Enforced by the
+"byte-reproducible" step in `.github/workflows/ci.yml`, which packages twice
+under a different umask, locale and timezone and compares the sha256.
+
 ## Open questions
 
 - (none yet)
