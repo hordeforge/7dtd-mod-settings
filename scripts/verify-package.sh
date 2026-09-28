@@ -18,6 +18,23 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=cli.sh
+source "$SCRIPT_DIR/cli.sh"
+
+reject_options "Usage: scripts/verify-package.sh
+
+Build the package, check it extracts where a player expects it, and build
+it a second time under a different umask, locale and timezone to prove the
+shipped bytes do not depend on the builder's machine.
+
+OPTIONS
+  -h, --help   this text
+
+EXIT STATUS
+  0  the package extracts correctly and is byte-reproducible
+  1  a build, a tool or a check failed
+  2  unknown option" "$@"
+
 MOD_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=cli.sh
 source "$SCRIPT_DIR/cli.sh"

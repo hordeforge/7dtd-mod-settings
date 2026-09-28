@@ -355,13 +355,24 @@ namespace Wrench
 			}
 		}
 
+		/// <summary>
+		/// Latches the one line this save is waiting for. The lookup is
+		/// ordinal, and not the parameterless <c>Contains</c> that reads
+		/// better: on the runtime this ships to that overload compares under
+		/// the thread's culture, where "Strasse" and "Straße" are one word,
+		/// "I" and "ı" are one letter under a Turkish culture, and a
+		/// zero-width joiner on either side compares as nothing at all. One
+		/// installed mod's re-read line would then stamp a different mod's
+		/// save "applied live", to the player and in the operator's log. The
+		/// marker is a file name, compared as bytes.
+		/// </summary>
 		void OnLogLine(string _message, string _trace, UnityEngine.LogType _type)
 		{
 			lock (reloadGate)
 			{
 				if (watchedReloadMarker != null
 					&& _message != null
-					&& _message.Contains(watchedReloadMarker))
+					&& _message.IndexOf(watchedReloadMarker, StringComparison.Ordinal) >= 0)
 					reloadSeen = true;
 			}
 		}

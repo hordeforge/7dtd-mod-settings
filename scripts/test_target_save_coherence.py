@@ -386,6 +386,23 @@ def main() -> int:
           and "watchedReloadMarker = null;" in take
           and "volatile bool reloadSeen" not in screen)
 
+    # The marker lookup is the one place this mod asks whether a string is
+    # another string. The parameterless Contains compares under the thread's
+    # culture on the runtime the DLL ships to, where "Strasse" and "Strasse"
+    # spelled with a sharp s are one word, "I" and the dotless i are one
+    # letter under a Turkish culture, and a zero-width joiner on either side
+    # compares as nothing at all, so one installed mod's re-read line would
+    # stamp a different mod's save "applied live". The marker is a file
+    # name, so it is compared as bytes.
+    ordinal = "IndexOf(watchedReloadMarker, StringComparison.Ordinal)"
+    check("the reload marker is matched ordinally, not under a culture",
+          ordinal in logline
+          and "StringComparison.CurrentCulture" not in screen
+          and "StringComparison.InvariantCulture" not in logline)
+    culturally_blind = screen.replace(ordinal, "Contains(watchedReloadMarker)", 1)
+    check("negative control: a culture-sensitive marker match fails the gate",
+          ordinal in screen and ordinal not in body(culturally_blind, "void OnLogLine("))
+
     # The reload marker is the key one re-read line is looked up by, and it is
     # built from the settings file's name, which comes out of a ModInfo two
     # installed mods can carry alike. A match on it then says one of them

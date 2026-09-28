@@ -273,6 +273,33 @@ on the read-only tree they replaced.
   own height, so `wrap="true"` alone does not help, and a box cut to the
   English source cuts the German, Russian or Japanese rendering off
   mid-sentence.
+- A string that identifies something is compared as bytes, never under a
+  culture: the parameterless `string.Contains` and `string.Equals` compare
+  under the thread's culture on the runtime this DLL ships to, where
+  "Strasse" and the same word spelled with a sharp s are one word, "I" and
+  the dotless i are one letter under a Turkish culture, and a zero-width
+  joiner on either side compares as nothing at all. Every such comparison
+  names `StringComparison.Ordinal`; `OrdinalIgnoreCase` is for a name the
+  platform itself folds, never `InvariantCulture`.
+- A mod name is a plain file name, and "plain" includes what a player
+  cannot see. The Unicode line terminators beside CR and LF (U+0085,
+  U+2028, U+2029) end a record in every log reader and JSON parser after it
+  and are not C0 control characters, so `c < ' '` does not catch them; the
+  default-ignorable code points (U+200B to U+200D, U+200E, U+200F, U+202A
+  to U+202E, U+2060, U+2066, U+FEFF) render as nothing, so two mods whose
+  names differ by one are one name to a player and two settings paths and
+  two reload markers here. `ModTomlPath.IsPlainName` refuses both, and
+  `ModTomlPath.ForLog` escapes the line terminators whatever reaches it,
+  since not every logged string came from a file name.
+
+Corrected 2026-09-28: the reload marker was looked up with the
+parameterless `Contains`, so one installed mod's re-read line stamped a
+different mod's save "applied live" whenever the two names folded together
+under the thread's culture, and a mod name holding U+2028 ended the log
+record there exactly as a newline does; enforced by
+`scripts/test_target_save_coherence.py` (the ordinal lookup, with a
+negative control) and `scripts/test_toml_document.py` (the name rules,
+through the compiled `scripts/toml_gate`).
 
 Corrected 2026-09-28: the two bottom labels were one line high, so the
 status line and the server note were clipped in every language, and

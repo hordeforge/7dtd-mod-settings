@@ -209,7 +209,8 @@ static class Program
 		var twice = false;
 		try
 		{
-			var target = new TargetMod("Example", "Example", tomlPath, true);
+			var target = new TargetMod("Example", "Example", "/sim/Mods/Example",
+				tomlPath, true);
 			if (!target.TrySave(Find(target, "Count"), "13", out error))
 			{
 				Check("a save of one value lands", false, error ?? "");
@@ -278,7 +279,8 @@ static class Program
 			again = TargetMod.RecoverInterruptedSave(tomlPath);
 			unchanged = files.Peek(tomlPath) == recoveredText;
 			// And the save that was owed, made against the file that is back.
-			var target = new TargetMod("Example", "Example", tomlPath, true);
+			var target = new TargetMod("Example", "Example", "/sim/Mods/Example",
+				tomlPath, true);
 			landed = target.TrySave(Find(target, "Count"), "13", out error);
 		}
 		finally
@@ -563,6 +565,16 @@ static class Program
 	// and a newline in that name would end the log record there and let the
 	// name write the line after it. Every place a name is refused has to say
 	// it on one line.
+	// IsPlainName is private, so whether a name is one a mod may carry is
+	// asked through the one public call that decides it: a name TryResolve
+	// refuses has no settings path, and a name it resolves is a plain one.
+	static bool PlainNameAccepted(string name)
+	{
+		string tomlPath, error;
+		ModTomlPath.TryResolve("/tmp/mods/Plain", name, out tomlPath, out error);
+		return tomlPath != null;
+	}
+
 	static void TestLogNeutralisedNames()
 	{
 		var sneaky = "Good\nINFO: an operator did something";
@@ -574,6 +586,47 @@ static class Program
 			ModTomlPath.ForLog("A\u001BB").Replace("\u001B", "<ESC>"));
 		Check("an ordinary name is left alone",
 			ModTomlPath.ForLog("Atomic Doomsday") == "Atomic Doomsday");
+
+		// U+0085, U+2028 and U+2029 are the line terminators Unicode defines
+		// beside CR and LF. They are not C0 control characters, so the
+		// c < ' ' test that catches the case above does not see one, and a
+		// log reader or a JSON parser counts it as the end of a line
+		// exactly as it counts U+000A.
+		var breaks = new[] { "\u0085", "\u2028", "\u2029" };
+		var escapedBreaks = true;
+		for (var i = 0; i < breaks.Length; i++)
+		{
+			var logged = ModTomlPath.ForLog("A" + breaks[i] + "B");
+			if (logged == "A" + breaks[i] + "B")
+				escapedBreaks = false;
+		}
+		Check("a Unicode line terminator in a name is escaped, not carried into the log",
+			escapedBreaks,
+			ModTomlPath.ForLog("A\u2028B").Replace("\u2028", "<LS>"));
+		Check("the line separator is spelled out in the log",
+			ModTomlPath.ForLog("A\u2028B") == "A\\u2028B",
+			ModTomlPath.ForLog("A\u2028B").Replace("\u2028", "<LS>"));
+
+		// The default-ignorable code points. The game, the terminal and the
+		// log reader all drop them, so two mod names differing by one are
+		// one name to a player and two settings paths to this mod, and the
+		// name is what a reload line is looked up by.
+		var invisibles = new[]
+		{
+			"\u200B", "\u200C", "\u200D", "\u200E", "\u200F", "\u202A",
+			"\u202B", "\u202C", "\u202D", "\u202E", "\u2060", "\u2066", "\uFEFF",
+		};
+		var accepted = 0;
+		for (var i = 0; i < invisibles.Length; i++)
+			if (PlainNameAccepted("Doom" + invisibles[i] + "day"))
+				accepted++;
+		Check("no default-ignorable character is accepted in a mod name",
+			accepted == 0,
+			accepted + " of " + invisibles.Length + " accepted");
+		Check("a name with no invisible character in it is still accepted",
+			PlainNameAccepted("Doomsday"));
+		Check("a name carrying a zero-width joiner resolves to nothing, and says so",
+			!PlainNameAccepted("Doom\u200Dday"));
 
 		string tomlPath, error;
 		ModTomlPath.TryResolve("/tmp/mods/Sneaky", sneaky, out tomlPath, out error);
