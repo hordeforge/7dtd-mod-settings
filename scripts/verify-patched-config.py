@@ -124,7 +124,11 @@ def find_dump(game_dir: str, save_name: str) -> str:
             f"no ConfigsDump found under {saves}. Load a world first — the engine "
             "writes the dump on game start."
         )
-    return max(candidates, key=os.path.getmtime)
+    # The path breaks a tie: glob returns directory order, so two dumps
+    # written in the same mtime tick would otherwise be picked by whatever
+    # the filesystem listed first, and the check would read a different
+    # world's config on the next run.
+    return max(candidates, key=lambda path: (os.path.getmtime(path), path))
 
 
 def main() -> int:

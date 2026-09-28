@@ -31,7 +31,23 @@ load_server_environment
 RUN_FOR_SECONDS="${SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS:-90}"
 SERVER_BIN="$SERVER_DIR/7DaysToDieServer.x86_64"
 LOG_DIR="$SERVER_DIR/logs"
-LOG_FILE="$LOG_DIR/wrench-server-smoke-$(date -u +%Y%m%d-%H%M%S).log"
+# The stamp is only as wide as a second, so a run started right after the
+# previous one (a failed run re-run by hand) names the same file, and the
+# server's output redirection truncates the earlier run's log: the failure
+# being looked at after the second run is the second run's text. The
+# counter keeps the name unique, zero-padded so the names still sort
+# chronologically for the prune below.
+smoke_stamp="$(date -u +%Y%m%d-%H%M%S)"
+LOG_FILE="$LOG_DIR/wrench-server-smoke-$smoke_stamp.log"
+smoke_collision=2
+while [[ -e "$LOG_FILE" ]]; do
+	if (( smoke_collision > 99 )); then
+		echo "ERROR: 99 smoke logs already share the name $smoke_stamp; remove some." >&2
+		exit 1
+	fi
+	LOG_FILE="$LOG_DIR/wrench-server-smoke-$smoke_stamp-$(printf '%02d' "$smoke_collision").log"
+	smoke_collision=$((smoke_collision + 1))
+done
 
 if ! [[ "$RUN_FOR_SECONDS" =~ ^[0-9]+$ ]] || (( RUN_FOR_SECONDS < 1 )); then
 	echo "ERROR: SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS must be a positive integer." >&2
