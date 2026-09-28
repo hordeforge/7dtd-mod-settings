@@ -60,8 +60,26 @@ namespace Wrench
 		{
 			Mod = mod;
 			TomlPath = Path.Combine(mod.Path, "Config", mod.Name + ".toml");
-			HotReloads = HasSettingsComponent(mod);
+			HotReloads = CachedHasSettingsComponent(mod);
 			Reload();
+		}
+
+		// Probing a mod walks every type every one of its assemblies declares,
+		// and an installed mod's assemblies do not change while the game runs,
+		// so the answer is paid once per mod rather than on every opening of
+		// the screen. The only cost of being wrong about that is the live
+		// reload label, as it is for the probe itself (ADR 0001).
+		static readonly Dictionary<string, bool> hotReloadsByModPath =
+			new Dictionary<string, bool>(StringComparer.Ordinal);
+
+		static bool CachedHasSettingsComponent(Mod mod)
+		{
+			bool known;
+			if (hotReloadsByModPath.TryGetValue(mod.Path, out known))
+				return known;
+			var found = HasSettingsComponent(mod);
+			hotReloadsByModPath[mod.Path] = found;
+			return found;
 		}
 
 		/// <summary>
@@ -129,13 +147,19 @@ namespace Wrench
 			}
 
 			string newText;
-			if (!TomlEdit.TryReplaceValue(Text, entry, newRaw, out newText, out error))
+			List<TomlSettings.DocEntry> newEntries;
+			if (!TomlEdit.TryReplaceValue(Text, Entries, entry, newRaw, out newText, out newEntries, out error))
 				return Fail(error);
 			if (!TryWrite(TomlPath, newText, currentEncoding, out error))
 				return Fail(error);
 			SaveState = ESaveState.Saved;
 			SaveError = null;
-			Reload();
+			// The write put exactly the text the writer verified, and the
+			// verified parse of it is already in hand: re-reading the file here
+			// would only parse the same bytes a second time.
+			Text = newText;
+			Entries = newEntries;
+			Error = null;
 			return true;
 		}
 

@@ -71,13 +71,19 @@ namespace Wrench
 
 		/// <summary>
 		/// Replaces the value span of <paramref name="entry"/> (an entry of
-		/// <paramref name="text"/>) with <paramref name="newRaw"/> and
+		/// <paramref name="text"/>, taken from <paramref name="before"/>, the
+		/// caller's own parse of that text) with <paramref name="newRaw"/> and
 		/// verifies the result: it must re-parse, keep every key, and change
 		/// no other entry. On failure the original text stands.
+		///
+		/// The verified parse of the result is handed back as
+		/// <paramref name="after"/>, so the caller holds the new state without
+		/// reading and re-parsing the file it just wrote.
 		/// </summary>
-		public static bool TryReplaceValue(string text, TomlSettings.DocEntry entry, string newRaw, out string newText, out string error)
+		public static bool TryReplaceValue(string text, List<TomlSettings.DocEntry> before, TomlSettings.DocEntry entry, string newRaw, out string newText, out List<TomlSettings.DocEntry> after, out string error)
 		{
 			newText = null;
+			after = null;
 			string normalized;
 			if (!TryParseRawValue(newRaw, out normalized, out _, out error))
 				return false;
@@ -87,23 +93,21 @@ namespace Wrench
 				+ newRaw
 				+ text.Substring(entry.ValueStart + entry.ValueLength);
 
-			List<TomlSettings.DocEntry> before;
-			List<TomlSettings.DocEntry> after;
 			string parseError;
-			if (!TomlSettings.TryReadDocument(text, out before, out parseError)
-				|| !TomlSettings.TryReadDocument(candidate, out after, out parseError))
+			List<TomlSettings.DocEntry> parsed;
+			if (!TomlSettings.TryReadDocument(candidate, out parsed, out parseError))
 			{
 				error = "edited file no longer parses: " + parseError;
 				return false;
 			}
-			if (before.Count != after.Count)
+			if (before.Count != parsed.Count)
 			{
 				error = "edit changed the number of keys.";
 				return false;
 			}
 			for (var i = 0; i < before.Count; i++)
 			{
-				if (before[i].Name != after[i].Name)
+				if (before[i].Name != parsed[i].Name)
 				{
 					error = "edit changed key '" + before[i].Name + "'.";
 					return false;
@@ -111,19 +115,20 @@ namespace Wrench
 				var isEdited = before[i].ValueStart == entry.ValueStart;
 				if (isEdited)
 				{
-					if (after[i].Value != normalized)
+					if (parsed[i].Value != normalized)
 					{
 						error = "edited value did not take.";
 						return false;
 					}
 				}
-				else if (before[i].Value != after[i].Value)
+				else if (before[i].Value != parsed[i].Value)
 				{
 					error = "edit changed unrelated key '" + before[i].Name + "'.";
 					return false;
 				}
 			}
 			newText = candidate;
+			after = parsed;
 			return true;
 		}
 	}

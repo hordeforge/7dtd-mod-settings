@@ -90,12 +90,31 @@ def main() -> int:
 
     target = read("TargetMod.cs")
     screen = read("ModSettingsScreen.cs")
+    edit = read("TomlEdit.cs")
 
     save = body(target, "public bool TrySave(")
     check("a save re-reads the file before splicing into it",
           "TryRead(" in save and "currentText != Text" in save)
     check("a file that moved on is re-read before the entry is located again",
           "Reload();" in save and "TryRelocate(" in save)
+    check("a save reads the file once, and takes its new state from the "
+          "verified parse it already holds",
+          save.count("TryRead(") == 1
+          and "Text = newText;" in save
+          and "Entries = newEntries;" in save)
+
+    replace = body(edit, "public static bool TryReplaceValue(")
+    check("the edit parses the candidate once, from the caller's parse of "
+          "the original text",
+          "List<TomlSettings.DocEntry> before, TomlSettings.DocEntry entry" in edit
+          and replace.count("TryReadDocument(") == 1
+          and "out List<TomlSettings.DocEntry> after" in edit)
+
+    probe = body(target, "static bool CachedHasSettingsComponent(")
+    check("the assembly probe is paid once per installed mod, not once per "
+          "screen opening",
+          "hotReloadsByModPath.TryGetValue(mod.Path" in probe
+          and "HasSettingsComponent(mod)" in probe)
 
     relocate = body(target, "bool TryRelocate(")
     check("the key is located by name, not by the offset it used to have",

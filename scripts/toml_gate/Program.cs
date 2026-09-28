@@ -113,7 +113,8 @@ static class Program
 		TomlSettings.TryReadDocument(Fixture, out doc, out error);
 		var entry = doc.Find(e => e.Name == key);
 		string newText;
-		if (!TomlEdit.TryReplaceValue(Fixture, entry, newRaw, out newText, out error))
+		List<TomlSettings.DocEntry> written;
+		if (!TomlEdit.TryReplaceValue(Fixture, doc, entry, newRaw, out newText, out written, out error))
 		{
 			Check(name, false, error);
 			return;
@@ -129,6 +130,12 @@ static class Program
 			&& reparsed.Value == expectValue
 			&& reparsed.Comment == entry.Comment,
 			"round trip mismatch");
+		// The writer hands back the parse of what it wrote, so the caller
+		// never has to read the file back: it must be the same parse.
+		Check(name + " (entries handed back match the written text)",
+			written.Count == after.Count
+			&& string.Join(";", written.ConvertAll(e => e.Name + "=" + e.Value))
+			== string.Join(";", after.ConvertAll(e => e.Name + "=" + e.Value)));
 	}
 
 	static void TestEdits()
@@ -148,11 +155,12 @@ static class Program
 		string error, newText;
 		TomlSettings.TryReadDocument(Fixture, out doc, out error);
 		var count = doc.Find(e => e.Name == "Count");
-		Check("reject a non-value", !TomlEdit.TryReplaceValue(Fixture, count, "nope", out newText, out error));
-		Check("reject trailing garbage", !TomlEdit.TryReplaceValue(Fixture, count, "1 2", out newText, out error));
-		Check("reject a key injection", !TomlEdit.TryReplaceValue(Fixture, count, "1\nInjected = 2", out newText, out error));
-		Check("reject a comment rider", !TomlEdit.TryReplaceValue(Fixture, count, "1 # note", out newText, out error));
-		Check("reject an empty value", !TomlEdit.TryReplaceValue(Fixture, count, "", out newText, out error));
+		List<TomlSettings.DocEntry> after;
+		Check("reject a non-value", !TomlEdit.TryReplaceValue(Fixture, doc, count, "nope", out newText, out after, out error));
+		Check("reject trailing garbage", !TomlEdit.TryReplaceValue(Fixture, doc, count, "1 2", out newText, out after, out error));
+		Check("reject a key injection", !TomlEdit.TryReplaceValue(Fixture, doc, count, "1\nInjected = 2", out newText, out after, out error));
+		Check("reject a comment rider", !TomlEdit.TryReplaceValue(Fixture, doc, count, "1 # note", out newText, out after, out error));
+		Check("reject an empty value", !TomlEdit.TryReplaceValue(Fixture, doc, count, "", out newText, out after, out error));
 
 		Check("reject a table file", !TomlSettings.TryReadDocument("[table]\nA = 1\n", out doc, out error));
 		Check("reject a duplicate key", !TomlSettings.TryReadDocument("A = 1\nA = 2\n", out doc, out error));
@@ -178,11 +186,12 @@ static class Program
 		var crlf = "# help\r\nA = 1\r\nB = 2\r\n";
 		List<TomlSettings.DocEntry> doc;
 		string error, newText;
+		List<TomlSettings.DocEntry> after;
 		Check("crlf parses", TomlSettings.TryReadDocument(crlf, out doc, out error), error ?? "");
 		Check("crlf comment captured", doc[0].Comment == "help");
 		var a = doc.Find(e => e.Name == "A");
 		Check("crlf edit keeps line endings",
-			TomlEdit.TryReplaceValue(crlf, a, "7", out newText, out error)
+			TomlEdit.TryReplaceValue(crlf, doc, a, "7", out newText, out after, out error)
 			&& newText == "# help\r\nA = 7\r\nB = 2\r\n",
 			error ?? "");
 	}

@@ -128,6 +128,22 @@ be able to destroy it. Two properties, both held by
   the file was carrying: an edit that changed one value token had silently
   changed the file's first three bytes as well.
 
+## Decided 2026-09-28: a save parses the file once, and probes an assembly once
+
+`TargetMod.TrySave` reads the file once, splices into that read, and takes
+its new `Text`/`Entries` from the parse `TomlEdit.TryReplaceValue` already
+verified before writing, instead of reading the file back and re-parsing
+what it had just written. The verification itself is unchanged: the
+candidate is still re-parsed and compared key by key against the caller's
+parse of the original text, which the caller supplies instead of having
+the writer re-derive it.
+
+`TargetMod.HasSettingsComponent` walks every type every assembly of a mod
+declares, and an installed mod's assemblies do not change while the game
+runs, so its answer is memoized per mod path and paid once per mod rather
+than on every opening of the screen. Enforced by
+`scripts/test_target_save_coherence.py`.
+
 ## Decided 2026-09-28: bounded reload wait, empty-state labels
 
 The post-save wait for a hot-reloading mod's reload line is bounded by
