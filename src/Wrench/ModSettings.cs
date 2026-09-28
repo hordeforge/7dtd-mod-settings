@@ -177,6 +177,12 @@ namespace Wrench
 			string error;
 			if (!TomlSettings.TryRead(text, out entries, out error))
 			{
+				// Record the rejected save as handled: the watch is on the
+				// file's stamp, so the same broken content is not re-read (and
+				// the same error not re-logged) on every poll until it changes.
+				appliedWriteUtc = writeUtc;
+				appliedLength = length;
+				appliedText = text;
 				var problem = error + (startup
 					? "; using default settings."
 					: "; keeping current settings.");

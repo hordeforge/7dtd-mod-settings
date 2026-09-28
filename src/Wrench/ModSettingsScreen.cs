@@ -36,9 +36,11 @@ namespace Wrench
 		// Written from the log callback (any thread), consumed in Update.
 		volatile bool reloadSeen;
 		string watchedReloadMarker;
-		// The mod the marker belongs to: the status is that mod's, whether or
-		// not it is still the selected one when the line (or the timeout) lands.
-		TargetMod watchedMod;
+		// The mod the marker and the latch belong to, not whatever is selected
+		// when the line (or the timeout) lands: the player can pick another mod
+		// between the save and the mod's reload, and that other mod is the one
+		// that never re-read.
+		TargetMod watchedReloadTarget;
 		float reloadWait;
 
 		// Nothing here uses the vanilla unsaved-changes model: every edit is
@@ -70,6 +72,7 @@ namespace Wrench
 			// the latch over would stamp a fresh TargetMod "applied live" for
 			// a save that never happened.
 			watchedReloadMarker = null;
+			watchedReloadTarget = null;
 			reloadSeen = false;
 			var keep = selected == null ? null : selected.Mod.Name;
 			targets = TargetMod.Discover();
@@ -85,7 +88,7 @@ namespace Wrench
 		{
 			Log.LogCallbacks -= OnLogLine;
 			watchedReloadMarker = null;
-			watchedMod = null;
+			watchedReloadTarget = null;
 			base.OnClose();
 		}
 
@@ -97,7 +100,7 @@ namespace Wrench
 				watchedReloadMarker = null;
 				SetWatchedSaveState(TargetMod.ESaveState.AppliedLive);
 			}
-			if (watchedReloadMarker != null)
+			else if (watchedReloadMarker != null)
 			{
 				reloadWait += _dt;
 				if (reloadWait >= RELOAD_CONFIRM_SECONDS)
@@ -112,10 +115,12 @@ namespace Wrench
 		/// <summary>Moves the watched mod out of the pending state, then stops watching it.</summary>
 		void SetWatchedSaveState(TargetMod.ESaveState state)
 		{
-			if (watchedMod != null && watchedMod.SaveState == TargetMod.ESaveState.Saved)
-				watchedMod.SaveState = state;
-			watchedMod = null;
-			IsDirty = true;
+			var target = watchedReloadTarget;
+			watchedReloadTarget = null;
+			if (target != null && target.SaveState == TargetMod.ESaveState.Saved)
+				target.SaveState = state;
+			if (target == selected)
+				IsDirty = true;
 		}
 
 		internal void SelectMod(int index)
@@ -142,12 +147,18 @@ namespace Wrench
 				return false;
 			var mod = selected;
 			var saved = mod.TrySave(entry, newRaw, out _);
+			// One save, one latch: a refused save, or one to a mod that only
+			// takes effect on a restart, must not keep an earlier mod's marker
+			// armed and stamp the next reload line onto it.
+			watchedReloadMarker = null;
+			watchedReloadTarget = null;
+			reloadSeen = false;
 			if (saved && mod.HotReloads)
 			{
 				// The Anvil component logs the re-read; until that line
 				// arrives the status stays at "saved".
 				watchedReloadMarker = mod.ReloadLogMarker;
-				watchedMod = mod;
+				watchedReloadTarget = mod;
 				reloadSeen = false;
 				reloadWait = 0f;
 			}
@@ -157,6 +168,7 @@ namespace Wrench
 				// earlier save cannot resurrect "applied live" over the
 				// failure this edit just recorded.
 				watchedReloadMarker = null;
+				watchedReloadTarget = null;
 				reloadSeen = false;
 			}
 			// Spans moved with the edit: rebind rows to the re-parsed

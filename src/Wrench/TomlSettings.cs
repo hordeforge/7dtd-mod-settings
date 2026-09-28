@@ -124,7 +124,9 @@ namespace Wrench
 			{
 				entries = new List<DocEntry>();
 				error = null;
-				var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				// Keys are case-sensitive, exactly as TOML defines them, and as the
+			// in-place writer and the by-name relocation compare them.
+			var seen = new HashSet<string>(StringComparer.Ordinal);
 				SkipIgnorable();
 				while (!AtEnd)
 				{

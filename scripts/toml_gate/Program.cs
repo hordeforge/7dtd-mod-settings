@@ -154,6 +154,20 @@ static class Program
 		Check("reject a table file", !TomlSettings.TryReadDocument("[table]\nA = 1\n", out doc, out error));
 		Check("reject a duplicate key", !TomlSettings.TryReadDocument("A = 1\nA = 2\n", out doc, out error));
 		Check("reject a dotted key", !TomlSettings.TryReadDocument("a.b = 1\n", out doc, out error));
+		// Bare keys are case-sensitive, so two keys differing only in case are
+		// two keys; a case-blind duplicate check would call a valid file
+		// unreadable and hide it from the screen.
+		Check("case-variant keys are distinct",
+			TomlSettings.TryReadDocument("Foo = 1\nfoo = 2\n", out doc, out error)
+			&& doc.Count == 2, error ?? "");
+		if (doc != null && doc.Count == 2)
+		{
+			string caseText, caseError;
+			Check("a case-variant edit lands on the named key only",
+				TomlEdit.TryReplaceValue("Foo = 1\nfoo = 2\n", doc[1], "9", out caseText, out caseError)
+				&& caseText == "Foo = 1\nfoo = 9\n",
+				caseError ?? "");
+		}
 	}
 
 	static void TestCrlf()

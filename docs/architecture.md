@@ -98,9 +98,13 @@ message instead of being spliced at a byte offset that now points somewhere
 else, which would write a stale copy of the whole file over the other
 writer's save. Display staleness is the looser part and is left alone: the
 rows show the file as of the last open or save, so an external edit appears
-on reopen. The "applied live" observation is a one-shot latch and is
-cleared when the screen opens, so a reload line seen while it was closed
-cannot stamp a newly discovered mod as saved-and-applied.
+on reopen. The "applied live" observation is a one-shot latch, armed by one
+save and marking the mod that save was made to (not whichever mod happens
+to be selected when the line arrives), and it is cleared when the screen
+opens, so a reload line seen while it was closed cannot stamp a newly
+discovered mod as saved-and-applied. A save that is refused, or to a mod
+that only applies on a restart, disarms the latch rather than leaving the
+previous mod's marker armed.
 
 ## Decided 2026-09-28: bounded reload wait, empty-state labels
 
