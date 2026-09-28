@@ -80,7 +80,8 @@ defect somebody already shipped. If a gate is genuinely wrong (asserts
 something the design has since changed), say so in the commit message and
 the deciding doc, and make it *stricter about the new truth*, never looser.
 
-Corollaries, each enforced by `scripts/test_rules_have_gates.py`:
+Corollaries; the first two are enforced by
+`scripts/test_rules_have_gates.py`, the third is a habit no gate can check:
 
 - A rule that has been broken gets a **gate**, not a paragraph: every
   AGENTS.md section that records a dated incident names the
@@ -114,9 +115,10 @@ textures, audio, text, meshes, materials, prefabs — with no editor at all;
 where an editor exists it is a checker, not a requirement. Start with
 `shamway init` (it generates `.shamway.toml` and the pipeline's own
 `tools/shamway/AGENTS.md` contract), orient with `shamway status --json`,
-and gate every rebuild with `make validate-assets` **before** any client
-launch — a bundle without a class-142 `AssetBundle` object is always
-rejected at runtime, and a matching UnityFS header is *not* acceptance
+and gate every rebuild with `shamway validate` (and `shamway check-icons`)
+in the asset pipeline **before** any client launch — a bundle without a
+class-142 `AssetBundle` object is always rejected at runtime, and a
+matching UnityFS header is *not* acceptance
 evidence. Acceptance is a fresh client loading the bundle. If a build fails
 a shamway gate, fix the cause — never downgrade the gate.
 
@@ -146,6 +148,7 @@ HORDEFORGE_ROOT="/absolute/dir/of/hordeforge/checkouts"
 PLAYTEST_ROOT="/absolute/checkout/7dtd-playtest"
 CONNECT_ROOT="/absolute/checkout/7dtd-fastconnect"
 ASSET_PIPELINE_ROOT="/absolute/checkout/7dtd-asset-pipeline"
+WRENCH_ATOMIC_MOD_DIR="/absolute/checkout/AtomicDoomsday"
 DOTNET_ROOT="/absolute/dotnet/sdk"
 ILSPYCMD="/absolute/ilspycmd"
 UNITY_EDITOR="/absolute/Unity"
@@ -161,12 +164,14 @@ the install directory.
 ## Repo layout
 
 This directory itself is the modlet — the deployable unit. Mod content
-(`ModInfo.xml`, `Config/`, `Resources/`, `UIAtlases/`, …) sits at the root;
-`src/` (C# source), `scripts/`, `docs/`, `AGENTS.md`, `CLAUDE.md`,
-`TODO.md` are build-time only and excluded from the package. `make build`
-stages the deployable modlet under `dist/Wrench/`; `make package`
-zips it so extraction yields `Mods/Wrench/ModInfo.xml`. Never nest
-deployable content under a further subfolder.
+(`ModInfo.xml`, `Config/`, `Prefabs/`, `Resources/`, `UIAtlases/`,
+`WebMod/`) sits at the root; `src/` (C# source), `scripts/`, `docs/`,
+`AGENTS.md`, `CLAUDE.md`, `TODO.md` are build-time only. `scripts/build.sh`
+stages by allowlist, so a new mod-content directory ships only after it is
+added there. `make build` stages the deployable modlet under `dist/Wrench/`;
+`make package` zips it so extraction yields
+`Mods/Wrench/ModInfo.xml`. Never nest deployable content under a further
+subfolder.
 
 ## XML conventions
 
@@ -198,9 +203,12 @@ configured server briefly and prove the mod loaded from its log.
 
 Live behavior: deploy per `docs/reference/environment.md` and check the
 game log — a clean log alone does not prove an XPath matched; verify in
-game. Live suites, when this mod grows them, go through
-`hordeforge/7dtd-playtest` (an `IScenarioProvider` + thin wrapper), never a
-private launcher — and a case belongs to the suite whose feature it proves,
+game. The live lane is `make playtest` (`scripts/playtest-maci.sh`): it
+builds and deploys the mod plus the `WrenchPlaytest` provider
+(`scripts/playtest/`) and runs the default `wrench-mod-settings` suite
+through `hordeforge/7dtd-playtest`, which takes the exclusivity lock
+itself. Select another suite with `make playtest SUITE=<id>`. Never write a
+private launcher. A new case belongs to the suite whose feature it proves,
 never dropped into another feature's fixture (shared world/inventory state
 makes a borrowed case change every case after it).
 

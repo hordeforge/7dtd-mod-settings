@@ -3,7 +3,7 @@
 #
 # Each test script is standalone (see its own docstring) and needs no live
 # client or server, so the shared live-playtest lock is not involved. Live
-# behaviour is covered by `make playtest` / `make playtest-matrix` instead.
+# behaviour is covered by `make playtest` instead.
 #
 # The tests are independent processes writing only into their own temporary
 # directories, so they are run concurrently; results are collected and
