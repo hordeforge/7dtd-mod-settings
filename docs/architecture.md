@@ -29,13 +29,15 @@ below), so nothing in the mod reaches for `Time`, `File.` or
   `verify-*.py` need an installed game, so they are tools, not gates.
 - `lib/` is the only shared layer. `gate_report.py` owns the PASS/FAIL shape
   every gate prints, `local_env.py` owns both the `.local.env` lookup and
-  `mod_dir()`, the marker walk every script uses to find the mod root, and
+  `mod_dir()`, the marker walk every script uses to find the mod root,
+  `dotnet_host.py` the SDK probe and build-and-run of a C# harness, and
   `game_telnet.py` the stdlib console client. A script that needs any of
   them imports it; it does not keep a second copy.
-- `toml_gate/` and `playtest/` are the C# hosts: a console runner that
-  exercises the parser, the writer and `TomlFile`, and the provider that
-  drives the live suite. They are build-time, so they sit under `scripts/`,
-  not `src/`.
+- `toml_gate/`, `toml_fuzz/` and `playtest/` are the C# hosts: two console
+  runners over the game-free sources (one round-trips the parser, writer
+  and `TomlFile`, the other fuzzes the reader) and the provider that drives
+  the live suite. They are build-time, so they sit under `scripts/`, not
+  `src/`.
 
 Shell scripts sit beside the Python they drive (`server-common.sh` with the
 server lane, `run-offline-tests.sh` with the gates) and share no library

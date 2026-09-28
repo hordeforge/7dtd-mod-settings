@@ -125,12 +125,6 @@ def source_dir(root: Path) -> Path:
     return Path("src") / name
 
 
-def configured_game_dir(root: Path | None = None) -> Path | None:
-    """`SEVEN_DAYS_TO_DIE_DIR` resolved by scripts/lib/local_env.py."""
-    path = local_env.configured_game_dir(root)
-    return Path(path) if path else None
-
-
 class Target:
     def __init__(self, source: Path, line: int, patch_class: str, declaring_type: str,
                  method: str, argument_types: list[str] | None, injected: list[str]) -> None:
@@ -363,7 +357,7 @@ def main(argv: list[str]) -> int:
         return 2
 
     root = local_env.mod_dir()
-    game_dir = override if override is not None else configured_game_dir()
+    game_dir = override if override is not None else local_env.game_dir()
 
     if game_dir is None:
         print("ERROR: no game directory. Set SEVEN_DAYS_TO_DIE_DIR or pass"
