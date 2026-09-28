@@ -110,7 +110,10 @@ namespace Wrench
 		{
 			definitive = false;
 			if (mod.AllAssemblies == null)
+			{
+				definitive = false;
 				return false;
+			}
 			var complete = true;
 			var found = false;
 			foreach (var assembly in mod.AllAssemblies)
@@ -134,6 +137,7 @@ namespace Wrench
 				}
 				catch (Exception)
 				{
+					definitive = false;
 					Log.Warning(ModApi.LogPrefix + " could not inspect an assembly of "
 						+ mod.Name + "; the mod is treated as not hot-reloading.");
 					complete = false;

@@ -18,15 +18,18 @@ Covered, from the module's own contract:
 - a command that ends the session (`shutdown`) still returns the output it
   printed, and the client records the close instead of raising;
 - sending before connecting raises rather than silently dropping the command;
-- close() sends `exit` so the server's listener sees the session go.
+- close() sends `exit` so the server's listener sees the session go;
+- connecting again releases the socket it replaced.
 """
 
 from __future__ import annotations
 
+import contextlib
 import os
 import socket
 import sys
 import threading
+from collections.abc import Iterator
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
@@ -144,11 +147,66 @@ def test_close_sends_exit() -> None:
     server.close()
 
 
+def test_reconnect_releases_the_first_socket() -> None:
+    # A second connect() replaces the session. The first socket has to go
+    # with it, or its descriptor and the server-side session it pins outlive
+    # every run that follows.
+    first_mine, first_server = socket.socketpair()
+    second_mine, second_server = socket.socketpair()
+    sent: list[str] = []
+    readers = [
+        threading.Thread(target=_record_exits, args=(sent, first_server), daemon=True),
+        threading.Thread(target=_announce_ready, args=(second_server,), daemon=True),
+    ]
+    for reader in readers:
+        reader.start()
+    telnet = GameTelnet()
+    telnet._sock = first_mine
+    try:
+        with _patched_create_connection(second_mine):
+            telnet.connect()
+        check("reconnecting leaves the new socket in place", telnet._sock is second_mine)
+        for reader in readers:
+            reader.join(timeout=5.0)
+        check("reconnecting releases the socket it replaced", "exit" in sent, repr(sent))
+    finally:
+        telnet.close()
+        first_server.close()
+        second_server.close()
+
+
+def _record_exits(sent: list[str], peer: socket.socket) -> None:
+    buffer = b""
+    while b"exit" not in buffer:
+        chunk = peer.recv(65536)
+        if not chunk:
+            return
+        buffer += chunk
+    sent.append(buffer.decode("utf-8", "replace").strip())
+
+
+def _announce_ready(peer: socket.socket) -> None:
+    with contextlib.suppress(OSError):
+        peer.sendall(b"Press 'help' to get a list of all commands\r\n")
+
+
+@contextlib.contextmanager
+def _patched_create_connection(sock: socket.socket) -> Iterator[None]:
+    """connect() against *sock* instead of a listening port."""
+    original = socket.create_connection
+    socket.create_connection = lambda *_a, **_k: sock
+    try:
+        yield
+    finally:
+        socket.create_connection = original
+
+
 def main() -> int:
     test_run_returns_output_without_the_echo()
     test_run_survives_a_session_ending_command()
     test_send_before_connect_raises()
     test_close_sends_exit()
+    test_reconnect_releases_the_first_socket()
     return result()
 
 

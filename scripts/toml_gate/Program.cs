@@ -60,6 +60,7 @@ static class Program
 		TestModTomlPath();
 		TestShippedFile();
 		TestSimulatedSave();
+		TestFailedFallbackKeepsTheOnlyCopy();
 		Console.WriteLine(failures + " failures.");
 		Environment.Exit(failures > 0 ? 1 : 0);
 	}
@@ -120,6 +121,49 @@ static class Program
 		{
 			Check("a save keeps the other program's save made mid-save", false, ex.Message);
 		}
+	}
+
+	// The one window in the save where the settings file does not exist: a
+	// runtime with no atomic replace deletes the destination and moves the
+	// staging file into its place, and a move that fails there leaves the
+	// staging file holding the only copy of the new text. Deleting it as a
+	// failed save would clean up would take the mod's settings with it, so
+	// the failure keeps it and names where it is.
+	static void TestFailedFallbackKeepsTheOnlyCopy()
+	{
+		const string tomlPath = "/sim/Mods/Example/Config/Example.toml";
+		var tempPath = tomlPath + ".wrench-tmp";
+		var files = new MemoryFileSystem(new VirtualClock());
+		files.Seed(tomlPath, "Count = 12\n", new UTF8Encoding(false));
+
+		var savedFiles = ModFileSystem.Current;
+		var savedClock = ModClock.Current;
+		ModFileSystem.Current = files;
+		ModClock.Current = new VirtualClock();
+		string error = null;
+		var saved = true;
+		try
+		{
+			var target = new TargetMod("Example", "Example", tomlPath, true);
+			var entry = target.Entries.Find(e => e.Name == "Count");
+			files.PendingNoAtomicReplace = 1;
+			files.PendingMoveFaults = 1;
+			saved = target.TrySave(entry, "13", out error);
+		}
+		finally
+		{
+			ModFileSystem.Current = savedFiles;
+			ModClock.Current = savedClock;
+		}
+
+		Check("a save whose fallback move failed reports the failure", !saved, error ?? "");
+		Check("the staging file outlives the failed save",
+			files.Has(tempPath), "the new text was deleted with the failure");
+		Check("the staging file holds the text the save wrote",
+			files.Has(tempPath) && files.Peek(tempPath) == "Count = 13\n",
+			files.Has(tempPath) ? files.Peek(tempPath) : "(absent)");
+		Check("the failure names where the new text was left",
+			!saved && error != null && error.Contains(tempPath), error ?? "");
 	}
 
 	static string FirstDifference(string left, string right)

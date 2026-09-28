@@ -325,6 +325,17 @@ namespace Wrench
 			}
 			catch (Exception ex)
 			{
+				// The staging file is the only surviving copy of the new text
+				// once the fallback above has deleted the destination and its
+				// move failed, and a settings file the mod can no longer read
+				// is the one outcome ADR 0001 forbids. Every other failure
+				// leaves the destination in place, and the staging file beside
+				// it is a stray the next save overwrites.
+				if (!files.Exists(path))
+				{
+					error = ex.Message + " The new text is at " + temp + ".";
+					return false;
+				}
 				TryDeleteTemp(temp);
 				error = ex.GetType().Name + ": " + ex.Message;
 				return false;

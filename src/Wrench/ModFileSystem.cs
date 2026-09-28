@@ -164,6 +164,13 @@ namespace Wrench
 			File.Delete(path);
 			using (var stream = File.Open(path, FileMode.CreateNew, FileAccess.Write, SharedAccess))
 				stream.Write(bytes, 0, bytes.Length);
+				// The write is not done until it is on the disk, and this is
+				// the only place that can say so: a flush that fails is a save
+				// that would stage a file short of the text it was verified
+				// against, so it throws here, before the replace makes that
+				// file the mod's settings.
+				stream.Flush(true);
+			}
 		}
 
 		public void Replace(string sourcePath, string destinationPath)

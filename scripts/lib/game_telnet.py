@@ -74,16 +74,30 @@ class GameTelnet:
 
     def connect(self, wait: float = 120.0) -> None:
         """Connect, retrying until the server has opened its listener."""
+        # Connecting again replaces the session, so the socket already open is
+        # released first: leaving it to the next assignment would hold its
+        # descriptor and the server-side session it pins for the rest of the
+        # run. A server that closed the last session has said nothing about
+        # this one, so the polite exit is owed again.
+        self.close()
+        self.closed_by_server = False
         # Deadlines use the monotonic clock: an NTP step mid-wait would make a
         # wall-clock deadline expire instantly or hang for the skew duration.
         deadline = time.monotonic() + wait
         last: Exception | None = None
         while time.monotonic() < deadline:
+            sock: socket.socket | None = None
             try:
-                self._sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
-                self._sock.settimeout(self.timeout)
+                sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
+                sock.settimeout(self.timeout)
+                self._sock = sock
                 break
             except OSError as exc:
+                # A socket that opened and then failed is this attempt's to
+                # release; the next attempt opens its own.
+                if sock is not None:
+                    with contextlib.suppress(OSError):
+                        sock.close()
                 last = exc
                 time.sleep(CONNECT_RETRY_SECONDS)
         else:

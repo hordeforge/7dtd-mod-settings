@@ -64,6 +64,12 @@ sealed class MemoryFileSystem : IFileSystem
 	public int PendingMidSaveWrites;
 	/// <summary>The file that outside writer saves to.</summary>
 	public string RacingPath;
+	/// <summary>
+	/// Moves still to be failed, which is what turns the no-atomic-replace
+	/// fallback into a window where the destination is gone and the staging
+	/// file is the only copy of the settings left.
+	/// </summary>
+	public int PendingMoveFaults;
 
 	public MemoryFileSystem(VirtualClock clock)
 	{
@@ -209,6 +215,11 @@ sealed class MemoryFileSystem : IFileSystem
 	public void Move(string sourcePath, string destinationPath)
 	{
 		Require(sourcePath);
+		if (PendingMoveFaults > 0)
+		{
+			PendingMoveFaults--;
+			throw new IOException("injected: the move of " + sourcePath + " failed");
+		}
 		Moves++;
 		var bytes = contents[sourcePath];
 		contents.Remove(sourcePath);

@@ -139,7 +139,9 @@ def main() -> int:
           "if (definitive)" in discovery
           and "if (definitive)"
           not in body(ungated, "static bool CachedHasSettingsComponent("))
-    unlocked = discovery.replace("lock (hotReloadsGate)", "", 1)
+    # Every occurrence, not the first: the lookup and the fill are two
+    # blocks, and a copy with only one of them taken is still unlocked.
+    unlocked = discovery.replace("lock (hotReloadsGate)", "")
     check("negative control: an unlocked memo table fails the gate",
           "lock (hotReloadsGate)" in discovery
           and "lock (hotReloadsGate)"
