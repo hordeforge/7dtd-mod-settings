@@ -119,8 +119,9 @@ by an attacker, and its failure mode is a bad deploy rather than a compromise.
 
 **B5 — build to runtime.** `scripts/build.sh:67` stages an allowlist of
 mod-content directories into `dist/Wrench/`, and CI packages with
-`WRECH_SKIP_DLL=1` because the game assemblies are proprietary
-(`.github/workflows/ci.yml:38`). A file that is not on the allowlist never
+`WRENCH_SKIP_DLL=1` because the game assemblies are proprietary
+(`scripts/verify-package.sh`, the package lane `make check` and CI both run).
+A file that is not on the allowlist never
 ships, which is the control that keeps build-time material (`src/`, `scripts/`,
 `docs/`) out of the deployable.
 

@@ -99,6 +99,76 @@ def answered_bindings() -> set[str]:
     return answered
 
 
+def check_ci_local_parity() -> None:
+    """Hold the CI steps to `make check`, so a local run means a green push.
+
+    `make check` is the one local command that runs everything CI runs. A
+    check that lives only in the workflow YAML is a check no contributor
+    can reach before pushing, and the two lists drifting apart is silent:
+    CI stays green on a run nobody made.
+    """
+    makefile_path = os.path.join(MOD_DIR, "Makefile")
+    with open(makefile_path, encoding="utf-8") as handle:
+        makefile = handle.read()
+    with open(os.path.join(MOD_DIR, ".github", "workflows", "ci.yml"),
+              encoding="utf-8") as handle:
+        workflow = handle.read()
+
+    def prerequisites(target: str) -> set[str]:
+        match = re.search(rf"^{target}:[ \t]+(.+)$", makefile, re.MULTILINE)
+        return set(match.group(1).split()) if match else set()
+
+    # `make check` names lint as a prerequisite and lint names the two
+    # analyzers, so the leaves are what CI has to run.
+    local = set()
+    for target in prerequisites("check"):
+        local |= prerequisites(target) or {target}
+    remote = set(re.findall(r"^\s*(?:run: )*make ([A-Za-z0-9_-]+)\s*$", workflow,
+                            re.MULTILINE))
+    check("make check exists", bool(prerequisites("check")),
+          "the Makefile has no `check:` target naming the local CI sequence")
+    check("CI runs exactly what make check runs", remote == local,
+          f"CI runs {sorted(remote)}, make check runs {sorted(local)}")
+    # The package lane is the one check CI used to spell out inline, which is
+    # how it ended up unrunnable locally. Held to the target that wraps the
+    # one script both sides call.
+    check("the package lane is the shared target, not inline CI shell",
+          re.search(r"^\s*run: make verify-package\s*$", workflow,
+                    re.MULTILINE) is not None
+          and "sha256sum dist/Wrench.zip" not in workflow)
+
+    # Negative control: a workflow that checks something `make check` does
+    # not has to be rejected, or the comparison above proves nothing.
+    drifted = workflow.replace("run: make test",
+                               "run: make test\n        run: make validate-patch-targets")
+    check("negative-control-a-ci-only-step-is-rejected",
+          set(re.findall(r"^\s*(?:run: )*make ([A-Za-z0-9_-]+)\s*$", drifted,
+                         re.MULTILINE)) != local,
+          "the comparison accepted a CI step `make check` does not run")
+
+
+def check_contributing_commands() -> None:
+    """Every `make <target>` CONTRIBUTING.md names has to exist.
+
+    The file is what a new contributor runs their first change through, and
+    a target that was renamed or removed leaves a command that fails with no
+    hint that the doc is the stale part.
+    """
+    path = os.path.join(MOD_DIR, "CONTRIBUTING.md")
+    check("CONTRIBUTING.md exists", os.path.isfile(path))
+    if not os.path.isfile(path):
+        return
+    with open(path, encoding="utf-8") as handle:
+        contributing = handle.read()
+    with open(os.path.join(MOD_DIR, "Makefile"), encoding="utf-8") as handle:
+        makefile = handle.read()
+    named = set(re.findall(r"`make ([a-z][a-z-]*)", contributing))
+    missing = sorted(name for name in named
+                     if re.search(rf"^{name}:", makefile, re.MULTILINE) is None)
+    check("every make target CONTRIBUTING.md names exists", not missing,
+          "no such target: " + ", ".join(missing))
+
+
 def main() -> int:
     files = xml_files()
     roots: dict[str, str] = {}
@@ -200,6 +270,9 @@ def main() -> int:
               re.search(rf"^{re.escape(pattern)} text eol=lf$", attributes,
                         re.MULTILINE) is not None,
               ".gitattributes must pin " + pattern + " to LF")
+
+    check_ci_local_parity()
+    check_contributing_commands()
 
     return result()
 

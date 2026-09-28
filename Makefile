@@ -7,19 +7,21 @@ SOURCE_DATE_EPOCH ?= $(shell git log -1 --format=%ct 2>/dev/null || date +%s)
 # This mod ships no asset bundles, so there is deliberately no
 # build-assets or validate-assets target: both are for a mod that owns
 # bundles built by the sibling asset pipeline.
-.PHONY: help build package test lint lint-python lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server rollback-server server-smoke playtest clean
+.PHONY: help check build package verify-package test lint lint-python lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server rollback-server server-smoke playtest clean
 
 # Every target a contributor is expected to use, with what it needs. The
 # only list that cannot drift out of date is the one make prints itself.
 help:
 	@echo "Targets (SUITE=<id> selects a playtest suite, TF=<substr> filters make test):"
 	@echo "  help                      this list"
+	@echo "  check                     everything CI runs: test, lint, verify-package"
 	@echo "  test                      offline gates: every scripts/test_*.py (no game install; needs the .NET SDK for the two TOML round-trip gates)"
 	@echo "  lint                      ruff + mypy --strict over scripts/, then shellcheck"
 	@echo "  lint-python               ruff + mypy --strict only"
 	@echo "  lint-shell                shellcheck only"
 	@echo "  build                     stage dist/Wrench/ (needs .local.env, net48 SDK)"
 	@echo "  package                   dist/Wrench.zip, extracting to Mods/Wrench/ (needs build)"
+	@echo "  verify-package            the package extracts where it should and is byte-reproducible (what CI checks)"
 	@echo "  validate-xml              every Config xpath against the installed game (needs .local.env)"
 	@echo "  verify-patched-config     every patch element proven applied, from a save's ConfigsDump"
 	@echo "  validate-patch-targets    every [HarmonyPatch] target against Assembly-CSharp (needs ilspycmd)"
@@ -33,6 +35,12 @@ help:
 # Offline contract/unit suite: every scripts/test_*.py must exit 0.
 # No game install, but the two TOML round-trip gates compile C# and need the
 # .NET SDK (the runtime alone answers `dotnet` and lists no SDKs).
+# Everything .github/workflows/ci.yml runs, in the order it runs them, so a
+# green local run means a green push. The two package steps of the workflow
+# call scripts/verify-package.sh rather than repeating it, so this target and
+# CI cannot drift apart.
+check: test lint verify-package
+
 # Optional substring filters: make test TF="xml layout"
 TF ?=
 test:
@@ -67,6 +75,10 @@ package: build
 		find Wrench -exec touch -h -d "@$(SOURCE_DATE_EPOCH)" {} + && \
 		find Wrench -print | sort | zip -q -X -@ Wrench.zip
 	@echo "OK -> dist/Wrench.zip"
+
+# The two package checks CI runs, on the XML-only package (no game install).
+verify-package:
+	$(ROOT)/scripts/verify-package.sh
 
 # Every Config/*.xml xpath checked against the installed game's vanilla
 # files (needs .local.env; not part of the offline suite).

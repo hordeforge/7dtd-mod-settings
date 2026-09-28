@@ -605,9 +605,11 @@ shipped bytes. Three leaks were there and are now closed:
   `scripts/test_toolchain_floor.py` holds that one order against both.
 
 Timestamps come from `SOURCE_DATE_EPOCH` (the last commit's time, overridable),
-never the wall clock, and entries are added in sorted order. Enforced by the
-"byte-reproducible" step in `.github/workflows/ci.yml`, which packages twice
-under a different umask, locale and timezone and compares the sha256.
+never the wall clock, and entries are added in sorted order. Enforced by
+`scripts/verify-package.sh`, which packages twice under a different umask,
+locale and timezone and compares the sha256; CI's package step and
+`make check` both run that one script, so a local run and a push cannot
+disagree about it.
 
 ## Decided 2026-09-28: the game log is the whole observability surface
 

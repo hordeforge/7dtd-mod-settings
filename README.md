@@ -42,6 +42,7 @@ an authenticated channel, and a WebMod panel over the same file surface.
 
 ```bash
 make help                   # list every target with a one-line description
+make check                  # everything CI runs: test, lint, verify-package
 make test                   # offline gates (scripts/test_*.py; needs the .NET SDK)
 make lint                   # ruff + mypy --strict over scripts/, then shellcheck
 make build                  # stage dist/Wrench/ (needs .local.env, see below)
@@ -59,8 +60,12 @@ make playtest               # live wrench-mod-settings suite via hordeforge/7dtd
 One gate at a time: `make test TF="toml"` runs only the offline tests whose
 name contains `toml`.
 
+`make check` is the whole pre-push step: it is the same sequence, in the same
+order, as `.github/workflows/ci.yml`, and the workflow's package steps call
+`scripts/verify-package.sh` rather than repeating it, so the two cannot drift.
+
 Host tools: Python 3.10+ (the floor `pyproject.toml` and `make test` both
-enforce), `git`, `make`, `zip`; the pinned `ruff` and `mypy` that `make lint`
+enforce), `git`, `make`, `zip` and `unzip`; the pinned `ruff` and `mypy` that `make lint`
 runs, installed with `python3 -m pip install -r requirements-dev.txt` (the
 one place their versions are written down, and what CI installs, so a green
 local run and a green remote run mean the same thing); `shellcheck`; the .NET
@@ -79,6 +84,7 @@ command `wrench` lists, changes, and reloads them.
 
 ## Docs
 
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — the pre-push command, a PR's requirements, adding a gate
 - [`TODO.md`](TODO.md) — what's next
 - [`CHANGELOG.md`](CHANGELOG.md) — what each release changed for a player or a mod author
 - [`docs/design.md`](docs/design.md) — gameplay decisions
