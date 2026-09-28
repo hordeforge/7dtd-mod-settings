@@ -60,6 +60,8 @@ static class Program
 		TestShippedFile();
 		TestSimulatedSave();
 		TestFailedFallbackKeepsTheOnlyCopy();
+		TestSaveTwiceIsOneSave();
+		TestInterruptedSwapConvergesOnRerun();
 		Console.WriteLine(failures + " failures.");
 		Environment.Exit(failures > 0 ? 1 : 0);
 	}
@@ -149,7 +151,12 @@ static class Program
 			var target = new TargetMod("Example", "Example", tomlPath, true);
 			var entry = target.Entries.Find(e => e.Name == "Count");
 			files.PendingNoAtomicReplace = 1;
-			files.PendingMoveFaults = 1;
+			// Two, not one: the first is the move that puts the staged text in
+			// the destination's place, the second the one that would put the old
+			// text back. A save that can close its own swap cleans up after
+			// itself; only a run killed between the two moves leaves the staging
+			// file holding the only copy of the new text.
+			files.PendingMoveFaults = 2;
 			saved = target.TrySave(entry, "13", out error);
 			staged = files.NamesStartingWith(Simulation.TempPrefix);
 		}
@@ -170,6 +177,106 @@ static class Program
 		Check("the failure names where the new text was left",
 			!saved && error != null && tempPath != null && error.Contains(tempPath),
 			error ?? "");
+	}
+
+	// A save is the operation a retry lands on, twice over: the player
+	// presses save again, the screen's own retry re-runs it, and a launch
+	// after a crash lands on whatever the first one left. Running the same
+	// save twice has to leave the file exactly where running it once did.
+	static void TestSaveTwiceIsOneSave()
+	{
+		const string tomlPath = "/sim/Mods/Example/Config/Example.toml";
+		var files = new MemoryFileSystem(new VirtualClock());
+		files.Seed(tomlPath, "Count = 12\n", new UTF8Encoding(false));
+
+		var savedFiles = ModFileSystem.Current;
+		var savedClock = ModClock.Current;
+		ModFileSystem.Current = files;
+		ModClock.Current = new VirtualClock();
+		string error = null;
+		string once = null;
+		var twice = false;
+		try
+		{
+			var target = new TargetMod("Example", "Example", tomlPath, true);
+			if (!target.TrySave(Find(target, "Count"), "13", out error))
+			{
+				Check("a save of one value lands", false, error ?? "");
+				return;
+			}
+			once = files.Peek(tomlPath);
+			// The second run reads the file the first one wrote, so its span
+			// is taken from that text, as any later save's is.
+			twice = target.TrySave(Find(target, "Count"), "13", out error);
+		}
+		finally
+		{
+			ModFileSystem.Current = savedFiles;
+			ModClock.Current = savedClock;
+		}
+
+		Check("a save run twice succeeds", twice, error ?? "");
+		Check("a save run twice leaves the file one run left",
+			once == files.Peek(tomlPath), "once " + once + " twice " + files.Peek(tomlPath));
+		Check("neither run left a staging file behind",
+			files.NamesStartingWith(Simulation.TempPrefix).Count == 0,
+			string.Join(", ", files.NamesStartingWith(Simulation.TempPrefix)));
+	}
+
+	// The one window in which a save leaves no settings file: a run killed
+	// between the two moves of the no-atomic-replace fallback, which is what
+	// a crash in that window looks like to the next run. The old text is at
+	// the sibling name and the new one at a staging file named for a process
+	// that is gone, so nothing after it finds either. Re-running has to land
+	// where the first run did.
+	static void TestInterruptedSwapConvergesOnRerun()
+	{
+		const string tomlPath = "/sim/Mods/Example/Config/Example.toml";
+		var previousPath = tomlPath + TargetMod.PreviousSuffix;
+		var files = new MemoryFileSystem(new VirtualClock());
+		// The state a kill between the two moves leaves, built directly: the
+		// old text is at the sibling, and the staging file it was staged into
+		// is under a name carrying the id of a process that is not running.
+		files.Seed(previousPath, "Count = 12\n", new UTF8Encoding(false));
+		files.Seed(tomlPath + ".wrench-tmp.4242", "Count = 13\n", new UTF8Encoding(false));
+
+		var savedFiles = ModFileSystem.Current;
+		var savedClock = ModClock.Current;
+		ModFileSystem.Current = files;
+		ModClock.Current = new VirtualClock();
+		string error = null;
+		var recovered = false;
+		var again = true;
+		var landed = false;
+		try
+		{
+			// What the screen's discovery asks on the next run.
+			recovered = TargetMod.RecoverInterruptedSave(tomlPath);
+			again = TargetMod.RecoverInterruptedSave(tomlPath);
+			// And the save that was owed, made against the file that is back.
+			var target = new TargetMod("Example", "Example", tomlPath, true);
+			landed = target.TrySave(Find(target, "Count"), "13", out error);
+		}
+		finally
+		{
+			ModFileSystem.Current = savedFiles;
+			ModClock.Current = savedClock;
+		}
+
+		Check("a re-run puts the settings file back", recovered,
+			"nothing at " + previousPath);
+		Check("the file it puts back holds the text the save was about to replace",
+			files.Peek(tomlPath) == "Count = 12\n", files.Peek(tomlPath));
+		Check("the sibling is gone once the file is back", !files.Exists(previousPath));
+		Check("a further re-run recovers nothing and changes nothing",
+			!again && files.Peek(tomlPath) == "Count = 12\n", files.Peek(tomlPath));
+		Check("the interrupted save is still owed and lands on the recovered file",
+			landed && files.Peek(tomlPath) == "Count = 13\n", error ?? files.Peek(tomlPath));
+	}
+
+	static TomlSettings.DocEntry Find(TargetMod target, string name)
+	{
+		return target.Entries == null ? null : target.Entries.Find(e => e.Name == name);
 	}
 
 	static string FirstDifference(string left, string right)

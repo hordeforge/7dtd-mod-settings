@@ -16,6 +16,14 @@ its own numbered heading when the version it ships under is declared.
 
 ### Fixed
 
+- A save killed between the two moves of the swap that stands in for a
+  runtime with no atomic replace no longer costs a mod its settings file.
+  The run left the file at a `.wrench-prev` sibling and the new text at a
+  `.wrench-tmp.<pid>` name nothing else looked for, and the screen dropped
+  the mod because its file was not there. The next run puts the file back
+  and the mod is listed and editable again; a run after that changes
+  nothing.
+
 - Another mod's settings file marked UTF-16 or UTF-32 is refused when it
   holds a byte that is not valid in the encoding its own mark names,
   instead of being read with replacement characters. The marked

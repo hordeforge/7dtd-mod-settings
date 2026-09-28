@@ -69,6 +69,40 @@ namespace Wrench
 		/// </summary>
 		public const int SpliceAttempts = 4;
 
+		/// <summary>
+		/// The suffix of the sibling the no-atomic-replace fallback moves the
+		/// old text to while the staged text is moved into its place.
+		/// </summary>
+		public const string PreviousSuffix = ".wrench-prev";
+
+		/// <summary>
+		/// Puts a settings file back after a run was killed between the two
+		/// moves of that fallback, which is the one window in a save where the
+		/// destination does not exist: the old text is at its
+		/// <see cref="PreviousSuffix"/> sibling and the new one at a staging
+		/// file named for a process that is gone. Nothing after that reads
+		/// either name, so the mod drops out of the screen for good and its
+		/// settings are only reachable by hand.
+		///
+		/// Re-running is the whole of the fix, and this is what makes the
+		/// second run converge: it acts only while the destination is missing,
+		/// so a run after the one that recovered finds the file where it
+		/// belongs and changes nothing. The text it puts back is the one the
+		/// interrupted save was about to replace, so that save is still owed
+		/// rather than half made.
+		/// </summary>
+		public static bool RecoverInterruptedSave(string tomlPath)
+		{
+			var files = ModFileSystem.Current;
+			if (files.Exists(tomlPath))
+				return false;
+			var previous = tomlPath + PreviousSuffix;
+			if (!files.Exists(previous))
+				return false;
+			files.Move(previous, tomlPath);
+			return true;
+		}
+
 		// A save is a read, a splice into what that read produced, and a
 		// whole-file write. Two savers of one file that overlap anywhere in
 		// that lose an edit: the second write carries the file as the first
@@ -230,6 +264,12 @@ namespace Wrench
 			error = null;
 			lock (saveGates.GetOrAdd(TomlPath, _ => new object()))
 			{
+				// A save killed between the two moves of its swap left the file
+				// at its sibling name, so this run is that save's retry and the
+				// file it is about to splice has to be there. Nothing is logged
+				// from here: this class names no game type, so the save path can
+				// be driven offline, and the run that opens the screen says it.
+				RecoverInterruptedSave(TomlPath);
 				for (var attempt = 1; ; attempt++)
 				{
 					string currentText;
@@ -349,7 +389,7 @@ namespace Wrench
 		{
 			moved = false;
 			var temp = path + ".wrench-tmp." + stagingOwner;
-			var previous = path + ".wrench-prev";
+			var previous = path + PreviousSuffix;
 			var files = ModFileSystem.Current;
 			try
 			{

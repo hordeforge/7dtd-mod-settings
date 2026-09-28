@@ -77,10 +77,21 @@ namespace Wrench
 					Log.Warning(ModApi.LogPrefix + " skipped " + mod.Name + " (" + error + ")");
 					continue;
 				}
-				if (!ModFileSystem.Current.Exists(tomlPath))
-					continue;
 				try
 				{
+					if (!ModFileSystem.Current.Exists(tomlPath)
+						&& TargetMod.RecoverInterruptedSave(tomlPath))
+					{
+						// A save killed between the two moves of its swap left the
+						// file at its sibling name. This is the run after that one,
+						// and the one that has to notice: the mod is listed and
+						// editable again instead of gone for good.
+						Log.Warning(ModApi.LogPrefix + " a save interrupted mid-swap left "
+							+ mod.Name + "'s settings at " + tomlPath + TargetMod.PreviousSuffix
+							+ "; they have been put back, and that save was not made.");
+					}
+					if (!ModFileSystem.Current.Exists(tomlPath))
+						continue;
 					result.Add(new TargetMod(mod.Name, mod.DisplayName, mod.Path, tomlPath,
 						CachedHasSettingsComponent(mod),
 						new ModIdentity(mod.Path, mod.Name)));

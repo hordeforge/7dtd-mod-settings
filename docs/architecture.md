@@ -206,7 +206,14 @@ be able to destroy it. Two properties, both held by
   the target moves aside to `.wrench-prev` and the staged text takes its
   place, and a move that fails puts the old text back (naming the file if
   even that fails), so the only window in which the target is missing is
-  one the same method closes again.
+  one the same method closes again. A run *killed* between the two moves
+  is the one window the same method cannot close, and the `.wrench-prev`
+  sibling is what it leaves behind. `TargetMod.RecoverInterruptedSave`
+  moves that back when the target is missing, and the screen's discovery
+  asks before it drops a mod whose file is not there, so the run after a
+  killed save lands the mod on the screen again instead of losing its
+  settings to a sibling name nothing else reads. It acts only while the
+  target is missing, so a further run changes nothing.
 - The staged file is created with `FileMode.CreateNew` after unlinking
   whatever is at that name, never `FileMode.Create`. The stage has a fixed,
   guessable name beside the target, so on a shared server install anything
@@ -530,6 +537,36 @@ log seam is the same move `TargetMod` just made. Enforced by
 `scripts/test_settings_reload.py` and
 `scripts/test_target_save_coherence.py` (the seams, and the game-free
 save path), and by `scripts/test_toml_document.py` (the run itself).
+
+## Decided 2026-09-28: running a save twice lands where running it once did
+
+A save is the operation a second execution actually reaches. The player
+presses save again, the screen's own retry re-runs it, a launch after a
+crash lands on whatever the killed run left, and a hot-reloading mod's
+watch re-reads the file either way.
+
+- The edit itself is idempotent (one value span is replaced with one
+  value span), and the gate now proves the whole thing: the same save run
+  twice leaves the file byte-identical to one run, with no staging file
+  left behind either time.
+- The swap's two-move fallback has one window the method cannot close: a
+  run killed between `Move(target, previous)` and `Move(staged, target)`
+  leaves the mod with no settings file, its old text at `.wrench-prev` and
+  its new text at a `.wrench-tmp.<pid>` name no later run looks for.
+  Discovery skipped a mod whose file is not there, so the mod disappeared
+  from the screen and the settings were reachable only by hand.
+  `TargetMod.RecoverInterruptedSave` moves the sibling back, and both
+  discovery and the save path ask before reading, so the next run
+  converges. It acts only while the target is missing, which is what makes
+  the run after *that* one a no-op.
+- The failure paths that close their own swap are unchanged: a save that
+  reports success leaves exactly the text it showed, and a save that
+  reports failure changed nothing. Both are already gate invariants.
+
+Held by the same run: `scripts/test_toml_document.py` drives the
+interrupted-swap and save-twice scenarios, and
+`scripts/test_target_save_coherence.py` holds the shape of the recovery
+so a refactor cannot quietly drop it.
 
 ## Decided 2026-09-28: a mod is identified by its folder, and an unproven answer is not an answer
 

@@ -20,7 +20,9 @@ offset. Three things must hold for that to be safe:
   happened. The log callback runs off the Unity thread, so the marker and
   the latch share one lock;
 - a save is written through a temp file and renamed over the destination, so
-  the mod polling the file never reads a half-written one.
+  the mod polling the file never reads a half-written one, and a run killed
+  between the two moves of the no-atomic-replace fallback converges on the
+  next one instead of leaving the mod with no settings file at all.
 
 All three are source-level contracts here: the behavior is proven live by the
 `wrench-mod-settings` suite, and the C# cannot be executed offline. This gate
@@ -214,6 +216,7 @@ def main() -> int:
     # staged path rather than a File.* spelling: it is the temp sibling the
     # text reaches, not which overload does it, that keeps the target whole.
     write = body(target, "bool TryWrite(")
+    recover = body(target, "public static bool RecoverInterruptedSave(")
     check("a save is written to a temp file, never over the target",
           "files.WriteAllText(temp, text, encoding)" in write
           and "WriteAllText(TomlPath" not in write)
@@ -235,6 +238,19 @@ def main() -> int:
     check("a swap that cannot be closed says where the old text is",
           "files.Exists(previous)" in write
           and "The previous text is at" in write)
+    # A run killed between the two moves of that swap leaves the mod with no
+    # settings file and its old text at a sibling name that nothing after it
+    # reads: the mod drops out of the screen for good. The next run is the
+    # only chance to notice, so the screen's discovery and the save path both
+    # ask, and asking costs one existence read when the file is there.
+    check("a save killed mid-swap converges on the next run",
+          "public const string PreviousSuffix" in target
+          and "public static bool RecoverInterruptedSave(" in target
+          and "if (files.Exists(tomlPath))" in recover
+          and "files.Move(previous, tomlPath)" in recover
+          and "path + PreviousSuffix" in write
+          and "RecoverInterruptedSave(TomlPath);" in save
+          and "TargetMod.RecoverInterruptedSave(tomlPath)" in discovery)
 
     read_body = body(target, "bool TryRead(")
     # The read is the other half of the atomic save: it has to report the
