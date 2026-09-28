@@ -48,7 +48,11 @@ def _scan_block(body: list[ast.stmt], found: list[tuple[int, str]]) -> None:
 
 def findings(source: str) -> list[str]:
     """The unreachable-statement findings in *source*, as 'lineno: kind'."""
-    tree = ast.parse(source)
+    return _unreachable_statements(ast.parse(source))
+
+
+def _unreachable_statements(tree: ast.Module) -> list[str]:
+    """The unreachable-statement findings in an already parsed *tree*."""
     found: list[tuple[int, str]] = []
     for node in ast.walk(tree):
         for field in ("body", "orelse", "finalbody"):
@@ -72,13 +76,17 @@ def is_text_flag(value: ast.expr | None) -> bool:
 
 
 def undecoded_text_calls(source: str) -> list[str]:
-    """The subprocess calls decoding text without naming an encoding.
+    """The subprocess calls decoding text without naming an encoding."""
+    return _undecoded_text_calls(ast.parse(source))
+
+
+def _undecoded_text_calls(tree: ast.Module) -> list[str]:
+    """As `undecoded_text_calls`, over an already parsed *tree*.
 
     `text=True` decodes with the locale's encoding, which is ASCII under a
     bare LANG, so a subprocess that prints one non-ASCII byte then raises
     UnicodeDecodeError. The call site has to say which encoding it means.
     """
-    tree = ast.parse(source)
     found: list[tuple[int, str]] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
@@ -102,12 +110,16 @@ def tracked_files_stay_clean() -> None:
         path = os.path.join(MOD_DIR, relpath)
         with open(path, encoding="utf-8") as handle:
             source = handle.read()
+        # One parse per file, shared by both detectors: the tree is the whole
+        # input each of them walks, and parsing a tracked file twice to ask
+        # two questions of it is the gate's own duplicated work.
         try:
-            unreachable += [f"{relpath}:{item}" for item in findings(source)]
-            undecoded += [f"{relpath}:{item}" for item in undecoded_text_calls(source)]
+            tree = ast.parse(source)
         except SyntaxError:
             # A parse error is ruff's E999 to report, not this gate's.
             continue
+        unreachable += [f"{relpath}:{item}" for item in _unreachable_statements(tree)]
+        undecoded += [f"{relpath}:{item}" for item in _undecoded_text_calls(tree)]
     check(
         "no unreachable statements in tracked *.py",
         not unreachable,

@@ -102,13 +102,20 @@ def answered_bindings() -> set[str]:
 def main() -> int:
     files = xml_files()
     roots: dict[str, str] = {}
+    # ModInfo.xml is the one file whose contents are read as well as its root
+    # tag, and it is in the walk above: parsed once and kept, so the fields
+    # below do not read it off the disk a second time.
+    modinfo_root: ET.Element | None = None
     for rel in files:
         try:
-            roots[rel] = ET.parse(os.path.join(MOD_DIR, rel)).getroot().tag
+            root = ET.parse(os.path.join(MOD_DIR, rel)).getroot()
         except ET.ParseError as err:
             roots[rel] = ""
             check("xml-parses:" + rel, False, str(err))
             continue
+        roots[rel] = root.tag
+        if rel == "ModInfo.xml":
+            modinfo_root = root
         check("xml-parses:" + rel, True)
 
     for rel in files:
@@ -125,9 +132,9 @@ def main() -> int:
 
     modinfo = os.path.join(MOD_DIR, "ModInfo.xml")
     check("modinfo-exists", os.path.isfile(modinfo))
-    if os.path.isfile(modinfo) and roots.get("ModInfo.xml"):
+    if os.path.isfile(modinfo) and modinfo_root is not None:
         values = {p.tag: (p.get("value") or "").strip()
-                  for p in ET.parse(modinfo).getroot()}
+                  for p in modinfo_root}
         for field in ("Name", "DisplayName", "Description", "Author", "Version"):
             check("modinfo-field:" + field, bool(values.get(field)), "empty or missing")
         # The checkout is named after the repo slug, so the directory name
