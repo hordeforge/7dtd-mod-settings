@@ -25,6 +25,12 @@ load_server_environment() {
 	# Consumed by the sourcing server-*.sh callers, not by this library.
 	# shellcheck disable=SC2034
 	SERVER_CONFIG="${SEVEN_DAYS_TO_DIE_SERVER_CONFIG:-$SERVER_DIR/serverconfig.wrench.xml}"
+	# An override is a path like any other, and it is the one the caller is
+	# least able to trace: a relative value names the serverconfig beside
+	# the shell that ran the deploy, and a server booted from the mod root
+	# then reads a different file than the same override read from a test
+	# one level down.
+	require_env_path SEVEN_DAYS_TO_DIE_SERVER_CONFIG "$SERVER_CONFIG"
 }
 
 resolve_steamcmd() {
@@ -39,6 +45,12 @@ resolve_steamcmd() {
 	if command -v steamcmd >/dev/null 2>&1; then
 		STEAMCMD_BIN="$(command -v steamcmd)"
 		return
+	fi
+	# The fallback directory is resolved the same way an explicit
+	# SEVEN_DAYS_TO_DIE_STEAMCMD path is: a relative one would send the
+	# "not found" below looking for SteamCMD under the shell's directory.
+	if [[ -n "${SEVEN_DAYS_TO_DIE_STEAMCMD_DIR:-}" ]]; then
+		require_env_path SEVEN_DAYS_TO_DIE_STEAMCMD_DIR "$SEVEN_DAYS_TO_DIE_STEAMCMD_DIR"
 	fi
 	STEAMCMD_BIN="${SEVEN_DAYS_TO_DIE_STEAMCMD_DIR:-$HOME/.local/share/steamcmd}/steamcmd.sh"
 	if [[ ! -x "$STEAMCMD_BIN" ]]; then

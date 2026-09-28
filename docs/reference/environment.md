@@ -67,6 +67,27 @@ keeps its SDK off `PATH` needs the key set once, not once per tool.
 `WRENCH_SKIP_DLL=1` is a build-time knob, not a path: it stages the XML-only
 package, which is how CI exercises packaging without the game assemblies.
 
+### What a knob may hold
+
+Two value checks cover every environment knob the scripts read, both in
+`scripts/local-env.sh`, and a value neither names stops the run with the
+key in the message (`scripts/test_env_knob_values.py`):
+
+- a flag knob is `0` or `1` (`WRENCH_SKIP_DLL`, `FRESH`); an unset knob is
+  the caller's default, and a blank one is a value, so it is refused
+- a path knob is absolute (`SEVEN_DAYS_TO_DIE_SERVER_CONFIG`,
+  `SEVEN_DAYS_TO_DIE_STEAMCMD_DIR`), because a relative one names a
+  different file per working directory
+
+The two readings these replaced read every value they did not name as
+"off", so a typo read as a knob that had been honoured: `WRENCH_SKIP_DLL=yes`
+staged a DLL-bearing package on a machine with no game install, and
+`FRESH=no` deleted the playtest world the operator meant to keep. The
+numeric knobs (`SEVEN_DAYS_TO_DIE_SERVER_APP_ID`,
+`SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS`, `PLAYTEST_TIMEOUT`,
+`PLAYTEST_PORT`, `PLAYTEST_ADMIN_PORT`) are integers within a stated
+range, and their range is the check.
+
 ### Optional saves location
 
 | Key | Default when unset |
