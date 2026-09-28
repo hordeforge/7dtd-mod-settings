@@ -1,4 +1,4 @@
-Wrench (Mod Settings) 0.2.0.0
+Wrench (Mod Settings) 0.2.1.0
 
 7 DAYS TO DIE V3.2
 

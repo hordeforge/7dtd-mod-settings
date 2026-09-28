@@ -254,7 +254,8 @@ namespace Wrench
 			ResetToDefaults();
 			for (var i = 0; i < entries.Count; i++)
 			{
-				if (!TrySet(entries[i].Name, entries[i].Value, out var setMessage))
+				if (!TrySet(entries[i].Name, entries[i].Value, out var setMessage,
+					ignoreNameCase: false))
 					Debug.LogWarning("[Wrench] " + RelativePath + ": " + setMessage);
 			}
 			appliedWriteUtc = writeUtc;
@@ -349,21 +350,32 @@ namespace Wrench
 		/// console command so both surfaces keep one name and value grammar.
 		/// Unknown names and bad values fail loud and change nothing.
 		///
+		/// <paramref name="ignoreNameCase"/> is true for a name typed at the
+		/// console and false for one read out of a TOML file: TOML keys are
+		/// case sensitive, so <c>ExampleEnabled</c> and <c>exampleenabled</c>
+		/// are two keys and the second one is unknown, not a second spelling
+		/// of a setting.
+		///
 		/// Takes <see cref="Gate"/>, so a <c>wrench set</c> from the telnet
 		/// thread cannot land between a reload's reset and its apply. Monitor
 		/// is reentrant, so the reload path may call this while holding it.
 		/// </summary>
-		public static bool TrySet(string name, string value, out string message)
+		public static bool TrySet(string name, string value, out string message,
+			bool ignoreNameCase = true)
 		{
 			lock (Gate)
 			{
-				return TrySetLocked(name, value, out message);
+				return TrySetLocked(name, value, ignoreNameCase, out message);
 			}
 		}
 
-		static bool TrySetLocked(string name, string value, out string message)
+		static bool TrySetLocked(string name, string value, bool ignoreNameCase,
+			out string message)
 		{
-			if (string.Equals(name, ExampleEnabledName, StringComparison.OrdinalIgnoreCase))
+			var comparison = ignoreNameCase
+				? StringComparison.OrdinalIgnoreCase
+				: StringComparison.Ordinal;
+			if (string.Equals(name, ExampleEnabledName, comparison))
 			{
 				bool parsed;
 				if (!TryParseBool(value, out parsed))

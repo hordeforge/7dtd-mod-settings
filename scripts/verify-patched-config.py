@@ -28,7 +28,16 @@ import sys
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from local_env import game_dir, mod_dir
+from local_env import game_dir, local_env_value, mod_dir
+
+# The Proton prefix layout, from docs/reference/environment.md. Steam AppID
+# 251570 is 7 Days to Die; the user directory name is Steam's own default.
+GAME_STEAM_APP_ID = "251570"
+STEAM_USER = "steamuser"
+PREFIX_SAVES = os.path.join(
+    "compatdata", GAME_STEAM_APP_ID, "pfx", "drive_c", "users", STEAM_USER,
+    "AppData", "Roaming", "7DaysToDie", "Saves")
+SAVES_DIR_KEY = "SEVEN_DAYS_TO_DIE_SAVES_DIR"
 
 MOD_DIR = str(mod_dir())
 # The checkout is named after the repo slug; ModInfo.xml Name is the mod
@@ -126,16 +135,26 @@ def check_containers(dump_dir: str) -> list[str]:
     return failures
 
 
+def saves_dir(game_dir: str) -> str:
+    """Where the engine writes saves, from the inventory or the install path.
+
+    Same precedence as every other inventory key: an exported
+    `SEVEN_DAYS_TO_DIE_SAVES_DIR` wins, then the same key in `.local.env`,
+    then the Proton prefix derived from the game install.
+    """
+    configured = os.environ.get(SAVES_DIR_KEY) or local_env_value(SAVES_DIR_KEY)
+    if configured:
+        return configured
+    marker = os.path.join("steamapps", "common") + os.sep
+    if marker not in game_dir:
+        raise VerifyError(
+            f"cannot derive the saves directory from {game_dir}; set "
+            f"{SAVES_DIR_KEY} to the saves root (see .local.env.example).")
+    return os.path.join(game_dir.split(marker)[0], PREFIX_SAVES)
+
+
 def find_dump(game_dir: str, save_name: str) -> str:
-    saves = os.environ.get("SEVEN_DAYS_TO_DIE_SAVES_DIR")
-    if not saves:
-        if "/steamapps/common/" not in game_dir:
-            raise VerifyError("cannot derive the saves directory; set SEVEN_DAYS_TO_DIE_SAVES_DIR.")
-        steamapps = game_dir.split("/common/")[0]
-        saves = os.path.join(
-            steamapps, "compatdata", "251570", "pfx", "drive_c", "users", "steamuser",
-            "AppData", "Roaming", "7DaysToDie", "Saves",
-        )
+    saves = saves_dir(game_dir)
     pattern = os.path.join(saves, "*", save_name if save_name else "*", "ConfigsDump")
     candidates = [p for p in glob.glob(pattern) if os.path.isdir(p)]
     if not candidates:

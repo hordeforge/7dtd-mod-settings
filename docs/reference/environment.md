@@ -48,6 +48,16 @@ not find. `scripts/test_local_env_precedence.py` holds this rule.
 `WRENCH_SKIP_DLL=1` is a build-time knob, not a path: it stages the XML-only
 package, which is how CI exercises packaging without the game assemblies.
 
+### Optional saves location
+
+| Key | Default when unset |
+|---|---|
+| `SEVEN_DAYS_TO_DIE_SAVES_DIR` | the Proton prefix derived from the client install: `compatdata/251570/pfx/drive_c/users/steamuser/AppData/Roaming/7DaysToDie/Saves` |
+
+`scripts/verify-patched-config.py` reads it (exported value first, then
+`.local.env`); set it when the world lives under a second prefix or a
+non-Steam launcher, where that derivation does not hold.
+
 `new-mod.sh` writes this file at scaffold time. On a machine where it is
 missing, blank, or invalid: **ask the user for the absolute path before
 doing any game-file work.** Do not guess a platform path or reuse one from

@@ -5,8 +5,10 @@
 # until the file is re-read; `wrench reload` re-reads
 # immediately. See `help wrench`.
 #
-# Keys match the console names. Unknown keys and bad values fail loud
-# (a warning in the log) and leave the default in place. The parser
+# Keys match the console names, and their case is part of the name:
+# ExampleEnabled and exampleenabled are two keys, and the second one
+# is unknown. Unknown keys and bad values fail loud (a warning in the
+# log) and leave the default in place. The parser
 # accepts booleans, integers, floats, "strings", and arrays of those;
 # tables and dotted keys are rejected. A key is only applied once
 # ModSettings.cs declares it, and that declaration fixes its type.

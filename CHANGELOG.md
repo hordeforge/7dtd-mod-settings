@@ -10,6 +10,26 @@ Breaking changes for players and for mod authors are called out under
 **Changed** or **Fixed**; a release with none says so under
 **Compatibility**.
 
+## [0.2.1] - 2026-09-28
+
+Requires 7 Days to Die V3.2, the same as 0.2.0. Upgrade by replacing the
+whole `Mods/Wrench` folder: no config migration, no new key, and no
+removed key.
+
+### Fixed
+
+- A setting key whose case does not match is now reported as an unknown
+  key instead of applying the setting it only looks like. TOML keys are
+  case sensitive, and `wrench set` still accepts a name typed in any case.
+
+### Compatibility
+
+- No breaking change: no setting key was renamed or removed, no default
+  changed, and the console commands take the same arguments and print
+  the same reports. A file that spelled a key with the wrong case set
+  that setting from 0.1.0 to 0.2.0; from 0.2.1 the key is unknown, is
+  logged as unknown, and the default stands.
+
 ## [0.2.0] - 2026-09-28
 
 Requires 7 Days to Die V3.2, the same as 0.1.0. Upgrade by replacing the

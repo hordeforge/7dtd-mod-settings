@@ -39,6 +39,21 @@ usage() {
 		  SEVEN_DAYS_TO_DIE_DIR / SEVEN_DAYS_TO_DIE_SERVER_DIR
 		  PLAYTEST_ROOT / CONNECT_ROOT
 		  WRENCH_ATOMIC_MOD_DIR  AtomicDoomsday checkout (reference consumer)
+
+		ENVIRONMENT (optional, each with the default shown)
+		  PLAYTEST_SUITE          wrench-mod-settings
+		  PLAYTEST_TIMEOUT        900    seconds, a positive integer
+		  PLAYTEST_PORT           26900  game port, 1-65535
+		  PLAYTEST_ADMIN_PORT     8081   telnet admin port, 1-65535
+		  PLAYTEST_WORLD_NAME     Navezgane
+		  PLAYTEST_GAME_NAME      PlaytestNav
+		  PLAYTEST_CLIENT_PLATFORM local
+		  PLAYTEST_CLIENT_LOG     the connect client's log in the Proton prefix
+		  PLAYTEST_AGENT          agent   prefix for a generated session id
+		  PLAYTEST_SESSION_ID     generated
+		  MODS_DIR                the Proton per-user Mods directory
+		  CONNECT_NAME            7dtd-fastconnect
+		  FRESH                   1      0 keeps the existing playtest save
 	EOF
 }
 
@@ -55,6 +70,21 @@ done
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
+# A knob the orchestrator takes as a number, checked before the run: a
+# mistyped value otherwise surfaces as the orchestrator's own argument
+# error, minutes later and named by neither this script nor the knob.
+require_integer() {
+	local name="$1" value="$2" low="$3" high="$4"
+	if ! [[ "$value" =~ ^[0-9]+$ ]] || (( value < low || value > high )); then
+		die "$name must be an integer from $low to $high, not '$value'."
+	fi
+}
+
+require_text() {
+	local name="$1" value="$2"
+	[[ -n "$value" ]] || die "$name must not be empty."
+}
+
 # Fill in unset paths from this mod's machine-local inventory; an explicit
 # environment always wins (scripts/local-env.sh owns that rule).
 # shellcheck source=local-env.sh
@@ -69,6 +99,12 @@ ATOMIC_DIR="${WRENCH_ATOMIC_MOD_DIR:-}"
 [[ -d "$PLAYTEST_ROOT" ]] || die "PLAYTEST_ROOT missing: $PLAYTEST_ROOT"
 [[ -d "$CONNECT_ROOT" ]] || die "CONNECT_ROOT missing: $CONNECT_ROOT"
 [[ -d "$ATOMIC_DIR" ]] || die "WRENCH_ATOMIC_MOD_DIR must name the AtomicDoomsday checkout (the live reference consumer); add it to .local.env"
+require_integer PLAYTEST_TIMEOUT "$TIMEOUT" 1 86400
+require_integer PLAYTEST_PORT "$PORT" 1 65535
+require_integer PLAYTEST_ADMIN_PORT "$ADMIN_PORT" 1 65535
+require_text PLAYTEST_SUITE "$SUITE"
+require_text PLAYTEST_WORLD_NAME "$WORLD_NAME"
+require_text PLAYTEST_GAME_NAME "$GAME_NAME"
 
 # Framework-dependent net8 apphosts (the orch tooling) need DOTNET_ROOT on
 # Arch-family installs; detect from the muxer, preserve an explicit override.

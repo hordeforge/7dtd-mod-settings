@@ -29,9 +29,10 @@ REQUIRED_KEYS = (
     "UNITY_EDITOR",
 )
 
-# Optional overrides the shell targets read; a key that exists in code but
+# Optional overrides the tooling reads; a key that exists in code but
 # in no documented inventory is one a machine can set and never discover.
 DOCUMENTED_OPTIONAL_KEYS = (
+    "SEVEN_DAYS_TO_DIE_SAVES_DIR",
     "SEVEN_DAYS_TO_DIE_SERVER_APP_ID",
     "SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS",
     "SEVEN_DAYS_TO_DIE_SERVER_CONFIG",

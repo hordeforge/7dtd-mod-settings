@@ -96,6 +96,14 @@ def main() -> int:
     check("ModSettings reads the TOML through the shared TrySet grammar",
           "TomlSettings.TryRead" in settings
           and "TrySet(entries[i].Name, entries[i].Value" in settings)
+    # TOML keys are case sensitive, so a key whose case is wrong is an
+    # unknown key: the file reader must not accept it as a second spelling
+    # of a declared setting. The console, whose name is typed by hand, still
+    # matches case-insensitively.
+    check("a file key whose case is wrong is unknown, not a second name",
+          "ignoreNameCase: false" in body(settings, "static bool ReloadLocked(")
+          and "StringComparison.OrdinalIgnoreCase" in settings
+          and "StringComparison.Ordinal;" in settings)
     check("a save is picked up on UnityUpdate without a Harmony patch",
           "ModEvents.UnityUpdate.RegisterHandler" in api
           and "ModSettings.Poll()" in api
@@ -125,17 +133,19 @@ def main() -> int:
           and "error = ex.Message;" in settings
           and "catch (Exception ex)" in settings
           and "catch (Exception)" not in settings)
-    # The staged sibling is `TomlPath + ".wrench-tmp"` in TryWrite: the
-    # temp file is a sibling of the target, the replace is what puts it
-    # in, and the same name is unlinked on the failure path (TryDeleteTemp)
-    # so a failed save leaves nothing behind. The read half of the same save
-    # goes through the seam too, so a simulated run drives the read and the
-    # write of one save on one filesystem.
+    # TryWrite stages the sibling `TomlPath + ".wrench-tmp"`, writes it
+    # through the seam, and puts it in place with an atomic replace that
+    # retries while the target's own settings watch holds the file; the same
+    # name is unlinked on the failure path (TryDeleteTemp), so a failed save
+    # leaves nothing behind. The read half of the same save goes through the
+    # seam too, so a simulated run drives the read and the write of one save
+    # on one filesystem.
     check("a save is staged and swapped in, never written over in place",
           "WriteAllText(TomlPath" not in target
           and 'var tempPath = TomlPath + ".wrench-tmp";' in target
           and "files.WriteAllText(tempPath, newText, encoding)" in target
-          and "files.Replace(tempPath, TomlPath);" in target
+          and "files.Replace(tempPath, TomlPath)" in target
+          and "if (attempt >= ReplaceAttempts)" in target
           and "TryDeleteTemp(tempPath)" in target
           and "ModFileSystem.Current.ReadAllBytes(TomlPath)" in target)
     # The mod name comes out of another mod's ModInfo.xml, and this screen
