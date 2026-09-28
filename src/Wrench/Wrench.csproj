@@ -7,6 +7,12 @@
     <AssemblyName>Wrench</AssemblyName>
     <RootNamespace>Wrench</RootNamespace>
     <DebugType>none</DebugType>
+    <!-- The audit has nothing to read here: this project declares no
+         PackageReference, and the game assemblies and Harmony arrive by
+         path from the install (below). It would still fetch the advisory
+         database on every restore, and an unreachable database is NU1900,
+         a warning TreatWarningsAsErrors turns into a failed build on a
+         machine that builds offline. -->
     <NuGetAudit>false</NuGetAudit>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>

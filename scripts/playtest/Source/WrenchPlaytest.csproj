@@ -7,6 +7,9 @@
     <AssemblyName>WrenchPlaytest</AssemblyName>
     <RootNamespace>WrenchPlaytest</RootNamespace>
     <DebugType>none</DebugType>
+    <!-- No PackageReference either: the mod, the game and the playtest
+         harness arrive by path. See src/Wrench/Wrench.csproj for why the
+         audit is off. -->
     <NuGetAudit>false</NuGetAudit>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>

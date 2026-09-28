@@ -24,8 +24,19 @@ REQUIREMENTS = "requirements-dev.txt"
 # The tools scripts/lint-python.sh refuses to start without.
 REQUIRED_TOOLS = ("ruff", "mypy")
 
+# The distributions those two pull in. A version here that floats is a
+# release nobody reviewed entering the lint lane on the day it is
+# published, so the file pins the closure, not only the two tools.
+TRANSITIVE = ("mypy_extensions", "typing_extensions", "pathspec", "librt",
+              "ast-serialize", "tomli")
+PINNED_NAMES = REQUIRED_TOOLS + TRANSITIVE
+
 # A pin: `tool==version`, with or without extras or an environment marker.
 PIN = re.compile(r"\b([A-Za-z][A-Za-z0-9._-]*)==[^\s\"']+")
+
+# What an acceptable pin looks like: an exact version, optionally followed
+# by the environment marker that scopes it to some interpreters.
+EXACT = re.compile(r"([A-Za-z][A-Za-z0-9._-]*)==\d+(\.\d+)+;?")
 
 # Tracked text files a pin could hide in. Anything else is binary, a build
 # output or an image, none of which a contributor reads instructions from.
@@ -54,7 +65,7 @@ def tracked_text_files() -> list[str]:
 
 def pinned(text: str) -> dict[str, str]:
     return {match.group(1): match.group(0) for match in PIN.finditer(text)
-            if match.group(1) in REQUIRED_TOOLS}
+            if match.group(1) in PINNED_NAMES}
 
 
 def main() -> int:
@@ -68,9 +79,11 @@ def main() -> int:
     check("every lint tool is pinned in requirements-dev.txt",
           all(tool in declared for tool in REQUIRED_TOOLS),
           "missing: " + ", ".join(t for t in REQUIRED_TOOLS if t not in declared))
-    for tool in REQUIRED_TOOLS:
+    for tool in PINNED_NAMES:
+        # The version is exact; a trailing environment marker scopes the pin
+        # to the interpreters that resolve it, and is not a range.
         check(f"{tool} is pinned to an exact version",
-              re.fullmatch(rf"{tool}==\d+(\.\d+)+", declared.get(tool, "")) is not None,
+              EXACT.fullmatch(declared.get(tool, "")) is not None,
               f"{tool} is not pinned to an exact version")
 
     workflow = read(os.path.join(MOD_DIR, ".github", "workflows", "ci.yml"))
@@ -88,11 +101,11 @@ def main() -> int:
           "README must name " + REQUIREMENTS + " instead of listing versions")
 
     # The drift check itself: no other tracked text file states a version for
-    # a lint tool, so there is no second place to update and no second place
-    # to forget.
+    # a pinned distribution, so there is no second place to update and no
+    # second place to forget.
     stray = {name: found for name in tracked_text_files() if name != REQUIREMENTS
              and (found := pinned(read(os.path.join(MOD_DIR, name))))}
-    check("no tracked file restates a lint tool's version",
+    check("no tracked file restates a pinned toolchain version",
           not stray,
           "; ".join(f"{name}: {', '.join(sorted(found.values()))}"
                     for name, found in sorted(stray.items()))

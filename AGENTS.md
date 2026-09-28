@@ -138,8 +138,10 @@ comment lists the steps) and mirror it, commented, in the shipped TOML.
 The mod's Python is stdlib only: `pyproject.toml` declares a virtual project
 with no dependencies and `uv.lock` resolves it empty, so no third-party
 package arrives by accident. ruff and mypy are developer and CI tools pinned
-in `requirements-dev.txt` (the one place a version is written down) and
-shellcheck is a host tool; the dotnet SDK is read-only reference for the C#
+in `requirements-dev.txt` (the one place a version is written down), together
+with the distributions mypy pulls in, because an unpinned one of those enters
+the lint lane unreviewed the day it is published; shellcheck is a host tool;
+the dotnet SDK is read-only reference for the C#
 TOML harnesses, so `make test` needs an interpreter and that SDK, no game
 install. A third-party package is a decision to make on purpose, not a
 reflex: declare it in `pyproject.toml`, take the install with it, and write

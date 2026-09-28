@@ -15,6 +15,24 @@ map those reviews aim at.
 
 Last reviewed: 2026-09-28, against the mod version `0.3.0.0` (`ModInfo.xml:7`).
 
+## Third-party dependencies
+
+The whole inventory, since it is three lines long and every part of it is a
+path someone else can change:
+
+| What | Where it enters | Held by |
+|---|---|---|
+| The mod itself (C# DLL, XML patches, shipped TOML) | none; this repository | `scripts/test_stdlib_only.py` for the Python half; no `.csproj` declares a `PackageReference` or carries vendored source |
+| ruff, mypy and mypy's transitive distributions | `requirements-dev.txt`, installed by `.github/workflows/ci.yml` | exact pins in that one file, single-sourced by `scripts/test_lint_toolchain_declared.py` |
+| Assembly-CSharp, UnityEngine.CoreModule, LogLibrary, 0Harmony | the game install, by path at build time (`src/Wrench/Wrench.csproj`) | the install is read-only reference; `make build` fails loud when a path is absent |
+| The hordeforge tool checkouts (playtest, ilspycmd) | `.local.env` | `scripts/test_local_path_inventory.py`, `scripts/test_upstream_tooling.py` |
+
+Not covered, and not claimed: the tool installs are pinned by version, not by
+hash, so a re-upload of a pinned version is not detected; and nothing here
+generates an SBOM, which for a modlet a player extracts from a zip rather
+than a package it resolves is the point where an inventory stops paying for
+itself.
+
 ## Risk-ranked summary
 
 Ranked by exploitability against the stated attacker followed by impact. "Local"
