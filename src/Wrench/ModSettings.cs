@@ -21,6 +21,11 @@ namespace Wrench
 	/// To add a setting: a Name constant, a default, a property, a line each
 	/// in <see cref="ResetToDefaults"/>, <see cref="TrySet"/> and
 	/// <see cref="Describe"/>, and a commented entry in the shipped TOML.
+	///
+	/// The Unity thread and the dedicated server's telnet thread both reach
+	/// this class, so every static field above is read and written under
+	/// <c>Gate</c>; a public entry point takes it, and the code it calls
+	/// internally takes it reentrantly.
 	/// </summary>
 	internal static class ModSettings
 	{
@@ -47,6 +52,14 @@ namespace Wrench
 
 		public const float FilePollIntervalSeconds = 0.25f;
 		public const float FileReloadDebounceSeconds = 0.35f;
+
+		// The Unity thread polls and reloads through ModEvents.UnityUpdate;
+		// the console command below runs on the dedicated server's telnet
+		// thread, which is not the Unity thread. Both touch the watched-path
+		// stamps, the setting values and the Applied event, so every one of
+		// those accesses is made under this lock. Monitor is reentrant, which
+		// is what lets the reload path call TrySet while it holds it.
+		static readonly object Gate = new object();
 
 		static string watchedPath;
 		static DateTime appliedWriteUtc;
@@ -87,8 +100,11 @@ namespace Wrench
 				return;
 			}
 
-			watchedPath = ResolvePath(mod.Path);
-			ReloadFromWatchedFile(true, true, out _);
+			lock (Gate)
+			{
+				watchedPath = ResolvePath(mod.Path);
+			}
+			Apply(true, true, out _);
 		}
 
 		/// <summary>
@@ -97,22 +113,54 @@ namespace Wrench
 		/// </summary>
 		public static bool Poll()
 		{
-			if (string.IsNullOrEmpty(watchedPath))
-				return false;
-			var now = NowSeconds();
-			if (now < nextPollAt)
-				return false;
-			nextPollAt = now + FilePollIntervalSeconds;
-			return ReloadFromWatchedFile(false, false, out _);
+			return Apply(false, false, out _);
 		}
 
 		/// <summary>Re-read the watched TOML immediately, ignoring the debounce.</summary>
 		public static bool ReloadNow(out string message)
 		{
-			return ReloadFromWatchedFile(true, false, out message);
+			return Apply(true, false, out message);
 		}
 
-		static bool ReloadFromWatchedFile(bool force, bool startup, out string message)
+		/// <summary>
+		/// The whole read-and-apply cycle under <see cref="Gate"/>. The
+		/// <see cref="Applied"/> event is raised after the lock is released, so
+		/// a handler cannot run against half-applied values and cannot block
+		/// the polling thread on a handler that does I/O.
+		/// </summary>
+		static bool Apply(bool force, bool startup, out string message)
+		{
+			Action handlers;
+			bool applied;
+			lock (Gate)
+			{
+				handlers = Applied;
+				message = null;
+				if (force)
+				{
+					applied = ReloadLocked(force, startup, out message);
+				}
+				else
+				{
+					applied = false;
+					if (!string.IsNullOrEmpty(watchedPath))
+					{
+						var now = NowSeconds();
+						if (now >= nextPollAt)
+						{
+							nextPollAt = now + FilePollIntervalSeconds;
+							applied = ReloadLocked(force, startup, out message);
+						}
+					}
+				}
+			}
+			if (applied)
+				handlers?.Invoke();
+			return applied;
+		}
+
+		/// <summary>Caller holds <see cref="Gate"/>.</summary>
+		static bool ReloadLocked(bool force, bool startup, out string message)
 		{
 			message = null;
 			if (string.IsNullOrEmpty(watchedPath))
@@ -218,7 +266,6 @@ namespace Wrench
 			var source = startup ? RelativePath : "reload " + RelativePath;
 			LogCurrent(source);
 			message = source;
-			Applied?.Invoke();
 			return true;
 		}
 
@@ -260,7 +307,6 @@ namespace Wrench
 			seenLength = -1;
 			LogCurrent("defaults (no " + RelativePath + ")");
 			message = RelativePath + " is missing; using defaults.";
-			Applied?.Invoke();
 			return true;
 		}
 
@@ -305,8 +351,20 @@ namespace Wrench
 		/// Applies one setting by name. Shared by the file reader and the
 		/// console command so both surfaces keep one name and value grammar.
 		/// Unknown names and bad values fail loud and change nothing.
+		///
+		/// Takes <see cref="Gate"/>, so a <c>wrench set</c> from the telnet
+		/// thread cannot land between a reload's reset and its apply. Monitor
+		/// is reentrant, so the reload path may call this while holding it.
 		/// </summary>
 		public static bool TrySet(string name, string value, out string message)
+		{
+			lock (Gate)
+			{
+				return TrySetLocked(name, value, out message);
+			}
+		}
+
+		static bool TrySetLocked(string name, string value, out string message)
 		{
 			if (string.Equals(name, ExampleEnabledName, StringComparison.OrdinalIgnoreCase))
 			{
@@ -339,6 +397,15 @@ namespace Wrench
 		/// <summary>One line per setting, for the console command.</summary>
 		public static string[] Describe()
 		{
+			lock (Gate)
+			{
+				return DescribeLocked();
+			}
+		}
+
+		/// <summary>Caller holds <see cref="Gate"/>.</summary>
+		static string[] DescribeLocked()
+		{
 			return new[]
 			{
 				ExampleEnabledName + " = " + (ExampleEnabled ? "true" : "false"),
@@ -347,8 +414,13 @@ namespace Wrench
 
 		static void LogCurrent(string source)
 		{
+			string[] lines;
+			lock (Gate)
+			{
+				lines = DescribeLocked();
+			}
 			Debug.Log("[Wrench] settings (" + source + "): "
-				+ string.Join(", ", Describe()));
+				+ string.Join(", ", lines));
 		}
 	}
 }

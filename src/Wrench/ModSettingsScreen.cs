@@ -33,8 +33,13 @@ namespace Wrench
 		XUiC_WrenchModRow[] modRows = new XUiC_WrenchModRow[0];
 		XUiC_WrenchSettingRow[] settingRows = new XUiC_WrenchSettingRow[0];
 
-		// Written from the log callback (any thread), consumed in Update.
-		volatile bool reloadSeen;
+		// The log callback runs on whatever thread logged, the latch is
+		// written from the Unity thread, and the pair is read and written as
+		// one unit: a reload line landing between the marker swap and the
+		// latch clear would otherwise be dropped, and a non-volatile marker
+		// could be seen stale by the callback. One lock, no ordering guess.
+		readonly object reloadGate = new object();
+		bool reloadSeen;
 		string watchedReloadMarker;
 		// The mod the marker and the latch belong to, not whatever is selected
 		// when the line (or the timeout) lands: the player can pick another mod
@@ -79,9 +84,8 @@ namespace Wrench
 			// previous opening: targets are re-discovered below, so carrying
 			// the latch over would stamp a fresh TargetMod "applied live" for
 			// a save that never happened.
-			watchedReloadMarker = null;
+			DisarmReloadWatch();
 			watchedReloadTarget = null;
-			reloadSeen = false;
 			var keep = selected == null ? null : selected.Mod.Name;
 			targets = TargetMod.Discover();
 			var index = targets.FindIndex(t => t.Mod.Name == keep);
@@ -103,25 +107,24 @@ namespace Wrench
 				Log.LogCallbacks -= OnLogLine;
 				watchingLog = false;
 			}
-			watchedReloadMarker = null;
+			DisarmReloadWatch();
 			watchedReloadTarget = null;
 			base.OnClose();
 		}
 
 		public override void Update(float _dt)
 		{
-			if (reloadSeen)
+			var reloaded = TakeReloadSeen();
+			if (reloaded)
 			{
-				reloadSeen = false;
-				watchedReloadMarker = null;
 				SetWatchedSaveState(TargetMod.ESaveState.AppliedLive);
 			}
-			else if (watchedReloadMarker != null)
+			else if (IsWatchingReload())
 			{
 				reloadWait += _dt;
 				if (reloadWait >= RELOAD_CONFIRM_SECONDS)
 				{
-					watchedReloadMarker = null;
+					DisarmReloadWatch();
 					SetWatchedSaveState(TargetMod.ESaveState.SaveUnconfirmed);
 				}
 			}
@@ -145,8 +148,7 @@ namespace Wrench
 			// A reload line still in flight belongs to the mod selected until
 			// now; attributing it to the new selection would mark the wrong
 			// mod as applied live.
-			watchedReloadMarker = null;
-			reloadSeen = false;
+			DisarmReloadWatch();
 			for (var i = 0; i < modRows.Length; i++)
 			{
 				modRows[i].IsSelectedMod = modRows[i].Target != null && modRows[i].Target == selected;
@@ -163,30 +165,15 @@ namespace Wrench
 				return false;
 			var mod = selected;
 			var saved = mod.TrySave(entry, newRaw, out _);
-			// One save, one latch: a refused save, or one to a mod that only
+			// One save, one watch: a refused save, or one to a mod that only
 			// takes effect on a restart, must not keep an earlier mod's marker
-			// armed and stamp the next reload line onto it.
-			watchedReloadMarker = null;
-			watchedReloadTarget = null;
-			reloadSeen = false;
-			if (saved && mod.HotReloads)
-			{
-				// The Anvil component logs the re-read; until that line
-				// arrives the status stays at "saved".
-				watchedReloadMarker = mod.ReloadLogMarker;
-				watchedReloadTarget = mod;
-				reloadSeen = false;
-				reloadWait = 0f;
-			}
-			else
-			{
-				// A refused edit disarms the watch, so a line from an
-				// earlier save cannot resurrect "applied live" over the
-				// failure this edit just recorded.
-				watchedReloadMarker = null;
-				watchedReloadTarget = null;
-				reloadSeen = false;
-			}
+			// armed and stamp the next reload line onto it. The Anvil component
+			// logs the re-read; until that line arrives the status stays at
+			// "saved".
+			var watching = saved && mod.HotReloads;
+			ArmReloadWatch(watching ? mod.ReloadLogMarker : null);
+			watchedReloadTarget = watching ? mod : null;
+			reloadWait = 0f;
 			// Spans moved with the edit: rebind rows to the re-parsed
 			// entries (also restores the file value after a refused edit).
 			PopulateSettingRows();
@@ -206,11 +193,53 @@ namespace Wrench
 			IsDirty = true;
 		}
 
+		void ArmReloadWatch(string marker)
+		{
+			lock (reloadGate)
+			{
+				watchedReloadMarker = marker;
+				reloadSeen = false;
+			}
+		}
+
+		void DisarmReloadWatch()
+		{
+			ArmReloadWatch(null);
+		}
+
+		/// <summary>True while a mod's reload line is still being waited for.</summary>
+		bool IsWatchingReload()
+		{
+			lock (reloadGate)
+			{
+				return watchedReloadMarker != null;
+			}
+		}
+
+		/// <summary>
+		/// Takes the latch and disarms the watch in one step, so a reload line
+		/// arriving now belongs to the next arm, not to the one just consumed.
+		/// </summary>
+		bool TakeReloadSeen()
+		{
+			lock (reloadGate)
+			{
+				var seen = reloadSeen;
+				reloadSeen = false;
+				watchedReloadMarker = null;
+				return seen;
+			}
+		}
+
 		void OnLogLine(string _message, string _trace, UnityEngine.LogType _type)
 		{
-			var marker = watchedReloadMarker;
-			if (marker != null && _message != null && _message.Contains(marker))
-				reloadSeen = true;
+			lock (reloadGate)
+			{
+				if (watchedReloadMarker != null
+					&& _message != null
+					&& _message.Contains(watchedReloadMarker))
+					reloadSeen = true;
+			}
 		}
 
 		void PopulateModRows()

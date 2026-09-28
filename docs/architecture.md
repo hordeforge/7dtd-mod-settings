@@ -258,6 +258,33 @@ The ilspy runtime fallback in `scripts/verify-patch-targets.py` restores
 failed candidate's SDK directory left prepended shadows the real `dotnet`
 for the rest of the run.
 
+## Decided 2026-09-28: the settings reader and the save path are guarded
+
+Two threads reach this mod's state. The Unity thread polls the watched
+TOML from `ModEvents.UnityUpdate` and draws the settings screen; the
+dedicated server runs the console command on its telnet thread, and
+`Log.LogCallbacks` fires on whichever thread logged. So:
+
+- every static field in `ModSettings` (the watched path, the mtime/length
+  stamps, the setting values) is read and written under one `Gate`. A
+  `wrench set` from telnet therefore cannot land between a reload's
+  `ResetToDefaults` and its apply. `Monitor` is reentrant, which is what
+  lets the reload path call the public `TrySet` while holding the gate,
+  and the `Applied` event is raised after the lock is released so a
+  handler never sees half-applied values.
+- the screen's reload latch is marker and flag under one lock, not a
+  `volatile` flag beside a plain field: a log line arriving between the
+  marker swap and the flag clear would otherwise be dropped.
+- `TrySave` writes through `<path>.wrench-tmp` and renames it over the
+  destination. Writing in place truncates first, so a hot-reloading mod
+  polling the file (or a config tool reading it) can read a half-written
+  settings file, and a crash in that window loses the old text with no
+  rollback path. `File.Replace` is the rename; where a runtime does not
+  implement it, the fallback is delete plus move.
+
+Enforced by `scripts/test_settings_reload.py` and
+`scripts/test_target_save_coherence.py`.
+
 ## Open questions
 
 - (none yet)

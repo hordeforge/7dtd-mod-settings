@@ -128,6 +128,11 @@ namespace Wrench
 		/// name; one that is gone or now ambiguous refuses the edit rather
 		/// than guessing which span the row meant.
 		///
+		/// The new text is written through a temporary file in the same
+		/// directory and renamed over the destination, so a hot-reloading mod
+		/// polling the file, or any other reader, sees the whole old text or
+		/// the whole new one, never a half-written file.
+		///
 		/// The write is in the encoding the file is in right now, so every
 		/// byte outside the edited value span survives, byte order mark
 		/// included.

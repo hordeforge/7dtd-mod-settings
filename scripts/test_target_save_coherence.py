@@ -17,7 +17,10 @@ offset. Three things must hold for that to be safe:
 - the "the mod re-read the file" observation is a one-shot latch scoped to
   the opening it was made in, or a line seen while the screen was closed
   stamps a freshly discovered mod as applied-live for a save that never
-  happened.
+  happened. The log callback runs off the Unity thread, so the marker and
+  the latch share one lock;
+- a save is written through a temp file and renamed over the destination, so
+  the mod polling the file never reads a half-written one.
 
 All three are source-level contracts here: the behavior is proven live by the
 `wrench-mod-settings` suite, and the C# cannot be executed offline. This gate
@@ -150,7 +153,27 @@ def main() -> int:
 
     opened = body(screen, "public override void OnOpen()")
     check("the reload latch does not survive the closing it was set in",
-          "reloadSeen = false;" in opened and "watchedReloadMarker = null;" in opened)
+          "DisarmReloadWatch()" in opened)
+    check("a rejected save and a new selection both disarm the latch",
+          "ArmReloadWatch(" in body(screen, "internal bool SaveEdit(")
+          and "DisarmReloadWatch()" in body(screen, "internal void SelectMod("))
+
+    logline = body(screen, "void OnLogLine(")
+    take = body(screen, "bool TakeReloadSeen(")
+    check("the log callback and the latch take one lock, so a line cannot "
+          "land between the marker swap and the latch clear",
+          "lock (reloadGate)" in logline
+          and "lock (reloadGate)" in take
+          and "reloadSeen = false;" in take
+          and "watchedReloadMarker = null;" in take
+          and "volatile bool reloadSeen" not in screen)
+
+    atomic = body(target, "static void WriteAtomically(")
+    check("a save is written through a temp file and renamed over the "
+          "destination, never truncated in place",
+          "File.WriteAllText(temp, text)" in atomic
+          and "File.Replace(temp, path, null)" in atomic
+          and "File.WriteAllText(TomlPath" not in save)
 
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0

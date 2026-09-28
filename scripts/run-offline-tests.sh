@@ -128,7 +128,20 @@ run_parallel() {
 	wait
 	for test_script in "${tests[@]}"; do
 		name="$(basename "$test_script")"
-		read -r status secs < "$tmpdir/$name.status"
+		# A missing or truncated status file (a job killed, a full disk) must
+		# not report the previous test's verdict: read failures used to leave
+		# status/secs holding the last iteration's values, so a test that never
+		# finished could print PASS.
+		status=""
+		secs=""
+		if ! read -r status secs < "$tmpdir/$name.status"; then
+			printf 'FAIL %s (no result recorded)\n' "$name"
+			failed+=("$name")
+			ran=$((ran + 1))
+			cat "$tmpdir/$name.out"
+			cat "$tmpdir/$name.err" >&2
+			continue
+		fi
 		ran=$((ran + 1))
 		if (( status == 0 )); then
 			printf 'PASS %s (%ss)\n' "$name" "$secs"

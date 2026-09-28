@@ -45,6 +45,28 @@ def main() -> int:
         with open(path, encoding="utf-8") as handle:
             return handle.read()
 
+    def body(source: str, signature: str) -> str:
+        """The `{ ... }` block that follows a method signature, braces counted.
+
+        String literals in this file hold no braces, so a plain count is
+        enough and keeps the gate free of a C# parser it would otherwise need.
+        """
+        start = source.find(signature)
+        if start < 0:
+            return ""
+        brace = source.find("{", start + len(signature))
+        if brace < 0:
+            return ""
+        depth = 0
+        for index in range(brace, len(source)):
+            if source[index] == "{":
+                depth += 1
+            elif source[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    return source[brace:index + 1]
+        return ""
+
     settings = read("ModSettings.cs")
     target = read("TargetMod.cs")
     api = read("ModApi.cs")
@@ -106,6 +128,19 @@ def main() -> int:
           and "if (watchingLog)" in screen
           and "Log.LogCallbacks -= OnLogLine" in screen
           and "Log.LogCallbacks += OnLogLine" in screen)
+    check("the Unity poll and the telnet console thread share one lock, so a "
+          "`wrench set` cannot interleave with a reload's reset and apply",
+          "static readonly object Gate" in settings
+          and "lock (Gate)" in settings
+          and "lock (Gate)" in body(settings, "static bool Apply(")
+          and "lock (Gate)" in body(settings, "public static bool TrySet(")
+          and "lock (Gate)" in body(settings, "public static string[] Describe()"))
+    check("the Applied event is raised outside the lock, so a handler cannot "
+          "run against half-applied values or block the polling thread",
+          "handlers?.Invoke();" in settings
+          and "handlers = Applied;" in body(settings, "static bool Apply(")
+          and "Invoke()" not in body(settings, "static bool ReloadLocked(")
+          and "Invoke()" not in body(settings, "static bool ApplyMissingFileDefaults("))
 
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0
