@@ -27,10 +27,9 @@ namespace Wrench
 		/// grammar (a bare <c>true</c>, <c>-3</c>, <c>0.5</c>, <c>"text"</c>,
 		/// or <c>[...]</c> array) and returns its normalized value.
 		/// </summary>
-		public static bool TryParseRawValue(string raw, out string normalized, out TomlSettings.ValueKind kind, out string error)
+		public static bool TryParseRawValue(string raw, out string normalized, out string error)
 		{
 			normalized = null;
-			kind = TomlSettings.ValueKind.Bool;
 			raw = (raw ?? "").Trim();
 			List<TomlSettings.DocEntry> entries;
 			if (!TomlSettings.TryReadDocument("v = " + raw, out entries, out error))
@@ -46,7 +45,6 @@ namespace Wrench
 				return false;
 			}
 			normalized = entries[0].Value;
-			kind = entries[0].Kind;
 			return true;
 		}
 
@@ -102,7 +100,7 @@ namespace Wrench
 			newText = null;
 			after = null;
 			string normalized;
-			if (!TryParseRawValue(newRaw, out normalized, out _, out error))
+			if (!TryParseRawValue(newRaw, out normalized, out error))
 				return false;
 			newRaw = newRaw.Trim();
 
