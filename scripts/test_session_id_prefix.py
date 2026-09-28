@@ -42,7 +42,7 @@ def main() -> int:
                 name + " takes its session prefix from the environment",
                 not any(bare == family for family in FAMILIES),
                 "hardcodes " + repr(bare) + "; the lock would name that family "
-                "whoever is actually running. Use \"${PLAYTEST_AGENT:-agent}\".",
+                'whoever is actually running. Use "${PLAYTEST_AGENT:-agent}".',
             )
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0

@@ -187,7 +187,9 @@ subfolder.
 ## Testing
 
 Offline gates: `make test` (every `scripts/test_*.py`) and
-`make lint-shell` (shellcheck, full severity) must pass before any commit.
+`make lint` (`make lint-python`: ruff plus mypy `--strict` over every tracked
+`*.py` per `pyproject.toml`; then `make lint-shell`: shellcheck at full
+severity) must pass before any commit.
 Install-dependent checks: `make validate-xml` (every Config xpath against
 vanilla), `make verify-patched-config` (after loading a world: every
 shipped patch element counted in the save's own `ConfigsDump`, attributed

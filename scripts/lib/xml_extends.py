@@ -17,32 +17,36 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 
+def _keyed(nodes: list[ET.Element], attribute: str) -> list[tuple[str, ET.Element]]:
+    """The `(attribute value, element)` pairs that actually carry the attribute."""
+    return [(value, node) for node in nodes if (value := node.get(attribute))]
+
+
 def entries(xml_text: str, tag: str) -> dict[str, ET.Element]:
     """Every `<tag name=...>` this mod appends, by name."""
     root = ET.fromstring(xml_text)
     return {
-        node.get("name"): node
+        name: node
         for append in root.iter("append")
-        for node in append.iter(tag)
-        if node.get("name")
+        for name, node in _keyed(list(append.iter(tag)), "name")
     }
 
 
 def own_scalars(node: ET.Element) -> dict[str, str]:
     """Top-level `<property name=... value=.../>` of this node alone."""
     return {
-        child.get("name"): child.get("value", "")
-        for child in node
-        if child.tag == "property" and child.get("name")
+        name: child.get("value", "")
+        for name, child in _keyed(list(node), "name")
+        if child.tag == "property"
     }
 
 
 def own_classes(node: ET.Element) -> dict[str, dict[str, str]]:
     """Top-level `<property class=...>` blocks of this node alone."""
     return {
-        child.get("class"): own_scalars(child)
-        for child in node
-        if child.tag == "property" and child.get("class")
+        class_name: own_scalars(child)
+        for class_name, child in _keyed(list(node), "class")
+        if child.tag == "property"
     }
 
 

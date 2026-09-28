@@ -42,7 +42,7 @@ an authenticated channel, and a WebMod panel over the same file surface.
 
 ```bash
 make test                   # offline gates (scripts/test_*.py)
-make lint-shell             # shellcheck, full severity
+make lint                  # ruff + mypy --strict over scripts/, then shellcheck
 make build                  # stage dist/Wrench/ (needs .local.env, see below)
 make package                # dist/Wrench.zip — extracts to Mods/Wrench/
 make validate-xml           # every Config xpath against the installed game
@@ -55,7 +55,7 @@ make server-smoke           # deploy + boot the server briefly, prove the mod lo
 make playtest               # live wrench-mod-settings suite via hordeforge/7dtd-playtest
 ```
 
-Host tools: `python3`, `git`, `make`, `shellcheck`, `zip`; `dotnet` (net48
+Host tools: `python3`, `git`, `make`, `ruff`, `mypy`, `shellcheck`, `zip`; `dotnet` (net48
 build) for C# mods, `ilspycmd` (`dotnet tool install -g ilspycmd`) for
 patch-target validation, `steamcmd` for the dedicated-server lane.
 

@@ -22,6 +22,7 @@ Standard library only — no telnetlib, which was removed in Python 3.13.
 
 from __future__ import annotations
 
+import contextlib
 import socket
 import time
 
@@ -50,11 +51,11 @@ class GameTelnet:
 
     # -- connection -------------------------------------------------------
 
-    def __enter__(self) -> "GameTelnet":
+    def __enter__(self) -> GameTelnet:
         self.connect()
         return self
 
-    def __exit__(self, *_exc) -> None:
+    def __exit__(self, *_exc: object) -> None:
         self.close()
 
     def connect(self, wait: float = 120.0) -> None:
@@ -94,22 +95,16 @@ class GameTelnet:
 
     def close(self) -> None:
         if self.closed_by_server and self._sock is not None:
-            try:
+            with contextlib.suppress(OSError):
                 self._sock.close()
-            except OSError:
-                pass
             self._sock = None
             return
         if self._sock is not None:
-            try:
+            with contextlib.suppress(OSError):
                 self.send_raw("exit")
                 time.sleep(0.2)
-            except OSError:
-                pass
-            try:
+            with contextlib.suppress(OSError):
                 self._sock.close()
-            except OSError:
-                pass
             self._sock = None
 
     # -- io ---------------------------------------------------------------

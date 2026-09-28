@@ -1,0 +1,47 @@
+# Static analysis for the mod's own Python (scripts/ and the gates in it).
+# There is no third-party runtime dependency to install: ruff and mypy are
+# developer/CI tools, invoked by scripts/lint-python.sh and blocking in CI.
+#
+# No formatter is configured: `ruff format` would rewrite most of the tree, and
+# reformatting is not a gate. Add it in one pass with the reformat it implies.
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+extend-exclude = [".tmp", "dist", "scripts/playtest/dist"]
+
+[tool.ruff.lint]
+select = [
+    "E4", "E7", "E9",   # ruff defaults: imports, syntax, IO
+    "F",                # pyflakes
+    "E501",             # line length, capped above
+    "W",                # whitespace
+    "I",                # import order
+    "B",                # bugbear: mutable defaults, zip strictness
+    "UP",               # pyupgrade
+    "SIM",              # simplifiable control flow
+    "C4",               # comprehensions
+    "RET",              # return consistency
+    "Q",                # quote style
+    "PIE",              # misc lints
+    "PLE", "PLW",       # pylint errors and warnings (subprocess without check)
+    "RUF",              # ruff-specific
+    "PERF",             # per-call performance traps
+    "LOG", "G",         # logging calls, string formatting in logging
+    "ASYNC",            # async correctness
+    "EXE",              # a shebang on a file with no execute bit
+    "ARG",              # unused arguments
+]
+# FBT: the gate suite shares one `check(name, ok, detail)` helper across every
+# test script; keyword-only booleans there would be churn, not clarity.
+# S: bandit would flag every subprocess and XML parse in the tools, which is
+# the point of these tools. Run semgrep for the security lane instead.
+ignore = ["FBT", "S"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["scripts"]
+# The gates exec themselves and shell out; untyped third-party modules are
+# never imported, so nothing needs silencing here.
+warn_unreachable = true

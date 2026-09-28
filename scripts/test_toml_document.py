@@ -34,7 +34,7 @@ def main() -> int:
     build = subprocess.run(
         [dotnet, "build", os.path.join(GATE_DIR, "toml_gate.csproj"),
          "-c", "Release", "-o", out_dir, "-v", "quiet", "--nologo"],
-        capture_output=True, text=True)
+        capture_output=True, text=True, check=False)
     if build.returncode != 0:
         sys.stdout.write(build.stdout)
         sys.stderr.write(build.stderr)
@@ -42,7 +42,7 @@ def main() -> int:
         return 1
 
     run = subprocess.run([dotnet, os.path.join(out_dir, "toml_gate.dll")],
-                         capture_output=True, text=True, cwd=MOD_DIR)
+                         capture_output=True, text=True, cwd=MOD_DIR, check=False)
     sys.stdout.write(run.stdout)
     sys.stderr.write(run.stderr)
     if run.returncode != 0:

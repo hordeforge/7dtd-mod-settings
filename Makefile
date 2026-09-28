@@ -7,13 +7,21 @@ SOURCE_DATE_EPOCH ?= $(shell git log -1 --format=%ct 2>/dev/null || date +%s)
 # This mod ships no asset bundles, so there is deliberately no
 # build-assets or validate-assets target: both are for a mod that owns
 # bundles built by the sibling asset pipeline.
-.PHONY: build package test lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke playtest clean
+.PHONY: build package test lint lint-python lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke playtest clean
 
 # Offline contract/unit suite: every scripts/test_*.py must exit 0.
 # Optional substring filters: make test TF="xml layout"
 TF ?=
 test:
 	$(ROOT)/scripts/run-offline-tests.sh $(TF)
+
+# Every static analyzer this tree runs, blocking: ruff + mypy --strict over
+# scripts/, then shellcheck at full severity.
+lint: lint-python lint-shell
+
+# ruff and mypy --strict over every tracked *.py (pyproject.toml at the root).
+lint-python:
+	$(ROOT)/scripts/lint-python.sh
 
 # Shellcheck over every tracked shell script (full severity).
 lint-shell:

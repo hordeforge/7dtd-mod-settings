@@ -26,7 +26,10 @@ MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(MOD_DIR, "scripts")
 SELF = os.path.abspath(__file__)
 
-INCIDENT = re.compile(r"\b(?:Written|Decided|Added|Corrected)\s+(?:on\s+)?20\d\d-\d\d-\d\d\b|\bon\s+20\d\d-\d\d-\d\d\b")
+INCIDENT = re.compile(
+    r"\b(?:Written|Decided|Added|Corrected)\s+(?:on\s+)?20\d\d-\d\d-\d\d\b"
+    r"|\bon\s+20\d\d-\d\d-\d\d\b"
+)
 GATE_REF = re.compile(r"(?:scripts/)?(test_\w+\.py)")
 
 # Incident sections enforced by something other than a scripts/test_*.py
@@ -70,7 +73,7 @@ def main() -> int:
                    and os.path.abspath(os.path.join(SCRIPTS, f)) != SELF)
     for gate in gates:
         path = os.path.join(SCRIPTS, gate)
-        runs = [subprocess.run([sys.executable, path], capture_output=True)
+        runs = [subprocess.run([sys.executable, path], capture_output=True, check=False)
                 for _ in range(2)]
         check("gate-deterministic:" + gate,
               runs[0].stdout == runs[1].stdout and runs[0].returncode == runs[1].returncode,

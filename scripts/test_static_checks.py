@@ -35,12 +35,14 @@ from gate_report import FAILURES, check
 
 
 def xml_files() -> list[str]:
-    found = []
+    found: list[str] = []
     for base, dirs, files in os.walk(MOD_DIR):
         dirs[:] = sorted(d for d in dirs if d not in {".git", "dist", "bin", "obj", "__pycache__"})
-        for f in sorted(files):
-            if f.endswith(".xml"):
-                found.append(os.path.relpath(os.path.join(base, f), MOD_DIR))
+        found.extend(
+            os.path.relpath(os.path.join(base, f), MOD_DIR)
+            for f in sorted(files)
+            if f.endswith(".xml")
+        )
     return found
 
 
@@ -102,7 +104,8 @@ def main() -> int:
           not os.path.isfile(os.path.join(MOD_DIR, "Localization.csv")),
           "move it to Config/Localization.csv; the engine ignores a root-level file")
     check("no-localization-txt",
-          not os.path.isfile(os.path.join(MOD_DIR, "Localization.txt")),
+          not os.path.isfile(os.path.join(MOD_DIR, "Localization.txt"))
+          and not any(rel.endswith("Localization.txt") for rel in files),
           "V3 uses Localization.csv")
 
     check("no-legacy-xui-dir",

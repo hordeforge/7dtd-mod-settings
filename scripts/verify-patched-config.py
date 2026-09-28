@@ -83,7 +83,7 @@ def applied_elements(dump_dir: str) -> dict[str, int]:
     # XUi_InGame/windows.xml), so the scan must descend too or every nested
     # patch reads as missing.
     for path in sorted(glob.glob(os.path.join(dump_dir, "**", "*.xml"), recursive=True)):
-        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+        with open(path, encoding="utf-8", errors="replace") as handle:
             hits = sum(1 for name in APPENDED_BY.findall(handle.read()) if name == MOD_NAME)
         if hits:
             counts[os.path.relpath(path, dump_dir).replace(os.sep, "/")] = hits
@@ -103,7 +103,7 @@ def check_containers(dump_dir: str) -> list[str]:
         wrong_parent = None
         parent_re = re.compile(rf'<{parent_tag} name="([^"]+)"')
         target_re = re.compile(pattern)
-        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+        with open(path, encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 match = parent_re.search(line)
                 if match:

@@ -103,7 +103,10 @@ class Target:
         self.injected = injected
 
     def label(self) -> str:
-        arguments = "" if self.argument_types is None else "(" + ", ".join(self.argument_types) + ")"
+        if self.argument_types is None:
+            arguments = ""
+        else:
+            arguments = "(" + ", ".join(self.argument_types) + ")"
         return f"{self.declaring_type}.{self.method}{arguments}"
 
 
@@ -154,6 +157,24 @@ def parameter_names(signature: str) -> list[str]:
     return names
 
 
+def add_target(targets: list[Target], source: Path, lines: list[str], entry_line: int,
+               patch_class: str | None, declaring_type: str | None, method: str | None,
+               argument_types: list[str] | None) -> None:
+    """Record one resolved [HarmonyPatch]; an incomplete attribute is a defect.
+
+    Every attribute must be checked, so a missing type or method fails loudly
+    instead of being skipped: a silently dropped target would make the
+    "every [HarmonyPatch] verified" claim false.
+    """
+    if patch_class is None or declaring_type is None or method is None:
+        raise SystemExit(
+            f"ERROR: {source}:{entry_line}: [HarmonyPatch] names no type or no "
+            "method (attribute carried method=" + str(method) + ")"
+        )
+    targets.append(Target(source, entry_line, patch_class, declaring_type, method,
+                          argument_types, injected_parameters(lines, entry_line)))
+
+
 def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
     targets: list[Target] = []
     patch_classes: set[str] = set()
@@ -169,7 +190,7 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
         for index, line in enumerate(lines, start=1):
             attribute = PATCH_ATTRIBUTE.search(line.strip())
             if attribute:
-                pending.append((index,) + parse_attribute(attribute.group("args")))
+                pending.append((index, *parse_attribute(attribute.group("args"))))
                 continue
 
             declaration = CLASS_DECLARATION.match(line)
@@ -178,22 +199,16 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
                 patch_classes.add(class_name)
                 for entry_line, declaring_type, method, argument_types in pending:
                     class_type = declaring_type or class_type
-                    if method is None:
-                        continue
-                    targets.append(Target(source, entry_line, class_name,
-                                          declaring_type or class_type, method, argument_types,
-                                          injected_parameters(lines, entry_line)))
+                    add_target(targets, source, lines, entry_line, class_name,
+                               declaring_type or class_type, method, argument_types)
                 pending = []
                 continue
 
             if pending and line.strip() and not line.strip().startswith("["):
                 # A method-level attribute inside an already-opened patch class.
                 for entry_line, declaring_type, method, argument_types in pending:
-                    if method is None or class_name is None:
-                        continue
-                    targets.append(Target(source, entry_line, class_name,
-                                          declaring_type or class_type, method, argument_types,
-                                          injected_parameters(lines, entry_line)))
+                    add_target(targets, source, lines, entry_line, class_name,
+                               declaring_type or class_type, method, argument_types)
                 pending = []
 
     return targets, patch_classes
@@ -255,7 +270,8 @@ def declared_signatures(body: list[str], method: str) -> list[str]:
     .DeclaredMethod would return.
     """
     pattern = re.compile(r"^\t(?!//)[^\t].*\b" + re.escape(method) + r"\s*\(")
-    return [line.strip() for line in body if pattern.match(line) and not line.strip().startswith("[")]
+    return [line.strip() for line in body
+            if pattern.match(line) and not line.strip().startswith("[")]
 
 
 def parameter_types(signature: str) -> list[str]:
@@ -323,7 +339,8 @@ def main(argv: list[str]) -> int:
     if runtime_error is not None:
         print("ERROR: ilspycmd is installed but cannot run.")
         print(runtime_error)
-        print("Install its target .NET runtime, or install Unity Hub with an editor SDK so this verifier can use its local fallback.")
+        print("Install its target .NET runtime, or install Unity Hub with an"
+              " editor SDK so this verifier can use its local fallback.")
         return 2
 
     sources = root / source_dir(root)

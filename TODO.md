@@ -48,7 +48,7 @@ Adds a Mod Settings screen to the in-game options menu, listing every installed 
 
 ## Testing
 
-- [ ] Keep `make test` and `make lint-shell` green on every change.
+- [ ] Keep `make test` and `make lint` green on every change.
 - [x] First in-game validation: XUi_Menu patches applied cleanly, screen
       visible and interactive in game (2026-08-30, playtest suite +
       manual client).
