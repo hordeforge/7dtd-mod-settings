@@ -1,11 +1,14 @@
 """Build and run a net8 C# harness that lives under `scripts/`.
 
 The TOML gates each ship a C# runner of the shipped, game-free sources
-(`scripts/toml_gate/`, `scripts/toml_fuzz/`). Probing for a usable SDK,
-building the project into the gitignored `.tmp/`, and running its dll is the
-same three steps for both, and the two copies had already drifted on the
-`text=True` decoding and the encoding the gate documents. One definition
-here is what keeps them from drifting again.
+(`scripts/toml_gate/`, `scripts/toml_fuzz/`). Building the project into the
+gitignored `.tmp/` and running its dll is the same two steps for both, and
+the two copies had already drifted on the `text=True` decoding and the
+encoding the gate documents. One definition here is what keeps them from
+drifting again.
+
+The SDK itself is resolved by `local_env.require_dotnet_sdk`, the one
+resolver `scripts/build.sh` is held to: PATH first, then `DOTNET_ROOT`.
 
 There is no fallback when the SDK is missing: a skipped C# gate would pass
 silently forever, so the gate fails and says which piece to install.
@@ -22,33 +25,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from local_env import DOTNET_ROOT_KEY, dotnet_executable, mod_dir
-
-SDK_MISSING = (
-    "FAIL dotnet SDK not found (required, same as make build): install the "
-    ".NET SDK (https://aka.ms/dotnet/download) and put it on PATH, or set "
-    f"{DOTNET_ROOT_KEY}"
-)
-
-
-def require_sdk() -> str | None:
-    """The path to `dotnet`, or None once the missing-SDK reason is printed."""
-    dotnet = dotnet_executable()
-    if dotnet is None:
-        print(SDK_MISSING, file=sys.stderr)
-        return None
-    # A runtime-only install (dotnet-runtime, some distro packages) answers
-    # `dotnet` but not `dotnet build`; asking for the SDK first names the
-    # missing piece instead of surfacing as a build failure of the harness.
-    sdks = subprocess.run([str(dotnet), "--list-sdks"], capture_output=True,
-                          text=True, encoding="utf-8", errors="replace",
-                          check=False)
-    if sdks.returncode != 0 or not sdks.stdout.strip():
-        print(f"FAIL dotnet SDK not found: `{dotnet}` lists no SDKs. Install "
-              "the .NET SDK (https://aka.ms/dotnet/download) and put it on "
-              f"PATH, or set {DOTNET_ROOT_KEY}", file=sys.stderr)
-        return None
-    return str(dotnet)
+from local_env import mod_dir, require_dotnet_sdk
 
 
 def run_harness(project: str, run_failure: str) -> int:
@@ -58,7 +35,7 @@ def run_harness(project: str, run_failure: str) -> int:
     reported a failed assertion. Returns 0 when every assertion held, and 1
     after printing the reason otherwise.
     """
-    dotnet = require_sdk()
+    dotnet = require_dotnet_sdk()
     if dotnet is None:
         return 1
     root = mod_dir()
@@ -88,6 +65,3 @@ def run_harness(project: str, run_failure: str) -> int:
         print(f"FAIL {run_failure}")
         return 1
     return 0
-
-
-__all__ = ["SDK_MISSING", "require_sdk", "run_harness"]

@@ -28,7 +28,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from local_env import game_dir, local_env_value, mod_dir
+from local_env import game_dir, local_env_value, mod_dir, mod_name
 
 # The Proton prefix layout, from docs/reference/environment.md. Steam AppID
 # 251570 is 7 Days to Die; the user directory name is Steam's own default.
@@ -40,27 +40,6 @@ PREFIX_SAVES = os.path.join(
 SAVES_DIR_KEY = "SEVEN_DAYS_TO_DIE_SAVES_DIR"
 
 MOD_DIR = str(mod_dir())
-
-
-def mod_name() -> str:
-    """This mod's own name, from its ModInfo.
-
-    The checkout is named after the repo slug, not the mod, so the file is
-    the authority (test_static_checks.py holds it to the build tooling). A
-    missing or malformed one ends the run with that fact named; a traceback
-    out of a module-level parse would not say which file or why.
-    """
-    path = os.path.join(MOD_DIR, "ModInfo.xml")
-    try:
-        root = ET.parse(path).getroot()
-    except (ET.ParseError, OSError) as exc:
-        raise SystemExit(f"ERROR: could not read {path}: {exc}") from exc
-    name = next((p.get("value") or "" for p in root if p.tag == "Name"), "")
-    if not name:
-        raise SystemExit(f"ERROR: {path} declares no Name property.")
-    return name
-
-
 MOD_NAME = mod_name()
 
 APPENDED_BY = re.compile(r'appended by:\s*"([^"]+)"')

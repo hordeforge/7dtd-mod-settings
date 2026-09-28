@@ -22,11 +22,11 @@ from __future__ import annotations
 import csv
 import os
 import re
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate_report import check, result
+from git_tracked import tracked_paths
 from local_env import mod_dir
 
 MOD_DIR = str(mod_dir())
@@ -63,13 +63,8 @@ def tracked(patterns: str) -> list[str]:
     still lists a file between the delete and the commit that records it, and
     a gate that reads it then reports a traceback instead of a verdict.
     """
-    done = subprocess.run(
-        ["git", "-C", MOD_DIR, "ls-files", "-z", "--", patterns],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-        timeout=60, check=False,
-    )
-    return sorted(p for p in done.stdout.split("\0")
-                  if p and os.path.isfile(os.path.join(MOD_DIR, p)))
+    return [path for path in tracked_paths(patterns)
+            if os.path.isfile(os.path.join(MOD_DIR, path))]
 
 
 def decode_csharp_literal(value: str) -> str:

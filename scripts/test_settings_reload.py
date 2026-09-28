@@ -18,20 +18,14 @@ from __future__ import annotations
 import os
 import re
 import sys
-import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from csharp_source import body, code_of
 from gate_report import check, result
-from local_env import mod_dir
+from local_env import mod_dir, mod_name
 
 MOD_DIR = str(mod_dir())
-# The checkout is named after the repo slug, not the mod; ModInfo.xml is
-# the authority (test_static_checks.py holds it to the build tooling).
-MOD_NAME = next(
-    p.get("value") or ""
-    for p in ET.parse(os.path.join(MOD_DIR, "ModInfo.xml")).getroot()
-    if p.tag == "Name")
-SRC = os.path.join(MOD_DIR, "src", MOD_NAME)
+SRC = os.path.join(MOD_DIR, "src", mod_name())
 # A call into System.IO.File, not the tail of this mod's `TomlFile.`.
 bcl_file_call = re.compile(r"(?<![\w.])File\.")
 
@@ -56,33 +50,6 @@ def main() -> int:
         with open(path, encoding="utf-8") as handle:
             return handle.read()
 
-    def body(source: str, signature: str) -> str:
-        """The `{ ... }` block that follows a method signature, braces counted.
-
-        String literals in this file hold no braces, so a plain count is
-        enough and keeps the gate free of a C# parser it would otherwise need.
-        """
-        start = source.find(signature)
-        if start < 0:
-            return ""
-        brace = source.find("{", start + len(signature))
-        if brace < 0:
-            return ""
-        depth = 0
-        for index in range(brace, len(source)):
-            if source[index] == "{":
-                depth += 1
-            elif source[index] == "}":
-                depth -= 1
-                if depth == 0:
-                    return source[brace:index + 1]
-        return ""
-
-    def code_of(name: str) -> str:
-        """The file without its comment lines, so a check reads the code."""
-        return "\n".join(line for line in read(name).splitlines()
-                         if not line.strip().startswith("//"))
-
     def names_file_api(code: str) -> bool:
         """True when *code* names System.IO's static `File` API itself.
 
@@ -98,7 +65,7 @@ def main() -> int:
     files = read("ModFileSystem.cs")
     api = read("ModApi.cs")
     screen = read("ModSettingsScreen.cs")
-    toml_path = os.path.join(MOD_DIR, "Config", MOD_NAME + ".toml")
+    toml_path = os.path.join(MOD_DIR, "Config", mod_name() + ".toml")
 
     check("the shipped settings TOML exists beside its reader",
           os.path.isfile(toml_path))
@@ -126,7 +93,7 @@ def main() -> int:
     check("the watch reads the file's stamp in a single metadata read",
           "bool TryGetStamp(string path, out DateTime writeUtc"
           in files
-          and "new FileInfo(path)" in code_of("ModFileSystem.cs")
+          and "new FileInfo(path)" in code_of(read("ModFileSystem.cs"))
           and "GetLength" not in files
           and "GetLastWriteTimeUtc" not in files
           and "ModFileSystem.Current.Exists" not in settings)
@@ -140,15 +107,15 @@ def main() -> int:
           "interface IMonotonicClock" in clock
           and "class StopwatchClock : IMonotonicClock" in clock
           and "static IMonotonicClock Current { get; set; }" in clock
-          and "Thread.Sleep" not in code_of("TargetMod.cs")
-          and "Thread.Sleep" not in code_of("ModSettings.cs")
+          and "Thread.Sleep" not in code_of(read("TargetMod.cs"))
+          and "Thread.Sleep" not in code_of(read("ModSettings.cs"))
           and "ModClock.Current.Sleep(ReplaceRetryMilliseconds)" in target)
     # The screen's bounded wait for a hot-reloading mod's reload line is a
     # wait too, so it is measured on the same clock: summing the frame delta
     # measures the game's own frame time, and a frame the game does not
     # advance (a paused or time-scaled one) carries none of it, which leaves
     # the status promising a reload that is never confirmed.
-    screen_code = code_of("ModSettingsScreen.cs")
+    screen_code = code_of(read("ModSettingsScreen.cs"))
     update = body(screen, "public override void Update(float _dt)")
     check("the screen's reload-confirm wait runs on the mod's one clock",
           "ModClock.Current.NowSeconds - reloadStartedAt >= RELOAD_CONFIRM_SECONDS" in update
@@ -267,7 +234,7 @@ def main() -> int:
     other_disk_calls = ("FileStream", "StreamReader", "Directory.")
 
     def calls_disk(name: str) -> bool:
-        return any(call in code_of(name) for call in other_disk_calls)
+        return any(call in code_of(read(name)) for call in other_disk_calls)
 
     # `File.` has to be matched as the BCL type, not as the tail of this mod's
     # own `TomlFile.`, which is a call through the seam and nothing else:
@@ -279,9 +246,9 @@ def main() -> int:
           "interface IFileSystem" in files
           and "class SystemFileSystem : IFileSystem" in files
           and "static IFileSystem Current { get; set; }" in files
-          and not bcl_file_call.search(code_of("ModSettings.cs"))
-          and not bcl_file_call.search(code_of("TargetMod.cs"))
-          and not bcl_file_call.search(code_of("TargetModDiscovery.cs"))
+          and not bcl_file_call.search(code_of(read("ModSettings.cs")))
+          and not bcl_file_call.search(code_of(read("TargetMod.cs")))
+          and not bcl_file_call.search(code_of(read("TargetModDiscovery.cs")))
           and not calls_disk("ModSettings.cs")
           and not calls_disk("TargetMod.cs")
           and not calls_disk("TargetModDiscovery.cs"))
@@ -290,16 +257,17 @@ def main() -> int:
     # the real file's text with its writes going to the simulation, and the
     # save path is the one place that reads and writes the same file.
     check("the save path's read is the seam's read, not a second one",
-          "ModFileSystem.Current.ReadAllText(TomlPath, out encoding)" in code_of("TargetMod.cs")
+          "ModFileSystem.Current.ReadAllText(TomlPath, out encoding)"
+          in code_of(read("TargetMod.cs"))
           and "string ReadAllText(string path, out Encoding encoding);" in files
           and "TomlFile.Decode(ReadAllBytes(path), out encoding)"
-          in code_of("ModFileSystem.cs"))
+          in code_of(read("ModFileSystem.cs")))
     # What a simulated run cannot have is a save path that needs the game to
     # exist: the mod list and the assembly probe are the game-side half, and
     # nothing past them names a game type.
     check("the save path is drivable without the game",
-          "ModManager" not in code_of("TargetMod.cs")
-          and "ModManager" in code_of("TargetModDiscovery.cs")
+          "ModManager" not in code_of(read("TargetMod.cs"))
+          and "ModManager" in code_of(read("TargetModDiscovery.cs"))
           and "public TargetMod(string name" in target)
     # The seam check reads a bare `File.` as System.IO's static API, so an
     # identifier that merely ends in `File` must not read as one: TomlFile is

@@ -33,20 +33,14 @@ from __future__ import annotations
 
 import os
 import sys
-import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from csharp_source import body, code_of
 from gate_report import check, result
-from local_env import mod_dir
+from local_env import mod_dir, mod_name
 
 MOD_DIR = str(mod_dir())
-# The checkout is named after the repo slug, not the mod; ModInfo.xml is
-# the authority (test_static_checks.py holds it to the build tooling).
-MOD_NAME = next(
-    p.get("value") or ""
-    for p in ET.parse(os.path.join(MOD_DIR, "ModInfo.xml")).getroot()
-    if p.tag == "Name")
-SRC = os.path.join(MOD_DIR, "src", MOD_NAME)
+SRC = os.path.join(MOD_DIR, "src", mod_name())
 
 
 def read(name: str) -> str:
@@ -55,29 +49,6 @@ def read(name: str) -> str:
         return ""
     with open(path, encoding="utf-8") as handle:
         return handle.read()
-
-
-def body(source: str, signature: str) -> str:
-    """The `{ ... }` block that follows a method signature, braces counted.
-
-    String literals in these files hold no braces, so a plain count is enough
-    and keeps the gate free of a C# parser it would otherwise need.
-    """
-    start = source.find(signature)
-    if start < 0:
-        return ""
-    brace = source.find("{", start + len(signature))
-    if brace < 0:
-        return ""
-    depth = 0
-    for index in range(brace, len(source)):
-        if source[index] == "{":
-            depth += 1
-        elif source[index] == "}":
-            depth -= 1
-            if depth == 0:
-                return source[brace:index + 1]
-    return ""
 
 
 def guarded(source: str, statement: str) -> bool:
@@ -108,12 +79,6 @@ def guarded(source: str, statement: str) -> bool:
                 lock_depth = depth + 1
         index += 1
     return lock_depth is not None and lock_depth == depth
-
-
-def code_of(source: str) -> str:
-    """The file without its comment-only lines, so a check reads the code."""
-    return "\n".join(line for line in source.splitlines()
-                     if not line.strip().startswith("//"))
 
 
 def main() -> int:

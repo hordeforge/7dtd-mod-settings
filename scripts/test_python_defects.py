@@ -19,12 +19,12 @@ from __future__ import annotations
 
 import ast
 import os
-import subprocess
 import sys
 from itertools import pairwise
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate_report import check, result
+from git_tracked import tracked_paths
 from local_env import mod_dir
 
 MOD_DIR = str(mod_dir())
@@ -34,14 +34,7 @@ JUMPS = (ast.Return, ast.Raise, ast.Break, ast.Continue)
 
 def tracked_py() -> list[str]:
     """Every tracked *.py under this mod, sorted — never filesystem order."""
-    done = subprocess.run(
-        ["git", "-C", MOD_DIR, "ls-files", "-z", "--", "*.py"],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-        timeout=60, check=False,
-    )
-    if done.returncode != 0:
-        raise SystemExit("ERROR: git ls-files failed: " + done.stderr)
-    return sorted(name for name in done.stdout.split("\0") if name)
+    return tracked_paths("*.py")
 
 
 def _scan_block(body: list[ast.stmt], found: list[tuple[int, str]]) -> None:

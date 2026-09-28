@@ -23,11 +23,11 @@ from __future__ import annotations
 
 import ast
 import os
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from gate_report import FAILURES, check
+from git_tracked import tracked_paths
 from local_env import mod_dir
 
 MOD_DIR = str(mod_dir())
@@ -39,24 +39,28 @@ EXEMPT: dict[str, str] = {}
 
 def tracked_py() -> list[str]:
     """Every tracked *.py under this mod, sorted — never filesystem order."""
-    done = subprocess.run(
-        ["git", "-C", MOD_DIR, "ls-files", "-z", "--", "*.py"],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-        timeout=60, check=False,
-    )
-    if done.returncode != 0:
-        print(f"FAIL tracked-files-readable: git ls-files exited {done.returncode}")
-        return []
-    return sorted(name for name in done.stdout.split("\0") if name)
+    return tracked_paths("*.py")
 
 
 def in_tree_modules() -> set[str]:
-    """Top-level names a local import can resolve to inside this mod."""
+    """Top-level names a local import can resolve to inside this mod.
+
+    Read off the filesystem, not `git ls-files`: a module a working tree
+    just gained is a local import, and reading the index instead reported
+    it as a third-party dependency until it was committed. The files this
+    gate *scans* are still the tracked ones, so an untracked scratch file
+    can neither add a dependency nor hide one.
+    """
     names: set[str] = set()
-    for path in tracked_py():
-        parts = path.split("/")
-        names.add(parts[-1][:-3] if parts[-1].endswith(".py") else parts[-1])
-        names.update(parts[:-1])
+    for base, dirs, files in os.walk(MOD_DIR):
+        dirs[:] = [d for d in dirs
+                   if d not in {".git", ".tmp", "dist", "__pycache__"}]
+        rel = os.path.relpath(base, MOD_DIR).split(os.sep)
+        if rel != ["."]:
+            names.update(rel)
+        for name in files:
+            if name.endswith(".py"):
+                names.add(name[:-3])
     return names
 
 

@@ -22,7 +22,6 @@ import re
 import shutil
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TextIO
 
@@ -114,15 +113,8 @@ def parse_args(argv: list[str]) -> Path | None:
 
 
 def source_dir(root: Path) -> Path:
-    """`src/<Name>`, where the mod name is ModInfo's, not the directory's.
-
-    The checkout is named after the repo slug, deliberately not the mod name.
-    """
-    name = next(
-        node.get("value") or ""
-        for node in ET.parse(root / "ModInfo.xml").getroot()
-        if node.tag == "Name")
-    return Path("src") / name
+    """`src/<Name>`, where the mod name is ModInfo's, not the directory's."""
+    return Path("src") / local_env.mod_name(root)
 
 
 class Target:
