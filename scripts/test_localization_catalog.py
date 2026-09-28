@@ -90,6 +90,7 @@ WIDE_RANGES = (
     (0xAC00, 0xD7A3),    # Hangul syllables
     (0xF900, 0xFAFF),    # CJK compatibility ideographs
     (0xFF00, 0xFF60),    # fullwidth forms
+    (0xFFE0, 0xFFE6),    # fullwidth currency and sign forms
     (0x20000, 0x2FA1F),  # CJK extensions B and later
 )
 
@@ -251,10 +252,18 @@ def line_count(text: str, width_px: int, font_size: int) -> int:
     for it would be the one thing the gate gets backwards. Latin text is
     measured at half the width the game's faces actually draw, so a Latin
     line is over-counted and a label that passes has room to spare.
+
+    A box no character fits in measures the worst case the model can
+    justify, one line per character. Dividing by a zero or negative limit
+    instead would raise, and a gate that dies on the input it exists to
+    judge reports nothing at all; <see cref="usable_geometry"/> is what
+    refuses such a label outright.
     """
     if not text:
         return 1
     limit = width_px * WIDE_ADVANCE
+    if limit <= 0 or font_size <= 0:
+        return max(1, len(text))
     lines = 1
     used = 0.0
     for word in text.split(" "):
@@ -306,6 +315,20 @@ def label_attribute(tag: str, name: str) -> str | None:
     return found.group(1) if found else None
 
 
+def geometry(width: str, height: str, size: str) -> tuple[int, int, int] | None:
+    """A label's three pixel and point counts, or None when any of them is
+    not a whole number.
+
+    An XUi attribute may hold a data binding or a decimal spelling instead
+    of a count, and `int()` on one raises: the gate would end in a
+    traceback rather than a verdict about the label that carries it.
+    """
+    try:
+        return (int(width), int(height), int(size))
+    except (TypeError, ValueError):
+        return None
+
+
 def binding_name(text: str | None) -> str | None:
     """The binding a label's text attribute carries, `{name}`, or None."""
     if text is None:
@@ -318,7 +341,24 @@ def required_height(text: str, width_px: int, font_size: int) -> float:
     """The height *text* needs once it is allowed to grow in
     translation, at the line height NGUI gives a label."""
     grown = expand(text)
+    if font_size <= 0:
+        # Every line is zero tall, so the product below would report a box
+        # of no height as fitting any string at all. A label drawn at no
+        # font size is not a rendering to size; demand the full text.
+        return float(math.inf)
     return line_count(grown, width_px, font_size) * font_size * LINE_HEIGHT_RATIO
+
+
+def usable_geometry(width_px: int, height_px: int, font_size: int) -> bool:
+    """Whether a label's three numbers are a box the game can draw text in.
+
+    A width or a font size of zero, or a negative one, is not a small label:
+    the height a zero font size demands is zero, so `label-fits` would pass
+    any box at all, and a zero or negative width divides the line model by
+    zero. Both are refused here so the failure is a verdict about the
+    label rather than a divide in the gate.
+    """
+    return width_px > 0 and height_px > 0 and font_size > 0
 
 
 def expand(text: str) -> str:
@@ -430,7 +470,18 @@ def main() -> int:
                 check("label-geometry:" + rel + ":" + name, False,
                       "a translated label needs width, height and font_size")
                 continue
-            width_px, height_px, font_size = (int(width), int(height), int(size))
+            box = geometry(width, height, size)
+            if box is None:
+                check("label-geometry:" + rel + ":" + name, False,
+                      "width, height and font_size must be whole pixels and "
+                      "points, not " + f"{width}/{height}/{size}")
+                continue
+            width_px, height_px, font_size = box
+            if not usable_geometry(width_px, height_px, font_size):
+                check("label-geometry:" + rel + ":" + name, False,
+                      f"width {width_px}, height {height_px} and font size "
+                      f"{font_size} must all be above zero")
+                continue
             lines = line_count(rendered, width_px, font_size)
             need = required_height(rendered, width_px, font_size)
             check("label-wraps:" + rel + ":" + name,
@@ -549,6 +600,25 @@ def main() -> int:
     check("negative-control:shipped-single-line-passes",
           required_height("restart required", 376, 20) <= 22,
           "a one-line label the game itself draws this way must still pass")
+    check("negative-control:zero-geometry-is-refused",
+          not usable_geometry(0, 20, 20) and not usable_geometry(376, 0, 20)
+          and not usable_geometry(376, 20, 0) and not usable_geometry(-1, 20, 20)
+          and usable_geometry(376, 20, 20),
+          "a box with a zero or negative dimension must be refused")
+    check("negative-control:degenerate-box-never-divides-by-zero",
+          line_count("hello world", 0, 22) == 11 and line_count("x", -5, 22) == 1,
+          "a box nothing fits in must measure the worst case, not raise")
+    check("negative-control:zero-font-size-demands-everything",
+          required_height("restart required", 376, 0) == math.inf,
+          "a zero font size must not report a zero height and fit anything")
+    check("negative-control:non-integer-geometry-is-refused",
+          geometry("630.0", "20", "20") is None
+          and geometry("${width}", "20", "20") is None
+          and geometry("630", "20", "20") == (630, 20, 20),
+          "an attribute that is not a whole pixel count must be refused")
+    check("negative-control:fullwidth-signs-take-more",
+          line_count("￥", 11, 22) > line_count("$", 11, 22),
+          "a fullwidth currency sign must be measured wider than a Latin one")
 
     return result()
 
