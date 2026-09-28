@@ -33,8 +33,8 @@ From the planning doc that started this mod (`~/code/mod-settings-ui.md`):
 4. **Server settings**: a joined client edits only its local copy; the
    UI says so. Editing the server copy stays a server-console/telnet
    task in v1.
-5. **Own settings**: Wrench is built from Anvil, so its own TOML
-   appears in its own UI.
+5. **Own settings**: Wrench ships its own `Config/Wrench.toml`, so
+   discovery lists it in its own UI like any other target mod.
 
 A file the parser rejects is listed as unreadable — never shown
 half-parsed, never written back to.

@@ -65,7 +65,9 @@ namespace Wrench
 		/// anything already at it is unlinked before the new file is created
 		/// exclusively. A leftover from a crash is gone, and a link planted
 		/// there is unlinked rather than followed, which is what
-		/// create-or-truncate would do.
+		/// create-or-truncate would do. The only write this seam makes is
+		/// that staged sibling, whose name is fixed and guessable by any
+		/// writer in the mod folder.
 		/// </summary>
 		void WriteAllText(string path, string text, Encoding encoding);
 
@@ -146,6 +148,9 @@ namespace Wrench
 		public void WriteAllText(string path, string text, Encoding encoding)
 		{
 			var bytes = TomlFile.Encode(text, encoding);
+			// A link at the staged name is unlinked rather than followed, so
+			// creating over it cannot truncate what it points at. Delete does
+			// not throw when there is nothing there.
 			File.Delete(path);
 			using (var stream = File.Open(path, FileMode.CreateNew, FileAccess.Write, SharedAccess))
 				stream.Write(bytes, 0, bytes.Length);

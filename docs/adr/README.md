@@ -11,7 +11,9 @@ a decision warrants an ADR.
 Numbered sequentially with a zero-padded 4-digit filename prefix (`0001-`,
 `0002-`, …), never renumbered or deleted — a superseded decision gets a
 **new** ADR that references and supersedes the old one, with the old one's
-`Status` updated to `Superseded by NNNN`.
+`Status` updated to `Superseded by NNNN`. A decision that is narrowed but
+not replaced stays accepted and records the narrowing in its `Status`,
+dated and linked to the record that narrowed it.
 
 For a new decision: copy [`template.md`](template.md) into the next unused
 number, fill it in, then add it to the index below.
@@ -20,5 +22,5 @@ number, fill it in, then add it to the index below.
 
 | # | Title | Status |
 |---|---|---|
-| 0001 | [The target mod's TOML file is the integration surface](0001-toml-file-is-the-integration-surface.md) | Accepted |
+| 0001 | [The target mod's TOML file is the integration surface](0001-toml-file-is-the-integration-surface.md) | Accepted, amended 2026-09-28 |
 | 0002 | [The options tab is an XUi XML patch, not a Harmony hook](0002-options-tab-via-xui-patch-no-harmony.md) | Accepted |

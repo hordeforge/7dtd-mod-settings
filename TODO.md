@@ -32,7 +32,7 @@ Adds a Mod Settings screen to the in-game options menu, listing every loaded mod
 - [x] Live-reload awareness: detect the Anvil settings component in the
       target mod (restart-required label otherwise) and confirm a save
       was re-read from the log line after writing. Proven live: suite
-      run3, all six wrench-mod-settings cases PASS.
+      run3, every wrench-mod-settings case PASS.
 - [ ] `# ui:` annotation renderer per the convention in docs/design.md
       (flags → checkboxes with an "all" master, enum, range); strip
       `# ui:` lines from displayed help. First consumer: AtomicDoomsday's

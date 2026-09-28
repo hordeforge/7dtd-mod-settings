@@ -183,7 +183,8 @@ to be selected when the line arrives), and it is cleared when the screen
 opens, so a reload line seen while it was closed cannot stamp a newly
 discovered mod as saved-and-applied. A save that is refused, or to a mod
 that only applies on a restart, disarms the latch rather than leaving the
-previous mod's marker armed.
+previous mod's marker armed. The re-read is at the start of a save; the
+decision below keeps the write half from reading the file back again.
 
 ## Decided 2026-09-28: a save is replaced in atomically, in the file's own encoding
 
@@ -403,11 +404,8 @@ dedicated server runs the console command on its telnet thread, and
   `volatile` flag beside a plain field: a log line arriving between the
   marker swap and the flag clear would otherwise be dropped.
 - `TrySave` writes through `<path>.wrench-tmp` and renames it over the
-  destination. Writing in place truncates first, so a hot-reloading mod
-  polling the file (or a config tool reading it) can read a half-written
-  settings file, and a crash in that window loses the old text with no
-  rollback path. `File.Replace` is the rename; where a runtime does not
-  implement it, the fallback is delete plus move.
+  destination, as the save-replacement decision above sets out; that
+  record carries the reasoning and the staging-name hazard.
 
 Enforced by `scripts/test_settings_reload.py` and
 `scripts/test_target_save_coherence.py`.
