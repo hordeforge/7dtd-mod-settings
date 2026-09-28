@@ -114,20 +114,14 @@ relative path of this repo.
 
 ## Asset bundles (when this mod ships them)
 
-The bundle is built by **shamway** (`hordeforge/7dtd-asset-pipeline`); this
-mod owns only its assets, generators, and provenance. **No Unity editor is
-required**: the default synthesized lane builds complete bundles —
-textures, audio, text, meshes, materials, prefabs — with no editor at all;
-`bundle_source = "unity"` (with `UNITY_EDITOR`) is an opt-in lane, and
-where an editor exists it is a checker, not a requirement. Start with
-`shamway init` (it generates `.shamway.toml` and the pipeline's own
-`tools/shamway/AGENTS.md` contract), orient with `shamway status --json`,
-and gate every rebuild with `shamway validate` (and `shamway check-icons`)
-in the asset pipeline **before** any client launch — a bundle without a
-class-142 `AssetBundle` object is always rejected at runtime, and a
-matching UnityFS header is *not* acceptance
-evidence. Acceptance is a fresh client loading the bundle. If a build fails
-a shamway gate, fix the cause — never downgrade the gate.
+This mod ships none, and the Makefile has no asset targets on purpose. If
+it ever does, the bundle is built by **shamway**
+(`hordeforge/7dtd-asset-pipeline`) and every rebuild is gated there with
+`shamway validate` and `shamway check-icons` before a client launch; a
+bundle without a class-142 `AssetBundle` object is always rejected at
+runtime, and a matching UnityFS header is not acceptance evidence. If a
+build fails one of those gates, fix the cause, never downgrade the gate.
+The tool map is `docs/reference/sibling-tooling.md`.
 
 ## Runtime settings are TOML
 
@@ -142,13 +136,15 @@ comment lists the steps) and mirror it, commented, in the shipped TOML.
 ## Dependencies
 
 The mod's Python is stdlib only: `pyproject.toml` declares a virtual project
-with no dependencies and `uv.lock` resolves it empty, so `make test` runs on
-a bare interpreter. ruff, mypy and shellcheck are host tools, pinned by
-version in `.github/workflows/ci.yml`; the dotnet SDK is read-only
-reference for the C# TOML harnesses. A third-party package is a decision to
-make on purpose, not a reflex: declare it in `pyproject.toml`, take the
-install with it, and write down why. `scripts/test_stdlib_only.py` holds
-the no-import claim, so nothing arrives on one contributor's disk instead.
+with no dependencies and `uv.lock` resolves it empty, so no third-party
+package arrives by accident. ruff and mypy are developer and CI tools pinned
+in `requirements-dev.txt` (the one place a version is written down) and
+shellcheck is a host tool; the dotnet SDK is read-only reference for the C#
+TOML harnesses, so `make test` needs an interpreter and that SDK, no game
+install. A third-party package is a decision to make on purpose, not a
+reflex: declare it in `pyproject.toml`, take the install with it, and write
+down why. `scripts/test_stdlib_only.py` holds the no-import claim, so
+nothing arrives on one contributor's disk instead.
 
 ## Releases
 
@@ -161,15 +157,12 @@ new feature or a fix is a patch bump; the fourth version component stays
 is never reused for different work, and the changelog entry says what
 changed for a consumer (breaking change, new key, migration), not which
 commit changed it. `scripts/test_version_declaration.py` holds all of
-that offline, including that no release is documented twice. The tag
-(`v0.2.0`) is cut from the commit that sets the version, so the
-changelog's newest heading is that commit's release and nothing after
-it.
+that offline, including that no release is documented twice. The release
+tag is cut from the commit that sets the version, so the changelog's
+newest heading is that commit's release and nothing after it.
 
-Added 2026-09-28: the version was declared in three files with no gate,
-and the `0.1.0.0` already published under tag `v0.1.0` was still the
-declared version over every change since; enforced by
-`scripts/test_version_declaration.py`.
+Added 2026-09-28: the version was declared in three files that nothing
+held together.
 
 Added 2026-09-28: a behaviour change shipped as the patch `0.2.1` (a
 key spelled with the wrong case stopped applying), three more landed
@@ -301,15 +294,11 @@ private launcher. A new case belongs to the suite whose feature it proves,
 never dropped into another feature's fixture (shared world/inventory state
 makes a borrowed case change every case after it).
 
-Corrected 2026-09-28: `make test` was described as needing nothing but a
-Python interpreter, but `test_toml_document.py` and `test_toml_fuzz.py`
-compile `src/Wrench/*.cs` and have no fallback, so a runtime-only .NET
-install failed two of eighteen gates part way through a run; `make help` and
-the README now say so, held by `scripts/test_toolchain_floor.py`. The lint
-tool versions were written down twice (the CI workflow and the README) with
-no gate, so a bump of one silently left the other stale; they now live only
-in `requirements-dev.txt`, which CI installs, held by
-`scripts/test_lint_toolchain_declared.py`.
+Corrected 2026-09-28: `make test` needs the .NET SDK, not only a Python
+interpreter, because `test_toml_document.py` and `test_toml_fuzz.py`
+compile `src/Wrench/*.cs` (`scripts/test_toolchain_floor.py`); the lint
+tool versions are written down in `requirements-dev.txt` only, which CI
+installs (`scripts/test_lint_toolchain_declared.py`).
 
 ## Git workflow
 

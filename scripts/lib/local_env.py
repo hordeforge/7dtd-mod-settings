@@ -96,7 +96,8 @@ def require_dotnet_sdk(root: Path | None = None) -> Path | None:
               file=sys.stderr)
         return None
     sdks = subprocess.run([str(dotnet), "--list-sdks"],
-                          capture_output=True, text=True, check=False)
+                          capture_output=True, text=True, check=False,
+                          encoding="utf-8", errors="replace")
     if sdks.returncode != 0 or not sdks.stdout.strip():
         print(f"FAIL dotnet SDK not found: `{dotnet}` lists no SDKs. Install the "
               f".NET SDK (https://aka.ms/dotnet/download) and put it on PATH, "

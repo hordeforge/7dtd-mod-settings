@@ -116,17 +116,23 @@ def main() -> int:
           and "out List<TomlSettings.DocEntry> after" in edit)
 
     probe = body(discovery, "static bool CachedHasSettingsComponent(")
+    # The memo is reached only from Discover(), which only the screen's
+    # OnOpen calls on the UI thread, so it is a plain dictionary and needs no
+    # lock: what has to hold is that a probe is paid once per installed mod
+    # and answered from the memo afterwards, keyed by the mod's own path.
     check("the assembly probe is paid once per installed mod, not once per "
           "screen opening",
           "hotReloadsByModPath.TryGetValue(mod.Path" in probe
-          and "HasSettingsComponent(mod, out definitive)" in probe)
-    check("the memoized answers are looked up and filled under one lock",
-          "lock (hotReloadsGate)" in probe
-          and "hotReloadsByModPath[mod.Path] = found;" in probe)
-    check("an inconclusive probe is not memoized as this mod's answer",
-          "if (definitive)" in probe)
+          and "if (hotReloadsByModPath.TryGetValue(mod.Path, out known))"
+          in probe
+          and "return known;" in probe
+          and "hotReloadsByModPath[mod.Path] = found;" in probe
+          and probe.count("HasSettingsComponent(") == 1)
+    check("the memo is a private cache of this class, not shared state",
+          "static readonly Dictionary<string, bool> hotReloadsByModPath" in discovery
+          and "hotReloadsByModPath" not in code_of(screen))
 
-    # The two memoization rules above, proven able to fail against mutated
+    # The memoization rules above, proven able to fail against mutated
     # copies of the real source rather than asserted by their own passing.
     ungated = discovery.replace("if (definitive)", "if (true)", 1)
     check("negative control: a probe cached whatever it found fails the gate",
@@ -138,6 +144,20 @@ def main() -> int:
           "lock (hotReloadsGate)" in discovery
           and "lock (hotReloadsGate)"
           not in body(unlocked, "static bool CachedHasSettingsComponent("))
+    guard = "if (hotReloadsByModPath.TryGetValue(mod.Path, out known))"
+    unguarded = discovery.replace(guard, "if (hotReloadsByModPath.Count == 0)", 1)
+    check("negative control: a probe answered only after probing again fails "
+          "the gate",
+          guard in discovery
+          and guard not in body(unguarded,
+                                "static bool CachedHasSettingsComponent("))
+    rekeyed = discovery.replace("hotReloadsByModPath[mod.Path] = found;",
+                                "hotReloadsByModPath[mod.Name] = found;", 1)
+    check("negative control: a memo keyed by a name two mods can share fails "
+          "the gate",
+          "hotReloadsByModPath[mod.Path] = found;" in discovery
+          and "hotReloadsByModPath[mod.Path] = found;"
+          not in body(rekeyed, "static bool CachedHasSettingsComponent("))
 
     relocate = body(target, "bool TryRelocate(")
     check("the key is located by name, not by the offset it used to have",
@@ -156,6 +176,14 @@ def main() -> int:
           in discovery
           and "definitive = false;" in probe
           and "definitive = true;" in probe)
+    # An assembly the runtime cannot load leaves the answer wrong but bounded:
+    # the mod is reported as not hot-reloading and the rest of the list is
+    # still editable, which is all the answer decides (the live-reload label).
+    check("an assembly that could not be inspected is skipped with a warning, "
+          "not propagated",
+          "could not inspect an assembly of " in probe
+          and "continue;" in probe
+          and "ReflectionTypeLoadException" in probe)
 
     # The save path reaches the disk only through the seam, so a simulated
     # run's own filesystem is what a save is made against; and the discovery
