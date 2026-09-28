@@ -39,10 +39,17 @@ def read(path: str) -> str:
 
 
 def tracked_text_files() -> list[str]:
+    """Every tracked text file the drift check reads.
+
+    A path the working tree no longer holds is left out: `git ls-files` still
+    lists a file between the delete and the commit that records it, and
+    reading it then raises instead of reporting a verdict.
+    """
     listing = subprocess.run(["git", "ls-files"], cwd=MOD_DIR, capture_output=True,
                              text=True, encoding="utf-8", errors="replace", check=False)
     return sorted(name for name in listing.stdout.splitlines()
-                  if name.endswith(TEXT_SUFFIXES) or name in ("Makefile", REQUIREMENTS))
+                  if (name.endswith(TEXT_SUFFIXES) or name in ("Makefile", REQUIREMENTS))
+                  and os.path.isfile(os.path.join(MOD_DIR, name)))
 
 
 def pinned(text: str) -> dict[str, str]:

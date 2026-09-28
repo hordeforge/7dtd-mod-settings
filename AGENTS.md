@@ -216,6 +216,16 @@ added there. `make build` stages the deployable modlet under `dist/Wrench/`;
 `Mods/Wrench/ModInfo.xml`. Never nest deployable content under a further
 subfolder.
 
+Corrected 2026-09-28: the staged tree was made world-readable and
+writable by nobody for a reproducible zip, and the zip records those
+modes. Every install whose extractor restored them (unzip does) got a
+read-only `Config/`, and this mod saves a setting by writing a staged
+sibling into `Config/` and replacing `Config/Wrench.toml` with it, so
+every save failed on exactly those installs. The package is now staged
+`a+rX,u+w` and `scripts/test_package_contents.py` builds the real zip
+and holds the shipped file set, the entry modes, and a negative control
+on the read-only tree they replaced.
+
 ## XML conventions
 
 - Prefer XPath patches over full-file overrides

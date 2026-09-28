@@ -12,9 +12,9 @@ MOD_NAME="Wrench"
 OUT="$ROOT/dist/$MOD_NAME"
 SRC="$ROOT/src/$MOD_NAME"
 
-# A tree staged by a previous run is read-only (see the chmod at the end), and
-# unlinking a file needs write permission on the directory holding it, so
-# restore owner-write before removing one.
+# A tree staged by a run of an older build.sh may be read-only, and unlinking
+# a file needs write permission on the directory holding it, so restore
+# owner-write before removing one.
 if [[ -d "$OUT" ]]; then
 	chmod -R u+w "$OUT"
 fi
@@ -86,7 +86,17 @@ find "$OUT" \( "${junk_predicate[@]:1}" \) -delete
 # entry's unix mode. `cp` creates each file through the builder's umask, so
 # without this the same source packaged under umask 077 and under umask 022
 # produced two different zips. Normalize once, here, at the point the
-# artifact is declared complete: world-readable, writable by nobody.
-chmod -R a-w,a+rX "$OUT"
+# artifact is declared complete: world-readable, writable by the owner alone.
+#
+# Owner-write stays on, and the player who extracts the zip is that owner.
+# This mod writes a staged sibling into Config/ and replaces the settings
+# file with it (ModFileSystem.WriteAllText), so a read-only folder, or a
+# read-only Config/Wrench.toml, refuses every save the player makes; an
+# extractor that honors the recorded modes (unzip, and every tool that
+# restores them) produced exactly that. The reproducible-zip reason and the
+# working-install reason pull the same way here: same modes on every machine,
+# and a tree the owner can write. Enforced by
+# scripts/test_package_contents.py.
+chmod -R a+rX,u+w "$OUT"
 
 echo "OK -> $OUT"

@@ -16,6 +16,13 @@ its own numbered heading when the version it ships under is declared.
 
 ### Fixed
 
+- The packaged modlet is no longer staged read-only, so saving a setting
+  works on an install whose extractor restored the modes the zip records.
+  A save writes a staged file into `Config/` and replaces
+  `Config/Wrench.toml` with it; a folder or file the installing user
+  cannot write refused every save, and the screen reported the refusal.
+  Extract the new package over the old folder, or make the installed
+  folder writable by its owner (`chmod -R u+w Mods/Wrench`).
 - Reopening the Mod Settings screen keeps the selection on the mod whose
   folder it was on, instead of the mod whose `ModInfo` name matches. Two
   installed mods can carry the same name, and the reopen landed the player
@@ -36,6 +43,11 @@ its own numbered heading when the version it ships under is declared.
 - The DLL build maps its source paths out of the output
   (`ContinuousIntegrationBuild=true`), so the checkout's absolute directory
   no longer reaches the shipped binary.
+
+### Removed
+
+- An empty `Config/items.xml` placeholder no longer ships in the
+  package. It patched nothing.
 
 ## [0.3.0] - 2026-09-28
 

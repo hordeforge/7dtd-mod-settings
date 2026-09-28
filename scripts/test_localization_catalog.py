@@ -57,13 +57,19 @@ SIMPLE_ESCAPES = {
 
 
 def tracked(patterns: str) -> list[str]:
-    """Every tracked path matching *patterns*, sorted, never filesystem order."""
+    """Every tracked path matching *patterns*, sorted, never filesystem order.
+
+    A path the working tree no longer holds is not scanned: `git ls-files`
+    still lists a file between the delete and the commit that records it, and
+    a gate that reads it then reports a traceback instead of a verdict.
+    """
     done = subprocess.run(
         ["git", "-C", MOD_DIR, "ls-files", "-z", "--", patterns],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
         timeout=60, check=False,
     )
-    return sorted(p for p in done.stdout.split("\0") if p)
+    return sorted(p for p in done.stdout.split("\0")
+                  if p and os.path.isfile(os.path.join(MOD_DIR, p)))
 
 
 def decode_csharp_literal(value: str) -> str:
