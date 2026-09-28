@@ -52,6 +52,9 @@ select = [
     "TID",              # tidy imports: no relative imports past the package
     "PGH",              # blanket `# type: ignore` instead of a code, and
                          # a type: ignore that matches nothing
+    "BLE",              # blind except: an except that swallows a name it
+                         # did not raise
+    "A",                # builtins shadowed by a module-level name
 ]
 # FBT: the gate suite shares one `check(name, ok, detail)` helper across every
 # test script; keyword-only booleans there would be churn, not clarity.

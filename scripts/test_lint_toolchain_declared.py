@@ -14,12 +14,12 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate_report import FAILURES, check
+
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(MOD_DIR, "scripts")
 REQUIREMENTS = "requirements-dev.txt"
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check  # noqa: E402
 
 # The tools scripts/lint-python.sh refuses to start without.
 REQUIRED_TOOLS = ("ruff", "mypy")

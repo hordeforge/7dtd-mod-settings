@@ -20,11 +20,11 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from gate_report import check, result
+
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RUNNER = os.path.join(MOD_DIR, "scripts", "run-offline-tests.sh")
-
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import check, result  # noqa: E402
 
 
 def pyproject_floor(text: str) -> tuple[int, ...]:
