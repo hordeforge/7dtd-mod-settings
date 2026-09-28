@@ -74,7 +74,8 @@ namespace Wrench
 				try
 				{
 					result.Add(new TargetMod(mod.Name, mod.DisplayName, mod.Path, tomlPath,
-						CachedHasSettingsComponent(mod)));
+						CachedHasSettingsComponent(mod),
+						new ModIdentity(mod.Path, mod.Name)));
 				}
 				catch (Exception ex)
 				{
@@ -100,7 +101,6 @@ namespace Wrench
 		/// One assembly the runtime cannot fully load must not take the whole
 		/// screen down: it only decides this mod's status line, and the other
 		/// mods in the list still have settings to edit.
-		///
 		/// <paramref name="definitive"/> says whether every assembly was fully
 		/// inspected. A partial pass can only answer "not hot-reloading", and
 		/// caching that would label a live-reloading mod as restart-only for
@@ -137,6 +137,10 @@ namespace Wrench
 				}
 				catch (Exception)
 				{
+					// A partial negative is not a negative: this mod may well
+					// carry the component in an assembly that would not load.
+					// The label costs the player one status line, a wrong one
+					// costs them the truth for the rest of the session.
 					definitive = false;
 					Log.Warning(ModApi.LogPrefix + " could not inspect an assembly of "
 						+ mod.Name + "; the mod is treated as not hot-reloading.");

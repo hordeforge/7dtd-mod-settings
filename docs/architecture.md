@@ -515,6 +515,51 @@ log seam is the same move `TargetMod` just made. Enforced by
 `scripts/test_target_save_coherence.py` (the seams, and the game-free
 save path), and by `scripts/test_toml_document.py` (the run itself).
 
+## Decided 2026-09-28: a mod is identified by its folder, and an unproven answer is not an answer
+
+A selection the screen restores on reopen and a label the status line shows
+are both answers about an installed mod, and both were wrong in ways a
+player pays for:
+
+- Two installed mods can carry the same ModInfo name, so restoring the
+  selection by name could come back on the other mod's settings.
+  `TargetMod` now holds a `ModIdentity` (the mod's folder plus its ModInfo
+  name) and the screen matches on the folder. The identity is a value, not
+  the game's `Mod`, so the save path stays drivable offline.
+- `HasSettingsComponent` answers false both for "this mod has no settings
+  component" and for "an assembly would not load, so I could not tell".
+  Memoizing the second as the first labelled the mod "restart required" for
+  the rest of the session, so the probe now reports whether it was
+  definitive and only a definitive answer is memoized. The memo table is
+  read and filled under one lock, since the probe runs on whichever thread
+  asked for it.
+
+Both are held by `scripts/test_target_save_coherence.py`, whose two
+negative controls mutate the file the probe actually lives in
+(`TargetModDiscovery.cs`); they had been pointed at `TargetMod.cs`, where
+the method is not, so a mutation there could never have been observed.
+
+The screen's own bindings are held the same way: every `{name}` in
+`Config/XUi_Menu/windows.xml` is answered by a `case` in a controller, so a
+renamed or mistyped binding cannot reach a player as the literal `{name}` on
+a label (`scripts/test_static_checks.py`, "binding-answered").
+
+## Decided 2026-09-28: the status line is tinted, and an unreadable file is not an empty one
+
+The status line is the screen's only feedback, and it was one flat grey for
+four different situations, so reading which one applied cost the whole
+sentence. It is now tinted by the same switch that picks the sentence
+(`{statuscolor}`, from `XUiC_ModSettingsScreen.StatusColor`), so the two can
+never disagree: applied is green, waiting and unconfirmed amber, refused
+and unreadable red, everything else the neutral grey.
+
+The settings list's empty state said "this mod has no editable settings
+here" for a file that would not parse, which is the opposite of the truth
+and points a player at the wrong problem. The two cases are separate now
+(`{noentries}` and `{noreadable}`, `wrenchSettingsUnreadable`), and a read
+or write refused by the OS says which step failed before the exception's own
+text, which was the only part of it written for a developer.
+
 ## Decided 2026-09-28: the package carries nothing about the machine that made it
 
 `make package` zips the staged tree, so every entry's stored metadata is

@@ -62,6 +62,10 @@
 
 				<rect name="settingsArea" pos="450,-44" width="760" height="700" on_scroll="true" gamepad_selectable="false" snap="false">
 					<label name="noSettings" depth="3" pos="0,0" width="700" height="140" font_size="22" justify="center" wrap="true" text_key="wrenchNoSettings" color="[mediumGrey]" visible="{noentries}" />
+					<!-- A file that will not parse is not a file with no keys in
+					     it, so it gets its own words; the reason the reader gave
+					     is on the status line below. -->
+					<label name="unreadableSettings" depth="3" pos="0,0" width="700" height="140" font_size="22" justify="center" wrap="true" text_key="wrenchSettingsUnreadable" color="[mediumGrey]" visible="{noreadable}" />
 					<options_scrollbar />
 					<scrollview depth="2" clippingsoftness="0,10" anchor_top="#parent,1,0" anchor_bottom="buttons,1,10">
 						<grid pos="0,-4" cols="1" rows="48" cell_width="720" cell_height="47" repeat_content="true" arrangement="horizontal">
@@ -94,7 +98,7 @@
 				     status line is the taller of the two and gets the extra
 				     height; positions are unchanged, so nothing moves. -->
 				<label name="serverNote" depth="3" pos="0,-712" width="1200" height="26" font_size="22" wrap="true" pivot="left" justify="left" text_key="wrenchServerNote" color="228,18,21,255" visible="{servernote}" />
-				<label name="selStatus" depth="3" pos="0,-742" width="1200" height="44" font_size="24" wrap="true" pivot="left" justify="left" text="{selmodstatus}" color="[lightGrey]" />
+				<label name="selStatus" depth="3" pos="0,-742" width="1200" height="44" font_size="24" wrap="true" pivot="left" justify="left" text="{selmodstatus}" color="{statuscolor}" />
 			</rect>
 
 			<options_buttons />

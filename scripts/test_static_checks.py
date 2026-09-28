@@ -15,6 +15,9 @@ Deterministic, offline, no game install needed:
 - localization ships at Config/Localization.csv, never the mod root (the
   engine only loads mod localization from <mod>/Config/)
 - no pre-V3 XUi shapes: no Config/XUi/ directory, no `{binding}` syntax
+- every `{name}` binding in the mod's own XUi windows is answered by one of
+  the mod's controllers, so a renamed or mistyped binding cannot reach the
+  game as the literal `{name}` on a label
 - .gitattributes pins LF for the shipped mod content, so the packaged
   modlet is the same bytes on a CRLF checkout as on an LF one
 """
@@ -58,6 +61,42 @@ def walk(rel_suffix: str) -> list[str]:
 
 def xml_files() -> list[str]:
     return walk(".xml")
+
+
+BINDING_RE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def xui_bindings() -> dict[str, set[str]]:
+    """Every `{name}` binding in the mod's own XUi windows, by file.
+
+    The mod's screens name their bindings in XML and answer them in the C#
+    controllers. A binding nothing answers renders as the literal `{name}`
+    on screen, which reads as a placeholder to a player and as nothing at all
+    in the log, so the two halves are held together here.
+    """
+    found: dict[str, set[str]] = {}
+    for rel in sorted(walk("windows.xml")):
+        if os.path.sep + "XUi" not in os.path.join(os.sep, rel):
+            continue
+        with open(os.path.join(MOD_DIR, rel), encoding="utf-8") as handle:
+            found[rel] = set(BINDING_RE.findall(handle.read()))
+    return found
+
+
+def answered_bindings() -> set[str]:
+    """Every binding name a controller answers, from the mod's own C#."""
+    answered: set[str] = set()
+    case_re = re.compile(r'^\s*case\s+"([A-Za-z_][A-Za-z0-9_]*)"\s*:',
+                         re.MULTILINE)
+    src = os.path.join(MOD_DIR, "src")
+    for base, dirs, names in os.walk(src):
+        dirs[:] = sorted(dirs)
+        for name in sorted(names):
+            if not name.endswith(".cs"):
+                continue
+            with open(os.path.join(base, name), encoding="utf-8") as handle:
+                answered.update(case_re.findall(handle.read()))
+    return answered
 
 
 def main() -> int:
@@ -109,6 +148,13 @@ def main() -> int:
                   os.path.isfile(os.path.join(MOD_DIR, "src", name,
                                               name + ".csproj")),
                   f"src/{name}/{name}.csproj is missing")
+
+    answered = answered_bindings()
+    for rel, bindings in xui_bindings().items():
+        for name in sorted(bindings):
+            check(f"binding-answered:{rel}:{name}", name in answered,
+                  "no controller answers this binding, so it renders as the "
+                  f"literal {{{name}}} in the game")
 
     check("release-readme-exists",
           os.path.isfile(os.path.join(MOD_DIR, "README.txt")),

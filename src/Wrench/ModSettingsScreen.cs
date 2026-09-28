@@ -28,6 +28,19 @@ namespace Wrench
 		// status must not keep promising a reload that never arrived.
 		const double RELOAD_CONFIRM_SECONDS = 10d;
 
+		// The status line says one of four things, and reading which one
+		// costs a player the same sentence every time, so the line is tinted
+		// by what it says: a save that landed, a save that landed and was
+		// applied, a save still waiting on the mod, and a save refused. The
+		// red is the row outline's own (ModSettingsRows.SELECTED_ROW_COLOR),
+		// the neutral is the [lightGrey] the line used to be, and the other
+		// two carry no meaning in the palette: nothing else in the window is
+		// green or amber, so neither reads as a row or a border.
+		internal const string STATUS_NEUTRAL_COLOR = "211,211,211,255";
+		internal const string STATUS_GOOD_COLOR = "138,198,63,255";
+		internal const string STATUS_WAITING_COLOR = "255,183,77,255";
+		internal const string STATUS_BAD_COLOR = "228,18,21,255";
+
 		internal List<TargetMod> targets = new List<TargetMod>();
 		internal TargetMod selected;
 		XUiC_WrenchModRow[] modRows = new XUiC_WrenchModRow[0];
@@ -317,6 +330,9 @@ namespace Wrench
 			case "selmodstatus":
 				_value = StatusLine();
 				return true;
+			case "statuscolor":
+				_value = StatusColor();
+				return true;
 			case "servernote":
 				var cm = SingletonMonoBehaviour<ConnectionManager>.Instance;
 				_value = (cm != null && cm.IsConnected && cm.IsClient && !cm.IsServer).ToString();
@@ -325,8 +341,15 @@ namespace Wrench
 				_value = (targets.Count == 0).ToString();
 				return true;
 			case "noentries":
-				_value = (selected == null || selected.Entries == null
-					|| selected.Entries.Count == 0).ToString();
+				_value = (selected == null || selected.Entries != null
+					&& selected.Entries.Count == 0).ToString();
+				return true;
+			// A file that will not parse is a different dead end from a file
+			// with no keys in it, and the empty state above says the wrong one
+			// of the two: "this mod has nothing to edit here" is false of a
+			// mod whose settings are all there and unreadable.
+			case "noreadable":
+				_value = (selected != null && selected.Entries == null).ToString();
 				return true;
 			default:
 				return base.GetBindingValueInternal(ref _value, _bindingName);
@@ -366,6 +389,31 @@ namespace Wrench
 						"Edits apply live: the mod re-reads the file on save.")
 					: WrenchText.Get("wrenchStatusRestartHint",
 						"Edits take effect after a restart.");
+			}
+		}
+
+		/// <summary>
+		/// The status line's tint, decided by the same switch the sentence is
+		/// decided by, so the two can never disagree.
+		/// </summary>
+		string StatusColor()
+		{
+			if (selected == null)
+				return STATUS_NEUTRAL_COLOR;
+			if (selected.Entries == null)
+				return STATUS_BAD_COLOR;
+			switch (selected.SaveState)
+			{
+			case TargetMod.ESaveState.Saved:
+				return STATUS_WAITING_COLOR;
+			case TargetMod.ESaveState.AppliedLive:
+				return STATUS_GOOD_COLOR;
+			case TargetMod.ESaveState.SaveUnconfirmed:
+				return STATUS_WAITING_COLOR;
+			case TargetMod.ESaveState.SaveFailed:
+				return STATUS_BAD_COLOR;
+			default:
+				return STATUS_NEUTRAL_COLOR;
 			}
 		}
 	}

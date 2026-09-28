@@ -134,6 +134,9 @@ def main() -> int:
 
     # The memoization rules above, proven able to fail against mutated
     # copies of the real source rather than asserted by their own passing.
+    # The probe lives in TargetModDiscovery.cs, so that is the copy that is
+    # mutated: a control that mutated a file the method is not in would pass
+    # on any source at all, and prove nothing.
     ungated = discovery.replace("if (definitive)", "if (true)", 1)
     check("negative control: a probe cached whatever it found fails the gate",
           "if (definitive)" in discovery
