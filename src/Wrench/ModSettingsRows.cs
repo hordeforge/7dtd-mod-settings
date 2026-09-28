@@ -6,6 +6,18 @@ namespace Wrench
 	/// </summary>
 	public class XUiC_WrenchModRow : XUiController
 	{
+		/// <summary>Outline of the selected mod's row: the game's red.</summary>
+		internal const string SELECTED_ROW_COLOR = "228,18,21,255";
+
+		/// <summary>
+		/// Outline of an unselected row. The window draws the
+		/// setting-row border with the <c>darkGrey</c> token and the
+		/// value field's border with this same literal, so the two
+		/// borders are pinned to each other; the mod-list outline is
+		/// pinned to <c>darkGrey</c> only by eye, not by a token.
+		/// </summary>
+		internal const string ROW_COLOR = "64,64,64,255";
+
 		internal XUiC_ModSettingsScreen Screen;
 		internal TargetMod Target;
 		internal int Index;
@@ -42,7 +54,7 @@ namespace Wrench
 				_value = (Target != null).ToString();
 				return true;
 			case "rowcolor":
-				_value = IsSelectedMod ? "228,18,21,255" : "64,64,64,255";
+				_value = IsSelectedMod ? SELECTED_ROW_COLOR : ROW_COLOR;
 				return true;
 			default:
 				return base.GetBindingValueInternal(ref _value, _bindingName);

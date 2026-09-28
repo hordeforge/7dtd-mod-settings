@@ -54,7 +54,7 @@
 								<sprite name="border" depth="1" width="400" height="62" sprite="menu_empty2px" type="sliced" fillcenter="false" color="{rowcolor}" />
 								<button name="rowButton" depth="2" width="400" height="62" sprite="menu_empty" defaultcolor="16,16,16,255" hoversprite="ui_game_select_row" hovercolor="[white]" type="sliced" hoverscale="1.0" />
 								<label name="name" depth="4" pos="12,-6" width="376" height="28" font_size="26" pivot="left" justify="left" text="{modname}" />
-								<label name="note" depth="4" pos="12,-36" width="376" height="22" font_size="18" pivot="left" justify="left" text="{modnote}" color="[mediumGrey]" />
+								<label name="note" depth="4" pos="12,-36" width="376" height="22" font_size="20" pivot="left" justify="left" text="{modnote}" color="[mediumGrey]" />
 							</rect>
 						</grid>
 					</scrollview>
