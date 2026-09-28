@@ -49,6 +49,8 @@ def run_runner(scripts: str, *filters: str) -> subprocess.CompletedProcess[str]:
         cwd=scripts,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=120,
         check=False,
     )

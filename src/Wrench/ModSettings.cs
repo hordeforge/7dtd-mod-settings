@@ -290,7 +290,7 @@ namespace Wrench
 			try
 			{
 				using (var stream = SdFile.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-				using (var reader = new StreamReader(stream))
+				using (var reader = ModFileText.OpenText(stream))
 					text = reader.ReadToEnd();
 				return true;
 			}

@@ -16,6 +16,32 @@ Anvil's settings component notice the save through their own hot-reload
 watch. No registration API, no shared assembly, no load-order
 dependency.
 
+## Decided 2026-09-28: text boundaries in the TOML path
+
+Wrench reads and writes text it does not own: another mod's `Config/*.toml`
+and its comments. Three decisions follow, enforced by
+`scripts/test_toml_document.py`.
+
+- **Encoding.** UTF-8 without a byte order mark on every read and write
+  (`ModFileText`), a BOM still honoured on read so a file from elsewhere
+  loads. Relying on the API default made the written bytes depend on the
+  runtime rather than on the mod.
+- **One string grammar, both directions.** The reader accepts the whole
+  TOML escape set the writer can emit, and the writer escapes every
+  control character rather than the two that read well, so a value Wrench
+  writes is a value the target mod's parser accepts. A raw control
+  character and an unpaired surrogate escape are refused on read instead
+  of passing through as U+FFFD.
+- **Keys are case sensitive.** `Foo` and `foo` are two TOML keys; a
+  case-insensitive duplicate check refused a file that is valid, and
+  disagreed with the ordinal comparison the save path already used to
+  find a key's span.
+
+Rejected: normalizing to NFC on ingestion. Nothing here compares a
+human-typed name against another spelling, and rewriting another mod's
+comments on a save is exactly the byte-for-byte guarantee the in-place
+edit exists to keep.
+
 ## Decided 2026-08-30: naming and repo shape
 
 Codename **🔧 Wrench**, repo `hordeforge/7dtd-mod-settings` (HordeForge

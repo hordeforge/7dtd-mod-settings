@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 namespace Wrench
@@ -49,7 +50,15 @@ namespace Wrench
 			return true;
 		}
 
-		/// <summary>Encodes UI text as a TOML basic string token.</summary>
+		/// <summary>
+		/// Encodes UI text as a TOML basic string token.
+		///
+		/// Every control character is escaped, not just the two that read
+		/// well: a bare CR, NUL, or ESC written literally is not a legal
+		/// TOML basic string, and the mod on the other side of this file
+		/// would refuse the whole document over a value Wrench itself
+		/// produced. Tab is the one control character TOML allows raw.
+		/// </summary>
 		public static string EncodeString(string text)
 		{
 			var builder = new StringBuilder(text.Length + 2);
@@ -61,7 +70,15 @@ namespace Wrench
 				else if (c == '\n')
 					builder.Append("\\n");
 				else if (c == '\t')
-					builder.Append("\\t");
+					builder.Append(c);
+				else if (c == '\b')
+					builder.Append("\\b");
+				else if (c == '\f')
+					builder.Append("\\f");
+				else if (c == '\r')
+					builder.Append("\\r");
+				else if (c < ' ' || c == '\u007F')
+					builder.Append("\\u").Append(((int)c).ToString("X4", CultureInfo.InvariantCulture));
 				else
 					builder.Append(c);
 			}

@@ -217,7 +217,8 @@ def collect_targets(source_dir: Path) -> tuple[list[Target], set[str]]:
 def decompile(assembly: Path, type_name: str, cache: dict[str, list[str]]) -> list[str]:
     if type_name not in cache:
         result = subprocess.run(["ilspycmd", "-t", type_name, str(assembly)],
-                                capture_output=True, text=True, check=False,
+                                capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", check=False,
                                 timeout=300)
         if result.returncode != 0:
             raise RuntimeError(f"ilspycmd failed for {type_name}: {result.stderr.strip()}")
@@ -234,7 +235,8 @@ def ensure_ilspy_runtime() -> str | None:
     preferred over silently treating every target as missing.
     """
     probe = subprocess.run(["ilspycmd", "--version"], capture_output=True,
-                           text=True, check=False, timeout=60)
+                           text=True, encoding="utf-8", errors="replace",
+                           check=False, timeout=60)
     if probe.returncode == 0:
         return None
 
@@ -250,7 +252,8 @@ def ensure_ilspy_runtime() -> str | None:
         os.environ["DOTNET_ROOT"] = str(runtime_root)
         os.environ["PATH"] = str(runtime_root) + os.pathsep + os.environ.get("PATH", "")
         retry = subprocess.run(["ilspycmd", "--version"], capture_output=True,
-                               text=True, check=False, timeout=60)
+                               text=True, encoding="utf-8", errors="replace",
+                               check=False, timeout=60)
         if retry.returncode == 0:
             print(f"ILSPY_RUNTIME {runtime_root}")
             return None

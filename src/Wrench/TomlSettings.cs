@@ -124,9 +124,11 @@ namespace Wrench
 			{
 				entries = new List<DocEntry>();
 				error = null;
-				// Keys are case-sensitive, exactly as TOML defines them, and as the
-			// in-place writer and the by-name relocation compare them.
-			var seen = new HashSet<string>(StringComparer.Ordinal);
+					// Keys are case-sensitive, exactly as TOML defines them: `Foo` and
+				// `foo` are two keys, and treating them as one refuses a file that
+				// is perfectly valid. The in-place writer and the by-name
+				// relocation compare them the same way.
+				var seen = new HashSet<string>(StringComparer.Ordinal);
 				SkipIgnorable();
 				while (!AtEnd)
 				{
@@ -243,6 +245,16 @@ namespace Wrench
 					}
 					if (c != '\\')
 					{
+						// A raw control character (anything but tab) is not a
+						// legal basic string, so the mod on the other side
+						// would refuse the file Wrench just showed as
+						// editable. Refusing it here keeps what the reader
+						// accepts exactly what the writer can produce.
+						if (c < ' ' && c != '\t' || c == '\u007F')
+						{
+							error = "line " + line + ": raw control character in string.";
+							return false;
+						}
 						builder.Append(c);
 						continue;
 					}
@@ -251,21 +263,136 @@ namespace Wrench
 						error = "line " + line + ": unterminated string escape.";
 						return false;
 					}
-					var escaped = Next();
-					if (escaped == 'n')
-						builder.Append('\n');
-					else if (escaped == 't')
-						builder.Append('\t');
-					else if (escaped == '\\' || escaped == '"')
-						builder.Append(escaped);
-					else
-					{
-						error = "line " + line + ": unsupported string escape.";
+					if (!ReadEscape(builder, out error))
 						return false;
-					}
 				}
 				error = "line " + line + ": unterminated string.";
 				return false;
+			}
+
+			/// <summary>
+			/// One backslash escape of a basic string, the full TOML set, so
+			/// a file the writer produced reads back unchanged and a file
+			/// shipping <c>\f</c> or <c>"\u00e9"</c> is not refused wholesale.
+			/// </summary>
+			bool ReadEscape(StringBuilder builder, out string error)
+			{
+				error = null;
+				var escaped = Next();
+				if (escaped == 'n')
+					builder.Append('\n');
+				else if (escaped == 't')
+					builder.Append('\t');
+				else if (escaped == 'b')
+					builder.Append('\b');
+				else if (escaped == 'f')
+					builder.Append('\f');
+				else if (escaped == 'r')
+					builder.Append('\r');
+				else if (escaped == '\\' || escaped == '"')
+					builder.Append(escaped);
+				else if (escaped == 'u' || escaped == 'U')
+				{
+					if (!ReadEscapedCodePoint(escaped == 'u' ? 4 : 8, builder, out error))
+						return false;
+				}
+				else
+				{
+					error = "line " + line + ": unsupported string escape.";
+					return false;
+				}
+				return true;
+			}
+
+			/// <summary>
+			/// The code point of a <c>\u</c>/<c>\U</c> escape, which may be a
+			/// surrogate pair. An unpaired half is refused rather than
+			/// appended: it is not a character, and every UTF-8 encoder
+			/// downstream would silently turn it into U+FFFD.
+			/// </summary>
+			bool ReadEscapedCodePoint(int digits, StringBuilder builder, out string error)
+			{
+				error = null;
+				int codePoint;
+				if (!TryReadHex(digits, out codePoint))
+				{
+					error = "line " + line + ": malformed string escape; "
+						+ digits + " hex digits expected.";
+					return false;
+				}
+				if (digits == 4 && IsHighSurrogate((char)codePoint))
+				{
+					int low;
+					if (index + 6 > text.Length || text[index] != '\\' || text[index + 1] != 'u'
+						|| !TryReadHexAt(index + 2, 4, out low) || !IsLowSurrogate((char)low))
+					{
+						error = "line " + line + ": unpaired surrogate in string escape.";
+						return false;
+					}
+					builder.Append((char)codePoint).Append((char)low);
+					return true;
+				}
+				if (codePoint < 0 || codePoint > 0x10FFFF
+					|| (codePoint >= 0xD800 && codePoint <= 0xDFFF))
+				{
+					error = "line " + line + ": escape is not a Unicode scalar value.";
+					return false;
+				}
+				if (codePoint <= 0xFFFF)
+				{
+					builder.Append((char)codePoint);
+					return true;
+				}
+				builder.Append((char)(0xD800 + ((codePoint - 0x10000) >> 10)));
+				builder.Append((char)(0xDC00 + ((codePoint - 0x10000) & 0x3FF)));
+				return true;
+			}
+
+			/// <summary>
+			/// Reads hex digits at the cursor and moves past them; nothing is
+			/// consumed on a short or non-hex remainder, so the caller's
+			/// error points at the escape it rejected.
+			/// </summary>
+			bool TryReadHex(int digits, out int value)
+			{
+				return TryReadHexAt(index, digits, out value);
+			}
+
+			/// <summary>
+			/// As <see cref="TryReadHex"/>, from an offset: the caller has
+			/// already looked at the bytes between.
+			/// </summary>
+			bool TryReadHexAt(int at, int digits, out int value)
+			{
+				value = 0;
+				if (at < 0 || at + digits > text.Length)
+					return false;
+				for (var i = 0; i < digits; i++)
+				{
+					int nibble;
+					var c = text[at + i];
+					if (c >= '0' && c <= '9')
+						nibble = c - '0';
+					else if (c >= 'a' && c <= 'f')
+						nibble = c - 'a' + 10;
+					else if (c >= 'A' && c <= 'F')
+						nibble = c - 'A' + 10;
+					else
+						return false;
+					value = (value << 4) | nibble;
+				}
+				index = at + digits;
+				return true;
+			}
+
+			static bool IsHighSurrogate(char c)
+			{
+				return c >= '\uD800' && c <= '\uDBFF';
+			}
+
+			static bool IsLowSurrogate(char c)
+			{
+				return c >= '\uDC00' && c <= '\uDFFF';
 			}
 
 			bool ReadArray(out string value, out string error)

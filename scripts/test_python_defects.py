@@ -7,7 +7,8 @@ stdlib-detectable floor for every tracked *.py: E999 parse errors, E722 bare
 `except`, B006 mutable default arguments, F601 duplicate dict-literal keys,
 F631 assert on a tuple literal, and E711 `== None`. This gate keeps the one
 class ruff has no rule for, rather than running a second analyzer over the
-rest of the same territory.
+rest of the same territory. Every subprocess here decodes its output with an
+explicit encoding, because the locale's is ASCII under a bare LANG.
 
 Stdlib-only, tracked files only via `git ls-files`, sorted deterministic
 output, and negative controls proving the detector can fail, against
@@ -34,7 +35,8 @@ def tracked_py() -> list[str]:
     """Every tracked *.py under this mod, sorted — never filesystem order."""
     done = subprocess.run(
         ["git", "-C", MOD_DIR, "ls-files", "-z", "--", "*.py"],
-        capture_output=True, text=True, timeout=60, check=False,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=60, check=False,
     )
     if done.returncode != 0:
         raise SystemExit("ERROR: git ls-files failed: " + done.stderr)
@@ -120,6 +122,16 @@ def negative_controls() -> None:
         "negative control: trailing return is not unreachable",
         not tail_ok,
         str(tail_ok),
+    )
+    encoded = findings(
+        "import subprocess\n"
+        "subprocess.run(['x'], text=True, encoding='utf-8', errors='replace')\n"
+        "subprocess.run(['x'], capture_output=True)\n"
+    )
+    check(
+        "negative control: an explicit encoding is not flagged",
+        not encoded,
+        str(encoded),
     )
 
 

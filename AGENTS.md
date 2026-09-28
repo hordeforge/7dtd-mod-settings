@@ -184,6 +184,29 @@ subfolder.
   mod's localization from `<mod>/Config/` — see
   `docs/reference/agent-rules.md`).
 
+## Text handling
+
+- Every mod config file is read and written as UTF-8 without a byte order
+  mark, through `ModFileText`; a BOM on read is still honoured. A
+  non-ASCII comment in another mod's file must survive a save unchanged.
+- The TOML string grammar is TOML's, both directions: the reader
+  understands every escape the writer emits (`\b \f \r \t \n \" \\`,
+  `\uXXXX`, `\UXXXXXXXX`, surrogate pairs), a raw control character in a
+  basic string is refused, and an unpaired surrogate escape is refused
+  rather than silently turned into U+FFFD. TOML keys are case sensitive,
+  so `Foo` and `foo` are two keys.
+- A value's span is measured in characters, never bytes, and a value is
+  only ever replaced as a whole span: no slicing at a multi-byte or
+  surrogate boundary.
+- Any subprocess whose output is decoded as text declares its encoding
+  (`encoding="utf-8", errors="replace"`); the locale's default is ASCII
+  under a bare `LANG`.
+
+Corrected 2026-09-28: escapes, encoding, and key case in the TOML path;
+enforced by `scripts/test_toml_document.py` (spans, escapes, non-ASCII
+round trips) and `scripts/test_python_defects.py` (text output without an
+explicit encoding).
+
 ## Testing
 
 Offline gates: `make test` (every `scripts/test_*.py`) and

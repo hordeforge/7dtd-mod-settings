@@ -50,6 +50,7 @@ static class Program
 		TestLegacyEquivalence();
 		TestEdits();
 		TestRejections();
+		TestUnicodeAndEscapes();
 		TestCrlf();
 		TestFileIo();
 		TestShippedFile();
@@ -170,7 +171,7 @@ static class Program
 		// unreadable and hide it from the screen.
 		Check("case-variant keys are distinct",
 			TomlSettings.TryReadDocument("Foo = 1\nfoo = 2\n", out doc, out error)
-			&& doc.Count == 2, error ?? "");
+			&& doc.Count == 2 && doc[0].Name == "Foo" && doc[1].Name == "foo", error ?? "");
 		if (doc != null && doc.Count == 2)
 		{
 			string caseText, caseError;
@@ -179,6 +180,77 @@ static class Program
 				&& caseText == "Foo = 1\nfoo = 9\n",
 				caseError ?? "");
 		}
+	}
+
+	// Every value the writer can produce must read back, and every escape the
+	// reader claims to understand must be one the writer could have produced:
+	// the two are the same grammar, and a value Wrench shows but cannot write
+	// back is a value it can corrupt.
+	static void TestUnicodeAndEscapes()
+	{
+		List<TomlSettings.DocEntry> doc;
+		string error, newText;
+
+		var samples = new[]
+		{
+			"plain ascii",
+			"caf\u00e9 \u00fcber",                  // Latin-1 supplement, 2 bytes each
+			"\u65e5\u672c\u8a9e\u306e\u30e9\u30d9\u30eb",          // 3 bytes per character
+			"emoji \U0001F600 and \U0001F468\u200d\U0001F469\u200d\U0001F466", // astral, ZWJ sequence
+			"precomposed \u00e9 and decomposed e\u0301",  // NFC vs NFD: same letters, different bytes
+			"line\r\nbreak\ttab\fform\bback",
+			"null\u0000 and del\u007F and esc\u001B",
+			"quote\" backslash\\ end",
+		};
+		var allRoundTrip = true;
+		for (var i = 0; i < samples.Length && allRoundTrip; i++)
+		{
+			var file = "Label = " + TomlEdit.EncodeString(samples[i]) + "\n";
+			if (!TomlSettings.TryReadDocument(file, out doc, out error) || doc[0].Value != samples[i])
+			{
+				Console.WriteLine("  round trip mismatch for: " + samples[i]
+					+ "\n  encoded: " + file.Trim() + "\n  error: " + error);
+				allRoundTrip = false;
+			}
+		}
+		Check("every encoded value reads back unchanged", allRoundTrip);
+
+		Check("a non-ASCII value keeps its span and its bytes",
+			TomlSettings.TryReadDocument("Label = \"caf\u00e9\"\n", out doc, out error)
+			&& doc[0].Value == "caf\u00e9"
+			&& doc[0].ValueStart == 8
+			&& Raw("Label = \"caf\u00e9\"\n", doc[0]) == "\"caf\u00e9\"", error ?? "");
+
+		Check("astral escapes decode to one character pair",
+			TomlSettings.TryReadDocument("A = \"\\uD83D\\uDE00\"\n", out doc, out error)
+			&& doc[0].Value == "\U0001F600"
+			&& doc[0].Value.Length == 2, error ?? "");
+
+		Check("eight digit escapes decode to one character pair",
+			TomlSettings.TryReadDocument("A = \"\\U0001F600\"\n", out doc, out error)
+			&& doc[0].Value == "\U0001F600", error ?? "");
+
+		Check("reject an unpaired surrogate escape",
+			!TomlSettings.TryReadDocument("A = \"\\uD83D\"\n", out doc, out error));
+		Check("reject a half pair that is not a low surrogate",
+			!TomlSettings.TryReadDocument("A = \"\\uD83D\\u0041\"\n", out doc, out error));
+		Check("reject a short hex escape",
+			!TomlSettings.TryReadDocument("A = \"\\u00\"\n", out doc, out error));
+		Check("reject a non-hex escape",
+			!TomlSettings.TryReadDocument("A = \"\\uZZZZ\"\n", out doc, out error));
+		Check("reject a raw control character in a string",
+			!TomlSettings.TryReadDocument("A = \"a\rb\"\n", out doc, out error));
+
+		// An edit into a file that already holds non-ASCII leaves every other
+		// byte alone: the value span is in characters, so a multi-byte key's
+		// neighbours must not shift.
+		var unicode = "# caf\u00e9 \u2615\nA = 1\nB = \"\u65e5\u672c\u8a9e\"\nC = 3\n";
+		TomlSettings.TryReadDocument(unicode, out doc, out error);
+		var b = doc.Find(e => e.Name == "B");
+		Check("an edit next to non-ASCII splices the right span",
+			b != null
+			&& TomlEdit.TryReplaceValue(unicode, b, "42", out newText, out error)
+			&& newText == "# caf\u00e9 \u2615\nA = 1\nB = 42\nC = 3\n", error ?? "");
 	}
 
 	static void TestCrlf()
