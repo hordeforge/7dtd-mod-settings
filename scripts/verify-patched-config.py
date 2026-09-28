@@ -128,10 +128,23 @@ def find_dump(game_dir: str, save_name: str) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--configs-dump", default="", help="use this ConfigsDump directory")
-    parser.add_argument("--save-name", default="", help="save whose dump to check")
-    parser.add_argument("--game-dir", default=game_dir() or "")
+    parser = argparse.ArgumentParser(
+        prog="verify-patched-config.py",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Exit status: 0 every shipped patch element is present, 1 one is "
+               "missing or the dump is unreadable, 2 bad command line or the "
+               "saves directory cannot be resolved.",
+    )
+    parser.add_argument(
+        "--configs-dump", default="", metavar="DIR",
+        help="ConfigsDump directory to check (default: the newest one found)")
+    parser.add_argument(
+        "--save-name", default="", metavar="NAME",
+        help="save whose ConfigsDump to check (default: the newest one found)")
+    parser.add_argument(
+        "--game-dir", default=game_dir() or "", metavar="PATH",
+        help="game install holding the saves (default: SEVEN_DAYS_TO_DIE_DIR)")
     args = parser.parse_args()
 
     dump = args.configs_dump or find_dump(args.game_dir, args.save_name)

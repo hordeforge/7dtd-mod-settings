@@ -43,6 +43,8 @@ def main() -> int:
         print(USAGE.rstrip())
         return 0
     if len(argv) != 2:
+        print(f"ERROR: expected SOURCE_CONFIG and TARGET_CONFIG, got {len(argv)} "
+              f"argument(s): {' '.join(argv) or 'none'}\n", file=sys.stderr)
         print(USAGE.rstrip(), file=sys.stderr)
         return 2
 

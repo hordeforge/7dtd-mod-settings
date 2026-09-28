@@ -6,6 +6,25 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=server-common.sh
 source "$SCRIPT_DIR/server-common.sh"
+# shellcheck source=cli.sh
+source "$SCRIPT_DIR/cli.sh"
+
+reject_options "Usage: scripts/server-smoke.sh
+
+Deploy, boot the dedicated server briefly, and prove this mod loaded
+from its log.
+
+OPTIONS
+  -h, --help   this text
+
+ENVIRONMENT
+  SEVEN_DAYS_TO_DIE_SERVER_DIR  the server install
+  SEVEN_DAYS_TO_DIE_SERVER_RUN_SECONDS  boot window (default 90)
+
+EXIT STATUS
+  0  the server booted and the log proves the mod loaded
+  1  the deploy, the boot or the log check failed
+  2  unknown option" "$@"
 
 load_server_environment
 

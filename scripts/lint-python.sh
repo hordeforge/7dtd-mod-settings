@@ -17,6 +17,21 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MOD_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=cli.sh
+source "$SCRIPT_DIR/cli.sh"
+
+reject_options "Usage: scripts/lint-python.sh
+
+Python static analysis: ruff (lint) then mypy --strict (types), over
+every tracked *.py, with the settings in pyproject.toml.
+
+OPTIONS
+  -h, --help   this text
+
+EXIT STATUS
+  0  both tools found nothing
+  1  a tool is missing or reported a finding
+  2  unknown option" "$@"
 
 for tool in ruff mypy; do
 	command -v "$tool" >/dev/null 2>&1 || {

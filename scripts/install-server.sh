@@ -7,6 +7,26 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=server-common.sh
 source "$SCRIPT_DIR/server-common.sh"
+# shellcheck source=cli.sh
+source "$SCRIPT_DIR/cli.sh"
+
+reject_options "Usage: scripts/install-server.sh
+
+Provision the Linux dedicated server (Steam AppID 294420) into
+SEVEN_DAYS_TO_DIE_SERVER_DIR, then write the mod's own serverconfig
+with EAC disabled.
+
+OPTIONS
+  -h, --help   this text
+
+ENVIRONMENT
+  SEVEN_DAYS_TO_DIE_SERVER_DIR  where the server is installed
+  SEVEN_DAYS_TO_DIE_SERVER_APP_ID  Steam AppID (default 294420)
+
+EXIT STATUS
+  0  the server is installed and configured
+  1  the install, SteamCMD or a validation step failed
+  2  unknown option" "$@"
 
 load_server_environment
 resolve_steamcmd

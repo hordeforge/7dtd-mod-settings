@@ -8,6 +8,25 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=local-env.sh
 source "$ROOT/scripts/local-env.sh"
+# shellcheck source=cli.sh
+source "$ROOT/scripts/cli.sh"
+
+reject_options "Usage: scripts/build.sh
+
+Stage the deployable modlet under dist/Wrench/.
+
+OPTIONS
+  -h, --help   this text
+
+ENVIRONMENT
+  SEVEN_DAYS_TO_DIE_DIR  game install, for the C# reference assemblies
+  WRENCH_SKIP_DLL        1 stages the XML-only package, no DLL
+
+EXIT STATUS
+  0  the modlet is staged under dist/
+  1  the game install is missing or a build step failed
+  2  unknown option" "$@"
+
 MOD_NAME="Wrench"
 OUT="$ROOT/dist/$MOD_NAME"
 SRC="$ROOT/src/$MOD_NAME"

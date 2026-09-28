@@ -12,6 +12,20 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MOD_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=cli.sh
+source "$SCRIPT_DIR/cli.sh"
+
+reject_options "Usage: scripts/lint-shell.sh
+
+Shellcheck at full severity over every tracked shell script.
+
+OPTIONS
+  -h, --help   this text
+
+EXIT STATUS
+  0  shellcheck found nothing
+  1  shellcheck is missing or reported a finding
+  2  unknown option" "$@"
 
 command -v shellcheck >/dev/null 2>&1 || {
 	echo "ERROR: shellcheck not found; run your package manager." >&2

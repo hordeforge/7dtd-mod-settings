@@ -15,6 +15,39 @@
 #   scripts/run-offline-tests.sh nuke fuse    # run tests whose name matches any substring
 set -uo pipefail
 
+usage() {
+	cat <<'HELP'
+Usage: scripts/run-offline-tests.sh [FILTER...]
+
+Run every scripts/test_*.py and report each one's exit status.
+
+OPTIONS
+  -h, --help   this text
+
+ARGUMENTS
+  FILTER   run only the tests whose file name contains it; repeatable,
+           a test matching any one of them runs
+
+ENVIRONMENT
+  OFFLINE_TEST_JOBS   parallel jobs (default: nproc, capped at 8)
+
+EXIT STATUS
+  0  every test that ran passed
+  1  a test failed, or no test matched the filters
+  2  unknown option
+HELP
+}
+
+# A filter is a test-name substring, so anything shaped like an option is a
+# mistyped command line: passing --help used to filter on the literal string
+# "--help", run nothing, and exit 1 with a "no test matches" error.
+for arg in "$@"; do
+	case "$arg" in
+		-h | --help) usage; exit 0 ;;
+		-*) echo "ERROR: unknown option $arg" >&2; usage >&2; exit 2 ;;
+	esac
+done
+
 # Interpreter floor, kept equal to pyproject.toml's mypy python_version by
 # scripts/test_toolchain_floor.py. Checked here, before any test runs, so an
 # old interpreter is named as such instead of surfacing as an ImportError

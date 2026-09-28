@@ -292,6 +292,31 @@ reader/writer/resolver invariants, fixed seed), and
 `scripts/test_python_defects.py` (text output without an
 explicit encoding).
 
+## Command line surface
+
+The scripts in `scripts/` are the project's CLI, and one convention runs
+across all of them.
+
+- `-h` and `--help` print usage to **stdout** and exit 0, on a machine with
+  no game install, before any work. An unknown option names itself on
+  **stderr** and exits 2, as does a wrong argument count.
+- A script that takes no options says so rather than ignoring what it was
+  given: the guard is `reject_options` in `scripts/cli.sh`, sourced by
+  `build.sh`, `install-server.sh`, `lint-python.sh`, `lint-shell.sh` and
+  `server-smoke.sh`. A new option-less script sources it too.
+- Exit status is 0 for success, 1 for a check that failed or a missing
+  dependency, 2 for a bad command line, and the help text says which.
+- `local-env.sh`, `server-common.sh` and `cli.sh` are sourced, never run;
+  they are not entrypoints.
+
+Corrected 2026-09-28: `build.sh --skip-dll` built and exited 0, and
+`run-offline-tests.sh --help` ran nothing and exited 1 with a "no test
+matches" error, because six scripts ignored every argument and the rest
+named a wrong command line only in their usage text; enforced by
+`scripts/test_cli_contract.py`, which drives every entrypoint's `-h`,
+`--help` and one unknown option, and holds a script to being listed as an
+entrypoint, a gate or a sourced file.
+
 ## Testing
 
 Offline gates: `make test` (every `scripts/test_*.py`) and
