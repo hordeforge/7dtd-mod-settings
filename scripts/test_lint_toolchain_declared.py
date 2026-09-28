@@ -89,18 +89,31 @@ def main() -> int:
               f"{tool} is not pinned to an exact version")
 
     workflow = read(os.path.join(MOD_DIR, ".github", "workflows", "ci.yml"))
-    check("CI installs the pinned toolchain from requirements-dev.txt",
-          re.search(r"pip install[^\n]*-r\s+" + REQUIREMENTS, workflow) is not None,
-          "the workflow must install " + REQUIREMENTS + ", not inline pins")
+    check("CI installs the pinned toolchain from requirements-dev.txt with uv",
+          re.search(r"uv pip install[^\n]*-r\s+" + REQUIREMENTS, workflow) is not None,
+          "the workflow must install " + REQUIREMENTS + " through uv, not inline pins")
 
     lint_script = read(os.path.join(SCRIPTS, "lint-python.sh"))
     check("the missing-tool error names the install command",
-          REQUIREMENTS in lint_script and "python3 -m pip install" in lint_script,
+          REQUIREMENTS in lint_script and "uv pip install" in lint_script,
           "scripts/lint-python.sh must print how to install the missing tool")
 
     readme = read(os.path.join(MOD_DIR, "README.md"))
     check("README points at requirements-dev.txt", REQUIREMENTS in readme,
           "README must name " + REQUIREMENTS + " instead of listing versions")
+
+    # uv is the project's only Python toolchain (AGENTS.md, "Python
+    # Toolchain"). An install path that reaches for pip is a second answer
+    # to "how do I get the toolchain" and a second resolver behind the pins,
+    # so the repository states one installer everywhere it states the other.
+    pip_users = {name: lines for name in tracked_text_files()
+                 if name != REQUIREMENTS
+                 and (lines := re.findall(r"(?<!uv )\bpip install\b[^\n]*-r\b[^\n]*",
+                                           read(os.path.join(MOD_DIR, name))))}
+    check("no tracked file installs the toolchain with pip",
+          not pip_users,
+          "; ".join(f"{name}: {lines[0].strip()}" for name, lines in sorted(pip_users.items()))
+          + f" -- install {REQUIREMENTS} with uv")
 
     # The drift check itself: no other tracked text file states a version for
     # a pinned distribution, so there is no second place to update and no

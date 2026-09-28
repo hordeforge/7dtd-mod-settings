@@ -142,7 +142,12 @@ with no dependencies and `uv.lock` resolves it empty, so no third-party
 package arrives by accident. ruff and mypy are developer and CI tools pinned
 in `requirements-dev.txt` (the one place a version is written down), together
 with the distributions mypy pulls in, because an unpinned one of those enters
-the lint lane unreviewed the day it is published; shellcheck is a host tool;
+the lint lane unreviewed the day it is published. That file is installed with
+`uv pip install -r requirements-dev.txt`, in CI and on a contributor's
+machine alike: uv is the only Python toolchain here, so a second installer is
+a second answer to how the toolchain is obtained, and
+`scripts/test_lint_toolchain_declared.py` fails a tracked file that reaches
+for pip instead. shellcheck is a host tool;
 the dotnet SDK is read-only reference for the C# TOML harnesses. A
 third-party package is a decision to make on purpose, not a
 reflex: declare it in `pyproject.toml`, take the install with it, and write
