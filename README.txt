@@ -1,4 +1,4 @@
-Wrench (Mod Settings) 0.1.0.0
+Wrench (Mod Settings) 0.2.0.0
 
 7 DAYS TO DIE V3.2
 
@@ -28,3 +28,8 @@ After startup, check the game log for "Loaded Mod: Wrench" (and the
 [Wrench] init lines if this mod ships a DLL). For XML or Harmony
 errors, remove the mod, confirm the game starts, then restore the complete
 folder. Client and server must use the same mod version in multiplayer.
+
+CHANGES
+
+What each release changed, and whether an upgrade needs anything from
+you, is in CHANGELOG.md in this mod's repository.

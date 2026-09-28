@@ -139,6 +139,27 @@ save, reset-then-apply, broken save keeps current values, console
 comment lists the steps) and mirror it, commented, in the shipped TOML.
 `scripts/test_settings_reload.py` holds the contract offline.
 
+## Releases
+
+`ModInfo.xml` declares the version; `README.txt` (staged into the package
+by `scripts/build.sh`) and the newest `## [x.y.z]` heading in
+`CHANGELOG.md` declare the same release. The mod is `0.x`, so a
+behaviour change for a player or a mod author is a minor bump, and a
+new feature or a fix is a patch bump; the fourth version component stays
+`0` so every shipped number has a changelog heading. A published number
+is never reused for different work, and the changelog entry says what
+changed for a consumer (breaking change, new key, migration), not which
+commit changed it. `scripts/test_version_declaration.py` holds all of
+that offline, including that no release is documented twice. The tag
+(`v0.2.0`) is cut from the commit that sets the version, so the
+changelog's newest heading is that commit's release and nothing after
+it.
+
+Added 2026-09-28: the version was declared in three files with no gate,
+and the `0.1.0.0` already published under tag `v0.1.0` was still the
+declared version over every change since; enforced by
+`scripts/test_version_declaration.py`.
+
 ## Local path inventory
 
 All machine-specific paths live in the ignored `.local.env` (format:
