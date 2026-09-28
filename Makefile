@@ -1,6 +1,10 @@
 ROOT := $(CURDIR)
 
-.PHONY: build package test lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server server-smoke playtest clean build-assets validate-assets
+# Timestamps baked into the package, so the same tree always zips to the
+# same bytes. Override with SOURCE_DATE_EPOCH=<unix seconds>.
+SOURCE_DATE_EPOCH ?= $(shell git log -1 --format=%ct 2>/dev/null || date +%s)
+
+.PHONY: build package test lint-shell validate-xml verify-patched-config validate-patch-targets install-server deploy-server rollback-server server-smoke playtest clean build-assets validate-assets
 
 # Offline contract/unit suite: every scripts/test_*.py must exit 0.
 # Optional substring filters: make test TF="xml layout"
@@ -18,9 +22,12 @@ build:
 	$(ROOT)/scripts/build.sh
 
 # Zip dist/Wrench/ so extracting into Mods/ yields
-# Mods/Wrench/ModInfo.xml immediately.
+# Mods/Wrench/ModInfo.xml immediately. Entries are added in sorted order at a
+# fixed timestamp, so the archive is byte-reproducible across machines.
 package: build
-	cd $(ROOT)/dist && rm -f Wrench.zip && zip -qr Wrench.zip Wrench
+	cd $(ROOT)/dist && rm -f Wrench.zip && \
+		find Wrench -exec touch -h -d "@$(SOURCE_DATE_EPOCH)" {} + && \
+		find Wrench -print | LC_ALL=C sort | zip -q -X -@ Wrench.zip
 	@echo "OK -> dist/Wrench.zip"
 
 # Every Config/*.xml xpath checked against the installed game's vanilla
@@ -46,6 +53,10 @@ install-server:
 
 deploy-server:
 	$(ROOT)/scripts/deploy-server.sh
+
+# Put the deployment that the last one replaced back into place.
+rollback-server:
+	$(ROOT)/scripts/deploy-server.sh --rollback
 
 server-smoke:
 	$(ROOT)/scripts/server-smoke.sh

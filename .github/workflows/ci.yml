@@ -16,15 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Offline gates
         run: make test
       - name: Shellcheck
         run: make lint-shell
       - name: Package layout (no game install -> XML-only package)
-        # The DLL build needs the proprietary game assemblies; prove the
-        # packaging path without it, exactly like the template's own CI.
+        # The DLL build needs the proprietary game assemblies; stage the
+        # XML-only package instead of deleting src/ from the checkout.
         run: |
-          rm -rf src
-          make package
+          WRECH_SKIP_DLL=1 make package
           unzip -l dist/Wrench.zip | grep -q "Wrench/ModInfo.xml"

@@ -48,6 +48,8 @@ make validate-xml           # every Config xpath against the installed game
 make verify-patched-config  # every patch element proven applied, from a save's ConfigsDump
 make validate-patch-targets # every [HarmonyPatch] target against Assembly-CSharp (ilspycmd)
 make install-server         # provision the dedicated server via SteamCMD (EAC off)
+make deploy-server          # swap the packaged mod into the server's Mods/ (keeps the previous copy)
+make rollback-server        # put the deployment the last one replaced back
 make server-smoke           # deploy + boot the server briefly, prove the mod loaded
 make playtest               # live wrench-mod-settings suite via hordeforge/7dtd-playtest
 ```

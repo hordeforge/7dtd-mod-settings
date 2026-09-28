@@ -42,6 +42,13 @@ directory. Configure it via `SEVEN_DAYS_TO_DIE_SERVER_DIR`; the server's
 Managed directory is `7DaysToDieServer_Data/Managed/`. Set
 `EACEnabled=false` in its serverconfig when smoke-testing DLL mods.
 
+`make deploy-server` stages the package, copies it to
+`<server>/.wrench-deploy/staging`, then swaps it into `Mods/Wrench/` with a
+rename; the deployment it replaced is kept at
+`<server>/.wrench-deploy/previous` and `make rollback-server` moves it back.
+Keep that directory out of `Mods/`: anything with a `ModInfo.xml` under
+`Mods/` is loaded as a second copy of the mod.
+
 ## Proton prefix / user data (saves, logs, per-user Mods)
 
 The Steam Play prefix lives under the owning library's

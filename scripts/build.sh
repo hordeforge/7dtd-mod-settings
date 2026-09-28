@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Stage the deployable modlet under dist/<Name>/. Compiles the C# DLL first
 # when src/ exists (requires SEVEN_DAYS_TO_DIE_DIR via env or .local.env).
+# WRECH_SKIP_DLL=1 stages the XML-only package instead, which is how CI
+# exercises the packaging path without the proprietary game assemblies.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -11,7 +13,7 @@ SRC="$ROOT/src/$MOD_NAME"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
-if [[ -d "$SRC" ]]; then
+if [[ -d "$SRC" && "${WRECH_SKIP_DLL:-0}" != "1" ]]; then
 	GAME_DIR="${SEVEN_DAYS_TO_DIE_DIR:-}"
 	if [[ -z "$GAME_DIR" && -f "$ROOT/.local.env" ]]; then
 		# The ignored file is the documented machine-local game reference.
