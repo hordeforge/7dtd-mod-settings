@@ -171,6 +171,14 @@ and the `0.1.0.0` already published under tag `v0.1.0` was still the
 declared version over every change since; enforced by
 `scripts/test_version_declaration.py`.
 
+Added 2026-09-28: a behaviour change shipped as the patch `0.2.1` (a
+key spelled with the wrong case stopped applying), three more landed
+after it with no entry at all, and `docs/THREAT_MODEL.md` still named
+`0.2.0.0` as the build it reviewed. All three ship as the minor
+`0.3.0`; a doc that names a version, the newest entry's Compatibility
+section, and the placement of an `## [Unreleased]` heading are enforced
+by `scripts/test_version_declaration.py`.
+
 ## Local path inventory
 
 All machine-specific paths live in the ignored `.local.env` (format:

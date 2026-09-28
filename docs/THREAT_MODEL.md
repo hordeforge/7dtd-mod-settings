@@ -14,7 +14,7 @@ Point vulnerabilities belong to `sec-review`, per-endpoint authorization to
 map those reviews aim at.
 
 Last reviewed: 2026-09-28, against `docs/architecture.md` decisions through
-2026-08-30 and the mod version `0.2.0.0` (`ModInfo.xml`).
+2026-08-30 and the mod version `0.3.0.0` (`ModInfo.xml`).
 
 ## Risk-ranked summary
 

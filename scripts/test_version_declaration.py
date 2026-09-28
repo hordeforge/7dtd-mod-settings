@@ -13,6 +13,10 @@ This gate makes `ModInfo.xml` the declaration and the other two
 declarations of it. The playtest provider mod moves with the mod it
 exercises and carries the same number.
 
+It also holds the two shapes a changelog decays into: an entry for the
+declared version that never says what it breaks, and a doc that keeps
+naming the build it was written against after the next bump.
+
 `scripts/test_rules_have_gates.py` runs every gate twice, so this one
 reads files and nothing else: no clock, no git, no iteration order.
 """
@@ -37,8 +41,22 @@ MODINFO_VERSION = re.compile(r'<Version\s+value="([^"]*)"\s*/>')
 CHANGELOG_VERSION = re.compile(r"^## \[(\d+\.\d+\.\d+)\] - (\d{4}-\d{2}-\d{2})$", re.M)
 # "Wrench (Mod Settings) 0.2.0.0", the player-facing readme's first line.
 README_VERSION = re.compile(r"^Wrench \(Mod Settings\) (\S+)$", re.M)
+# "## [Unreleased]", the section for work that has not shipped.
+UNRELEASED_HEADING = re.compile(r"^## \[Unreleased\]$", re.M)
+# A subsection such as "### Compatibility", a Keep a Changelog group.
+CHANGELOG_GROUP = re.compile(r"^### [A-Z]", re.M)
+# "### Compatibility", the statement of what a release breaks.
+COMPATIBILITY = re.compile(r"^### Compatibility$", re.M)
+# "the mod version `0.2.0.0`", a doc naming the build it was written
+# against. A doc that names a version and is not the shipped one reads
+# as an assessment of a build nobody installs.
+DOC_VERSION = re.compile(r"mod version `(\d+\.\d+\.\d+\.\d+)`")
 
 MODINFOS = ("ModInfo.xml", os.path.join("scripts", "playtest", "ModInfo.xml"))
+# Docs that name the build they were written against. Each is one line
+# of prose with a version in it, so each needs a check or it drifts on
+# the next bump and nobody notices.
+VERSIONED_DOCS = (os.path.join("docs", "THREAT_MODEL.md"),)
 
 
 def read(*parts: str) -> str:
@@ -94,7 +112,8 @@ def main() -> int:
               other == declared,
               f"it says {other or 'nothing'}, ModInfo.xml says {declared}")
 
-    changelog = CHANGELOG_VERSION.findall(read("CHANGELOG.md"))
+    changelog_text = read("CHANGELOG.md")
+    changelog = CHANGELOG_VERSION.findall(changelog_text)
     check("CHANGELOG.md documents the declared version",
           bool(changelog) and changelog[0][0] == semver,
           f"its newest release is {changelog[0][0] if changelog else 'absent'}"
@@ -108,6 +127,50 @@ def main() -> int:
     check("CHANGELOG.md is newest first",
           all(later > earlier for later, earlier in itertools.pairwise(order)),
           "a release heading is out of order")
+
+    for path in VERSIONED_DOCS:
+        shown = path.replace(os.sep, "/")
+        for named in DOC_VERSION.findall(read(path)):
+            check(shown + " names the version it was written against",
+                  named == declared,
+                  f"it says {named}, ModInfo.xml declares {declared}; a doc "
+                  "that names a superseded build reads as a review of a "
+                  "build nobody installs")
+
+    # Each "## " heading with the body under it, in file order, so an
+    # entry can be read on its own instead of by slicing the text.
+    parts = re.split(r"^(## .*)$", changelog_text, flags=re.M)
+    entries = list(zip(parts[1::2], parts[2::2], strict=True))
+
+    # The newest release entry is the one a player reads before
+    # upgrading, and it is the entry that goes stale as soon as the tree
+    # moves on, so it carries the compatibility statement the header
+    # promises. Older entries are already published and stay as shipped.
+    newest = next((body for heading, body in entries
+                   if CHANGELOG_VERSION.match(heading)), "")
+    check("the newest release entry states its compatibility",
+          COMPATIBILITY.search(newest) is not None,
+          f"the {semver} entry has no Compatibility section, so it never "
+          "says whether a setting key changed, a default changed, or a "
+          "console command changed")
+    check("the newest release entry is grouped by impact",
+          CHANGELOG_GROUP.search(newest) is not None,
+          f"the {semver} entry has no Added/Changed/Fixed/Compatibility "
+          "group under it")
+
+    # Work in progress is written above the newest release, so it reads
+    # as not shipped, and it is never left as a heading with nothing
+    # under it.
+    top = entries[0] if entries else ("", "")
+    if UNRELEASED_HEADING.match(top[0]):
+        check("the Unreleased section groups its entries",
+              CHANGELOG_GROUP.search(top[1]) is not None,
+              "## [Unreleased] has no Added/Changed/Fixed group under it")
+    else:
+        check("CHANGELOG.md names no Unreleased section it cannot place",
+              UNRELEASED_HEADING.search(changelog_text) is None,
+              "an ## [Unreleased] heading sits below another heading, so it "
+              "reads as already shipped")
 
     return result()
 

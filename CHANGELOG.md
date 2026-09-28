@@ -8,27 +8,55 @@ published it is fixed, and the next change ships under a new one.
 
 Breaking changes for players and for mod authors are called out under
 **Changed** or **Fixed**; a release with none says so under
-**Compatibility**.
+**Compatibility**. Work that has not shipped sits under
+`## [Unreleased]`, above the newest release heading, and moves down to
+its own numbered heading when the version it ships under is declared.
 
-## [0.2.1] - 2026-09-28
+## [0.3.0] - 2026-09-28
 
 Requires 7 Days to Die V3.2, the same as 0.2.0. Upgrade by replacing the
-whole `Mods/Wrench` folder: no config migration, no new key, and no
-removed key.
+whole `Mods/Wrench` folder: no config migration, no new setting, and no
+removed setting. Three files that loaded under 0.2.0 are refused under
+0.3.0; each is named under **Fixed** with what to do about it.
 
 ### Fixed
 
 - A setting key whose case does not match is now reported as an unknown
   key instead of applying the setting it only looks like. TOML keys are
   case sensitive, and `wrench set` still accepts a name typed in any case.
+  A file that spelled a key with the wrong case set that setting from
+  0.1.0 to 0.2.0; from 0.3.0 the key is unknown, is logged as unknown,
+  and the default stands. Rename the key in the file to the spelling the
+  key column uses.
+- A third-party settings file whose bytes are not valid in the encoding
+  it declares is reported unreadable instead of being read with the bad
+  bytes replaced. Reading it lossily meant a later save wrote the
+  replacement character over the original byte, so a file that has
+  loaded is now refused rather than quietly altered. Re-save the file as
+  UTF-8, which is what a mod's own reader accepts.
+- A mod whose name holds a control character is skipped and logged. On
+  Linux and macOS .NET reports only NUL and the separator as invalid in
+  a file name, so such a name resolved to a real file whose name then
+  reached the log and the reload marker, and a newline in either forged
+  a log line of its own. Rename the mod's folder and its
+  `Config/<Mod>.toml` to match.
+
+### Added
+
+- Every string the Mod Settings screen shows is now a key in
+  `Config/Localization.csv`, so the screen can be translated. The English
+  text is unchanged, and no existing key was renamed or removed.
 
 ### Compatibility
 
-- No breaking change: no setting key was renamed or removed, no default
-  changed, and the console commands take the same arguments and print
-  the same reports. A file that spelled a key with the wrong case set
-  that setting from 0.1.0 to 0.2.0; from 0.2.1 the key is unknown, is
-  logged as unknown, and the default stands.
+- No setting key was renamed or removed, no default changed, the
+  `Config/<Mod>.toml` layout is the same, and the console commands
+  (`wrench`, `wrench settings`, `wrench set <name> <value>`, `wrench
+  reload`) take the same arguments and print the same reports. The three
+  refusals above change what Wrench does with a file or a name that was
+  wrong to begin with, which is why this is a minor release: a mod whose
+  settings file, or whose folder name, no longer loads is described
+  under **Fixed** rather than failing quietly.
 
 ## [0.2.0] - 2026-09-28
 

@@ -4,7 +4,7 @@
 	<DisplayName value="Wrench Playtest" />
 	<Description value="Scenario provider for 7dtd-playtest. Test tooling only; requires Wrench, AtomicDoomsday and 7dtd-playtest." />
 	<Author value="ywy50" />
-	<Version value="0.2.1.0" />
+	<Version value="0.3.0.0" />
 	<Website value="" />
 	<SkipWithAntiCheat value="true" />
 </xml>
