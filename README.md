@@ -42,11 +42,12 @@ an authenticated channel, and a WebMod panel over the same file surface.
 
 ```bash
 make help                   # list every target with a one-line description
-make check                  # everything CI runs: test, lint, verify-package
+make check                  # everything CI runs: test, lint, verify-package, buildinfo
 make test                   # offline gates (scripts/test_*.py; needs the .NET SDK)
 make lint                   # ruff + mypy --strict over scripts/, then shellcheck
 make build                  # stage dist/Wrench/ (needs .local.env, see below)
 make package                # dist/Wrench.zip — extracts to Mods/Wrench/
+make buildinfo              # the tool versions and commit an artifact was built from
 make validate-xml           # every Config xpath against the installed game
 make verify-patched-config  # every patch element proven applied, from a save's ConfigsDump
 make validate-patch-targets # every [HarmonyPatch] target against Assembly-CSharp (ilspycmd)

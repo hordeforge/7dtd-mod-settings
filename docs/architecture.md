@@ -680,11 +680,26 @@ shipped bytes. Three leaks were there and are now closed:
   `scripts/test_toolchain_floor.py` holds that one order against both.
 
 Timestamps come from `SOURCE_DATE_EPOCH` (the last commit's time, overridable),
-never the wall clock, and entries are added in sorted order. Enforced by
+never the wall clock, and entries are added in sorted order. Outside a git
+checkout (a release tarball, a modlet extracted as a build input) there is
+no commit to read, and the fallback is the 1980 DOS epoch zip records
+exactly; it was `date +%s`, which put the second the build ran into the
+shipped bytes, so the same source packaged twice was two archives.
+`scripts/test_package_contents.py` holds that fallback, with a negative
+control on a package built from an epoch of its own. Enforced by
 `scripts/verify-package.sh`, which packages twice under a different umask,
 locale and timezone and compares the sha256; CI's package step and
 `make check` both run that one script, so a local run and a push cannot
 disagree about it.
+
+`make buildinfo` records the build environment next to what it produced:
+the commit, the epoch, and the versions of the interpreter, the .NET SDK,
+`zip`, shellcheck, ruff and mypy. The pinned runner image still floats the
+tools inside it, and none of them is in the artifact, so a package that
+stops reproducing is only diagnosable against the versions that made it.
+It reports and never gates: every line degrades to a printed value when a
+tool is absent, and `make check` runs it last so a missing analyzer cannot
+read as a build failure.
 
 ## Decided 2026-09-28: the game log is the whole observability surface
 

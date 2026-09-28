@@ -1,4 +1,7 @@
-# One option parser for the scripts that take none.
+# shellcheck shell=bash
+# One option parser for the scripts that take none. Sourced, never executed,
+# so it carries no shebang; the directive is what tells shellcheck which
+# dialect to read, and `make lint-shell` runs it at full severity.
 #
 # A script invoked as `build.sh --skip-dll` that ignores the flag builds
 # anyway and exits 0, so a mistyped flag reads as the flag having been

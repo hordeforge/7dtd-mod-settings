@@ -37,3 +37,9 @@ jobs:
         # assemblies, so the script stages the XML-only package instead of
         # deleting src/ from the checkout.
         run: make verify-package
+      - name: Build environment
+        # The interpreter, the .NET SDK, zip and the analyzers are whatever
+        # the pinned image happens to carry, so they are recorded here with
+        # the artifact they produced: a package that stops reproducing is
+        # only diagnosable against the tool versions that made it.
+        run: make buildinfo

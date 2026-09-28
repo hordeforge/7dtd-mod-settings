@@ -16,7 +16,9 @@ zip's own central directory, so what it checks is what a player would extract:
   extractor that restores the recorded modes (unzip) produced exactly that
   from a tree staged read-only;
 - no entry is writable by group or other, and no file carries the execute
-  bit: nothing in a modlet is a program.
+  bit: nothing in a modlet is a program;
+- every entry's timestamp is the fixed epoch the build falls back to outside
+  a git checkout, never a reading of the wall clock.
 """
 
 from __future__ import annotations
@@ -54,6 +56,12 @@ EXPECTED_DIRS = frozenset({
 DIR_MODE = 0o755
 FILE_MODE = 0o644
 
+# 1980-01-01, the earliest a zip entry can record and the value the Makefile
+# falls back to outside a git checkout.
+DOS_EPOCH = (1980, 1, 1, 0, 0, 0)
+
+MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 def mode_problems(entries: list[tuple[str, int]]) -> list[str]:
     """Entry names whose recorded mode is not the one the modlet ships with."""
@@ -65,7 +73,17 @@ def mode_problems(entries: list[tuple[str, int]]) -> list[str]:
     return problems
 
 
-def build_package(tree: str) -> subprocess.CompletedProcess[str]:
+def build_package(tree: str, epoch: str | None = "0") -> subprocess.CompletedProcess[str]:
+    """Package the staged tree, with the timestamp override set or absent.
+
+    *epoch* None leaves SOURCE_DATE_EPOCH to the Makefile, which is how a
+    caller sees the tree's own answer rather than a supplied one.
+    """
+    environment = {**os.environ, "WRENCH_SKIP_DLL": "1"}
+    if epoch is None:
+        environment.pop("SOURCE_DATE_EPOCH", None)
+    else:
+        environment["SOURCE_DATE_EPOCH"] = epoch
     return subprocess.run(
         ["make", "package"],
         cwd=tree,
@@ -75,7 +93,7 @@ def build_package(tree: str) -> subprocess.CompletedProcess[str]:
         errors="replace",
         timeout=300,
         check=False,
-        env={**os.environ, "WRENCH_SKIP_DLL": "1", "SOURCE_DATE_EPOCH": "0"},
+        env=environment,
     )
 
 
@@ -128,6 +146,38 @@ def main() -> int:
         check("negative-control-read-only-tree-is-rejected",
               bool(mode_problems(read_only)),
               "the mode check accepted the read-only tree it exists to reject")
+
+        # Every entry's timestamp, with no override supplied. The staged tree
+        # is not a git checkout, so this is the Makefile's own answer, and a
+        # wall clock there put the second it ran into the shipped bytes: the
+        # same source packaged twice was two archives. Nothing here reads a
+        # clock, so the check is the fixed epoch, not an elapsed time.
+        unoverridden = build_package(tree, epoch=None)
+        check("package-builds-with-no-timestamp-override",
+              unoverridden.returncode == 0,
+              f"exit={unoverridden.returncode} stderr={unoverridden.stderr[-300:]!r}")
+        if unoverridden.returncode == 0:
+            with zipfile.ZipFile(archive) as zf:
+                stamps = sorted({i.date_time for i in zf.infolist()})
+            check("package-timestamps-are-the-fixed-epoch", stamps == [DOS_EPOCH],
+                  f"recorded {stamps[:3]}, expected only {DOS_EPOCH}")
+
+        # Negative control: the same comparison on a package built with a
+        # timestamp of its own, so the check above is known to read the
+        # archive rather than pass on anything.
+        control = build_package(tree, epoch="1700000000")
+        if control.returncode == 0:
+            with zipfile.ZipFile(archive) as zf:
+                control_stamps = sorted({i.date_time for i in zf.infolist()})
+            check("negative-control-an-epoch-of-its-own-is-rejected",
+                  control_stamps != [DOS_EPOCH],
+                  "the timestamp check accepted an archive built from another epoch")
+
+        with open(os.path.join(MOD_DIR, "Makefile"), encoding="utf-8") as handle:
+            makefile = handle.read()
+        check("the Makefile does not take a timestamp from the wall clock",
+              "date +%s" not in makefile,
+              "SOURCE_DATE_EPOCH must fall back to a fixed value, not `date`")
     finally:
         shutil.rmtree(root, ignore_errors=True)
 

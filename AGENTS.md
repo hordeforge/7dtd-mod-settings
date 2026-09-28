@@ -302,8 +302,9 @@ across all of them.
   **stderr** and exits 2, as does a wrong argument count.
 - A script that takes no options says so rather than ignoring what it was
   given: the guard is `reject_options` in `scripts/cli.sh`, sourced by
-  `build.sh`, `install-server.sh`, `lint-python.sh`, `lint-shell.sh` and
-  `server-smoke.sh`. A new option-less script sources it too.
+  `build.sh`, `install-server.sh`, `lint-python.sh`, `lint-shell.sh`,
+  `server-smoke.sh` and `verify-package.sh`. A new option-less script
+  sources it too.
 - Exit status is 0 for success, 1 for a check that failed or a missing
   dependency, 2 for a bad command line, and the help text says which.
 - `local-env.sh`, `server-common.sh` and `cli.sh` are sourced, never run;

@@ -48,6 +48,7 @@ ENTRYPOINTS = (
     "run-offline-tests.sh",
     "server-smoke.sh",
     "validate-xml-targets.py",
+    "verify-package.sh",
     "verify-patch-targets.py",
     "verify-patched-config.py",
 )
