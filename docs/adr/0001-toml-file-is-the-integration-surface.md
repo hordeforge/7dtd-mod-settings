@@ -6,8 +6,9 @@ Date: 2026-08-30
 
 Accepted
 
-Amended 2026-09-28: the "must stay in step with the target's parser"
-consequence below is narrowed by the text-boundary decision in
+Amended 2026-09-28: the consequence about the parser's strictness was
+narrowed from "exactly as strict as Anvil's" to "in step with the target's"
+by the text-boundary decision in
 [`../architecture.md`](../architecture.md) (whole escape set both ways,
 case-sensitive keys, the file's own encoding kept on a save).
 

@@ -198,7 +198,7 @@ that only applies on a restart, disarms the latch rather than leaving the
 previous mod's marker armed. The re-read is at the start of a save; the
 decision below keeps the write half from reading the file back again.
 
-## Decided 2026-09-28: a save is replaced in atomically, in the file's own encoding
+## Decided 2026-09-28: a save is replaced atomically, in the file's own encoding
 
 The file is the whole integration surface (ADR 0001), so a save must never
 be able to destroy it. Two properties, both held by
@@ -463,7 +463,8 @@ dedicated server runs the console command on its telnet thread, and
   `wrench set` from telnet therefore cannot land between a reload's
   `ResetToDefaults` and its apply. `Monitor` is reentrant, which is what
   lets the reload path call the public `TrySet` while holding the gate,
-  so the reset and the apply are one indivisible step.
+  so the reset and the apply are one indivisible step and no reader can
+  see half-applied values.
 - the screen's reload latch is marker and flag under one lock, not a
   `volatile` flag beside a plain field: a log line arriving between the
   marker swap and the flag clear would otherwise be dropped.
@@ -489,7 +490,8 @@ dedicated server runs the console command on its telnet thread, and
   config tool reading it) can read a half-written settings file, and a
   crash in that window loses the old text with no rollback path.
   `File.Replace` is the rename; where a runtime does not implement it,
-  the fallback is delete plus move.
+  the fallback is the move-then-move the save-replacement decision above
+  sets out, not a delete.
 
 Enforced by `scripts/test_settings_reload.py` and
 `scripts/test_target_save_coherence.py`.
@@ -576,7 +578,7 @@ determinism leak is a non-empty diff naming the step that leaked, and the
 seed is printed with the trace so a failure replays from it.
 
 `ModSettings`, the watched file's poll and debounce, is not in that run
-yet: it is coupled to `UnityEngine`'s logger and to `Mod`, and giving it a
+yet: it is coupled to the game's `Log` and to `Mod`, and giving it a
 log seam is the same move `TargetMod` just made. Enforced by
 `scripts/test_settings_reload.py` and
 `scripts/test_target_save_coherence.py` (the seams, and the game-free

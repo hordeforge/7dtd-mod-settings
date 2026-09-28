@@ -41,14 +41,15 @@ half-parsed, never written back to.
 
 ## Deliberately not built (v1)
 
-- `# ui:` annotations in TOML comments (planned; convention below).
+- `# ui:` annotations in TOML comments (convention decided, renderer not
+  built; see below).
 - Pushing server-side edits through an authenticated channel.
 - A WebMod panel reusing the same file surface.
 
-## Planned convention: `# ui:` comment annotations
+## Decided 2026-08-30: `# ui:` comment annotations (planned, not yet implemented)
 
-Decided 2026-08-30 (user: RaidMode "should be checkboxes, to select all,
-none or the specific nuke yields"), not yet implemented. A target mod may
+User: RaidMode "should be checkboxes, to select all, none or the specific
+nuke yields". A target mod may
 end a key's comment block with one structured line; Wrench stays
 decoupled because the line is data in the mod's own file, and the mod's
 own TrySet still validates every value:

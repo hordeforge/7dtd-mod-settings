@@ -7,7 +7,8 @@ earliest unfinished section.
 
 ## Purpose
 
-Adds a Mod Settings screen to the in-game options menu, listing every loaded mod that ships a Config/<Mod>.toml settings file and letting the player view and edit those settings from the UI. Edits are written back in place to the mod's own TOML; mods built on Anvil's settings component apply them live through their existing hot-reload watch, with no coupling between this mod and theirs.
+See [`docs/design.md`](docs/design.md) "Goal". The task queue below tracks
+the work that goal describes; the goal itself is stated there once.
 
 ## Design
 

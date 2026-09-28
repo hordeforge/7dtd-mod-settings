@@ -30,50 +30,16 @@ shipped bytes do not depend on the builder's machine.
 OPTIONS
   -h, --help   this text
 
+ENVIRONMENT
+  WRENCH_SKIP_DLL   forced to 1, so the package needs no game install
+                    and packages the XML-only modlet
+
 EXIT STATUS
   0  the package extracts correctly and is byte-reproducible
   1  a build, a tool or a check failed
   2  unknown option" "$@"
 
 MOD_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-# shellcheck source=cli.sh
-source "$SCRIPT_DIR/cli.sh"
-
-reject_options "Usage: scripts/verify-package.sh
-
-Package dist/Wrench.zip and hold it to two things: that it extracts to
-Mods/Wrench/ModInfo.xml, and that a second package of the same tree is
-byte-identical under a different umask, locale and timezone. The
-XML-only modlet is packaged; the DLL needs the game assemblies.
-
-OPTIONS
-  -h, --help   this text
-
-ENVIRONMENT
-  WRENCH_SKIP_DLL   forced to 1, so the package needs no game install
-
-EXIT STATUS
-  0  the package has the expected layout and is byte-reproducible
-  1  a build step failed, a tool is missing, or the package is not reproducible
-  2  unknown option" "$@"
-
-# shellcheck source=cli.sh
-source "$SCRIPT_DIR/cli.sh"
-
-reject_options "Usage: scripts/verify-package.sh
-
-Package the modlet twice and require the two archives to be identical.
-
-OPTIONS
-  -h, --help   this text
-
-ENVIRONMENT
-  WRENCH_SKIP_DLL  forced to 1; this packages the XML-only modlet
-
-EXIT STATUS
-  0  the package extracts where it should and is byte-reproducible
-  1  a tool is missing, the package is wrong, or it is not reproducible
-  2  unknown option" "$@"
 
 for tool in make zip unzip sha256sum; do
 	command -v "$tool" >/dev/null 2>&1 || {
