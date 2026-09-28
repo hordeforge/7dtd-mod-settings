@@ -1,4 +1,5 @@
 using HarmonyLib;
+using System;
 using System.Runtime.CompilerServices;
 using System.Reflection;
 
@@ -17,8 +18,21 @@ namespace Wrench
             // Fast and defensive: log, never throw if recoverable. Fast
             // because the game waits here, defensive because the settings
             // and UI must work even if something below fails.
-            Log.Out($"{LogPrefix} InitMod");
-            ModSettings.Load(_modInstance);
+            Log.Out(ModApi.LogPrefix + " loading; settings are read from "
+                + ModSettings.RelativePath);
+            try
+            {
+                ModSettings.Load(_modInstance);
+            }
+            catch (Exception ex)
+            {
+                // An exception out of here aborts the mod's load and lands in
+                // the log as a bare stack trace from a load the operator did
+                // not ask for. Named, it says which mod failed to read its
+                // settings and leaves the rest of the mod working.
+                Log.Error(ModApi.LogPrefix + " could not read " + ModSettings.RelativePath
+                    + " at load: " + ex);
+            }
             // Re-reads Config/Wrench.toml when it is saved, via the
             // engine's UnityUpdate event (client and dedicated) — no restart,
             // no Harmony patch.

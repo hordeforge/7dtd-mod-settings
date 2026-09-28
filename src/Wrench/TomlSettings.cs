@@ -102,7 +102,7 @@ namespace Wrench
 			}
 			catch (Exception ex)
 			{
-				error = ex.Message;
+				error = ex.GetType().Name + ": " + ex.Message;
 				return false;
 			}
 		}

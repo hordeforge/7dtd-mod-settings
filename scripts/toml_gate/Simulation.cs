@@ -261,7 +261,8 @@ static class Simulation
 		trace.Append("seed ").Append(seed).Append('\n');
 		try
 		{
-			var target = new TargetMod("Example", "Example", TomlPath, true);
+			var target = new TargetMod("Example", "Example", "/sim/Mods/Example",
+				TomlPath, true);
 			CheckInvariants(files, clock, target, 0);
 			for (var step = 1; step <= StepsPerSeed; step++)
 			{

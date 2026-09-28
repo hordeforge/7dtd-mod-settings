@@ -55,7 +55,7 @@ namespace Wrench
 					continue;
 				try
 				{
-					result.Add(new TargetMod(mod.Name, mod.DisplayName, tomlPath,
+					result.Add(new TargetMod(mod.Name, mod.DisplayName, mod.Path, tomlPath,
 						CachedHasSettingsComponent(mod)));
 				}
 				catch (Exception ex)

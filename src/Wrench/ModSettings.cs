@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using UnityEngine;
 
 namespace Wrench
 {
@@ -95,7 +94,7 @@ namespace Wrench
 		{
 			if (mod == null || string.IsNullOrEmpty(mod.Path))
 			{
-				Debug.LogWarning("[Wrench] no mod path available; using default settings.");
+				Log.Warning(ModApi.LogPrefix + " no mod path available; using default settings.");
 				LogCurrent("defaults");
 				return;
 			}
@@ -265,7 +264,7 @@ namespace Wrench
 			{
 				if (!TrySet(entries[i].Name, entries[i].Value, out var setMessage,
 					ignoreNameCase: false))
-					Debug.LogWarning("[Wrench] " + RelativePath + ": " + setMessage);
+					Log.Warning(ModApi.LogPrefix + " " + RelativePath + ": " + setMessage);
 			}
 			appliedWriteUtc = writeUtc;
 			appliedLength = length;
@@ -290,11 +289,11 @@ namespace Wrench
 			if (string.Equals(problem, loggedProblem, StringComparison.Ordinal))
 				return;
 			loggedProblem = problem;
-			var line = "[Wrench] " + RelativePath + ": " + problem;
+			var line = ModApi.LogPrefix + " " + RelativePath + ": " + problem;
 			if (isError)
-				Debug.LogError(line);
+				Log.Error(line);
 			else
-				Debug.LogWarning(line);
+				Log.Warning(line);
 		}
 
 		static void ResetToDefaults()
@@ -344,7 +343,7 @@ namespace Wrench
 			}
 			catch (Exception ex)
 			{
-				error = ex.Message;
+				error = ex.GetType().Name + ": " + ex.Message;
 				return false;
 			}
 		}
@@ -432,7 +431,7 @@ namespace Wrench
 			{
 				lines = DescribeLocked();
 			}
-			Debug.Log("[Wrench] settings (" + source + "): "
+			Log.Out(ModApi.LogPrefix + " settings (" + source + "): "
 				+ string.Join(", ", lines));
 		}
 	}

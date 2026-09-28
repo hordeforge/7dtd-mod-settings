@@ -187,13 +187,13 @@ def main() -> int:
     read_body = body(target, "bool TryRead(")
     # The read is the other half of the atomic save: it has to report the
     # encoding the file's bytes declared, or the save writes it back in a
-    # different one. It reaches the disk through the seam, so the byte-level
-    # reader (TomlFile) is the seam's own and no caller reaches past it.
+    # different one. It reaches the disk through the seam, which opens the
+    # file and hands the bytes to the codec, so no caller reaches past either.
     check("a read takes the file's bytes and its encoding, through the seam",
           "ModFileSystem.Current.ReadAllText(TomlPath, out encoding)" in read_body
-          and "TomlFile.ReadAllText" in files
+          and "TomlFile.Decode(ReadAllBytes(path), out encoding)" in files
           and "File.ReadAllBytes(" not in target
-          and "TomlFile.ReadAllText(" not in target)
+          and "TomlFile.Decode(" not in target)
     check("a save writes the encoding the file is in",
           "out currentEncoding" in save
           and "TryWrite(TomlPath, newText, currentEncoding" in save)
@@ -220,24 +220,37 @@ def main() -> int:
 
     # The staged sibling has a name any writer in the mod folder can guess,
     # so it is created exclusively: create-or-truncate follows a link planted
-    # there and truncates whatever it points at. The write moved out of the
-    # codec and into the filesystem seam when the codec stopped naming paths,
-    # so the property is read where the open is.
+    # there and truncates whatever it points at. A delete first unlinks such a
+    # name instead of following it, and clears a staging file a crash left
+    # behind. The write moved out of the codec and into the filesystem seam
+    # when the codec stopped naming paths, so the property is read where the
+    # open is. The rename fallback lands on an existing name on no runtime,
+    # so it removes the destination first too.
+    seam_write = body(seam, "public void WriteAllText(")
+    seam_move = body(seam, "public void Move(")
     check("the staged file is created, never created-or-truncated over a link",
-          "FileMode.CreateNew" in seam
-          and "File.Delete(path);" in seam
-          and "FileMode.Create," not in seam)
+          "FileMode.CreateNew" in seam_write
+          and "File.Delete(path);" in seam_write
+          and "FileMode.Create," not in code_of(seam))
+    check("the rename fallback lands on a name that is already there",
+          "File.Delete(destinationPath);" in seam_move
+          and seam_move.index("File.Delete(destinationPath);")
+          < seam_move.index("File.Move(sourcePath, destinationPath);"))
 
     opened = body(screen, "public override void OnOpen()")
     check("the reload latch does not survive the closing it was set in",
           "DisarmReloadWatch()" in opened)
     # A mod is identified by its folder, not by the name its ModInfo carries:
     # two installed mods can ship the same name, and reopening on the name
-    # would land the player on a different mod's settings.
+    # would land the player on a different mod's settings. The folder is a
+    # string the save path carries, so this costs the game-free contract
+    # nothing.
     check("reopening keeps the selection on the same mod, matched by path",
-          "selected.Mod.Path" in opened
-          and "t.Mod.Path == keep" in opened
-          and "t.Mod.Name == keep" not in opened)
+          "selected.ModPath" in opened
+          and "t.ModPath == keep" in opened
+          and "t.Name == keep" not in opened
+          and "public readonly string ModPath;" in target
+          and "mod.Name, mod.DisplayName, mod.Path" in discovery)
     check("a rejected save and a new selection both disarm the latch",
           "ArmReloadWatch(" in body(screen, "internal bool SaveEdit(")
           and "DisarmReloadWatch()" in body(screen, "internal void SelectMod("))
@@ -261,6 +274,34 @@ def main() -> int:
           and "TryDeleteTemp(temp)" in atomic
           and "File.WriteAllText(" not in atomic
           and "WriteAllText(TomlPath" not in save)
+
+    # What an operator reads is the game log, and it is all that is left once
+    # the screen is closed: a write, and the re-read or the silence that
+    # followed it, are said there or nowhere.
+    save_edit = body(screen, "internal bool SaveEdit(")
+    watch_state = body(screen, "void SetWatchedSaveState(")
+    check("a save, and a refused one, are said in the game log",
+          "Log.Out(ModApi.LogPrefix" in save_edit
+          and "mod.Name" in save_edit and "entry.Name" in save_edit
+          and "mod.TomlPath" in save_edit
+          and "Log.Warning(ModApi.LogPrefix" in save_edit)
+    check("a target that never re-read its file is said, and not only shown",
+          "ESaveState.AppliedLive" in watch_state
+          and "Log.Out(ModApi.LogPrefix" in watch_state
+          and "Log.Warning(ModApi.LogPrefix" in watch_state
+          and "target.TomlPath" in watch_state)
+    check("the save path itself names no game type and logs nothing",
+          "Log." not in target and "Log." not in edit)
+
+    # One prefix, one logger. A line written through Unity's Debug goes to the
+    # player's editor, not to the dedicated server's log, and a second spelling
+    # of the prefix splits a search in two.
+    sources = [read(name) for name in sorted(os.listdir(SRC))
+               if name.endswith(".cs")]
+    check("every Wrench line carries the one prefix, through the game logger",
+          '"[Wrench] "' not in "".join(sources)
+          and '"[Wrench]"' in read("ModApi.cs")
+          and "Debug.Log" not in "".join(sources))
 
     return result()
 

@@ -77,6 +77,7 @@ namespace Wrench
 		/// <summary>Renames in place of a swap; the fallback where none exists.</summary>
 		void Move(string sourcePath, string destinationPath);
 
+		/// <summary>Removes a name, whether or not anything is there.</summary>
 		void Delete(string path);
 	}
 
@@ -132,7 +133,7 @@ namespace Wrench
 
 		public string ReadAllText(string path, out Encoding encoding)
 		{
-			return TomlFile.ReadAllText(path, out encoding);
+			return TomlFile.Decode(ReadAllBytes(path), out encoding);
 		}
 
 		public byte[] ReadAllBytes(string path)
@@ -145,6 +146,15 @@ namespace Wrench
 			}
 		}
 
+		/// <summary>
+		/// The only writes this seam makes are staged siblings, and a staged
+		/// name any writer in the mod folder can guess is created exclusively:
+		/// a name already there is removed first, which unlinks a symlink
+		/// planted there rather than following it, and a create-or-truncate
+		/// would write through that link into whatever it points at. The
+		/// removal also keeps a staging file left behind by a crash from
+		/// refusing every save after it.
+		/// </summary>
 		public void WriteAllText(string path, string text, Encoding encoding)
 		{
 			var bytes = TomlFile.Encode(text, encoding);
@@ -161,8 +171,15 @@ namespace Wrench
 			File.Replace(sourcePath, destinationPath, null);
 		}
 
+		/// <summary>
+		/// Renames in place of a swap, where the platform has no atomic
+		/// replace. The destination is removed first because a rename will not
+		/// land on an existing name; the window that leaves is the one the
+		/// comment on the fallback already names.
+		/// </summary>
 		public void Move(string sourcePath, string destinationPath)
 		{
+			File.Delete(destinationPath);
 			File.Move(sourcePath, destinationPath);
 		}
 

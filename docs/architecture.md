@@ -451,15 +451,22 @@ did not: `TargetMod.TryRead` called `TomlFile` directly while the write
 beside it went through `ModFileSystem`, so a simulated save would have read
 the real file and written the simulated one. That read is now
 `IFileSystem.ReadAllText(path, out encoding)`, whose production
-implementation is `TomlFile`, and the byte-level reader is public so a
-simulated disk decodes by the same rule the game does.
+implementation opens the file through the seam's own share mode and hands
+the bytes to `TomlFile` to decode, and the byte-level reader is public so a
+simulated disk decodes by the same rule the game does. The seam also
+creates a staged sibling exclusively, removing the name first: a
+create-or-truncate follows a link planted at a name any writer in the mod
+folder can guess.
 
 The second thing a simulated save needs is for the code it drives to exist
 without the game. `TargetMod` took a `Mod`, probed its assemblies and
 called `ModManager` and `Log`; the screen, the playtest provider and every
 caller of it reached through that. So the mod list and the assembly probe
 moved to `TargetModDiscovery.cs`, and a `TargetMod` is now a name, a
-display name, a path and a yes/no. `TargetMod.cs` compiles with no game
+display name, the mod's own folder, the file's path and a yes/no. The
+folder is a string, so the contract costs nothing, and it is what
+distinguishes two installed mods carrying the same name: the screen
+reopens on it and a log line names the file it wrote. `TargetMod.cs` compiles with no game
 reference, which is what lets `scripts/toml_gate/` build it as shipped.
 
 `scripts/toml_gate/Simulation.cs` is that run: a virtual clock, an
@@ -514,6 +521,33 @@ Timestamps come from `SOURCE_DATE_EPOCH` (the last commit's time, overridable),
 never the wall clock, and entries are added in sorted order. Enforced by the
 "byte-reproducible" step in `.github/workflows/ci.yml`, which packages twice
 under a different umask, locale and timezone and compares the sha256.
+
+## Decided 2026-09-28: the game log is the whole observability surface
+
+A save is two events, not one: the file is written, and the mod that owns
+it re-reads it. Both were silent. The status line is on the screen the
+player closes, so on a dedicated server nobody could tell afterwards
+whether a settings change had landed, which key it changed, or which mod
+had not picked it up. Both events are now in the game log, through
+`Log.Out`/`Log.Warning` under the one `ModApi.LogPrefix`, naming the mod,
+the key, the value and the file: the write, the refused write with its
+cause, the re-read, and the ten seconds of silence after a save to a
+hot-reloading mod that never logged its re-read. The console command says
+the same for what it changes, with the sender, because a telnet session
+ends with its console.
+
+There are no metrics, no traces and no alerts, and adding any would cost
+more than it returns: a Unity mod running inside the game has no
+collector to send them to, and the game log is what an operator of a
+dedicated server already reads. `Log` is the only logger used anywhere in
+`src/`: a line written through Unity's `Debug` reaches the editor, not
+the server's log, and a second spelling of the prefix splits a search.
+Enforced by `scripts/test_target_save_coherence.py`.
+
+An exception that escapes the settings load at `InitMod` is now caught
+and named rather than aborting the mod's load with a bare stack trace,
+and every caught exception that becomes an error message carries its type
+beside its message, so "access denied" is not read as a parse error.
 
 ## Open questions
 

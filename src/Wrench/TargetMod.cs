@@ -49,6 +49,13 @@ namespace Wrench
 		public readonly string Name;
 		/// <summary>The name to show a player.</summary>
 		public readonly string DisplayName;
+		/// <summary>
+		/// The mod's own folder. Two installed mods can carry the same name,
+		/// so this, not <see cref="Name"/>, is what tells one from another:
+		/// a reopened screen keeps its selection by it, and a log line naming
+		/// a mod names the file it wrote.
+		/// </summary>
+		public readonly string ModPath;
 		public readonly string TomlPath;
 		/// <summary>The file's own name, safe to show and to match in a log line.</summary>
 		public readonly string TomlFileName;
@@ -64,10 +71,12 @@ namespace Wrench
 		public ESaveState SaveState;
 		public string SaveError;
 
-		public TargetMod(string name, string displayName, string tomlPath, bool hotReloads)
+		public TargetMod(string name, string displayName, string modPath, string tomlPath,
+			bool hotReloads)
 		{
 			Name = name;
 			DisplayName = displayName;
+			ModPath = modPath;
 			TomlPath = tomlPath;
 			TomlFileName = Path.GetFileName(tomlPath);
 			HotReloads = hotReloads;
@@ -207,7 +216,7 @@ namespace Wrench
 			catch (Exception ex)
 			{
 				TryDeleteTemp(temp);
-				error = ex.Message;
+				error = ex.GetType().Name + ": " + ex.Message;
 				return false;
 			}
 			error = null;
@@ -287,7 +296,7 @@ namespace Wrench
 			{
 				text = null;
 				encoding = new UTF8Encoding(false);
-				error = ex.Message;
+				error = ex.GetType().Name + ": " + ex.Message;
 				return false;
 			}
 		}

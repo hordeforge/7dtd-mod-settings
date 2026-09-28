@@ -56,7 +56,8 @@ namespace Wrench
 			}
 			catch (Exception ex)
 			{
-				error = "could not resolve the mod folder (" + ex.Message + ").";
+				error = "could not resolve the mod folder (" + ex.GetType().Name + ": "
+					+ ex.Message + ").";
 				return false;
 			}
 		}

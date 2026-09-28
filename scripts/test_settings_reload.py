@@ -150,7 +150,7 @@ def main() -> int:
           "keeping current settings" in settings)
     check("a read that fails says so, with the cause, once per problem",
           "LogProblem(" in settings
-          and "error = ex.Message;" in settings
+          and 'error = ex.GetType().Name + ": " + ex.Message;' in settings
           and "catch (Exception ex)" in settings
           and "catch (Exception)" not in settings)
     # The staged sibling is named in TryWrite: the temp file is a sibling
@@ -259,7 +259,8 @@ def main() -> int:
     check("the save path's read is the seam's read, not a second one",
           "ModFileSystem.Current.ReadAllText(TomlPath, out encoding)" in code_of("TargetMod.cs")
           and "string ReadAllText(string path, out Encoding encoding);" in files
-          and "TomlFile.ReadAllText(path, out encoding)" in code_of("ModFileSystem.cs"))
+          and "TomlFile.Decode(ReadAllBytes(path), out encoding)"
+          in code_of("ModFileSystem.cs"))
     # What a simulated run cannot have is a save path that needs the game to
     # exist: the mod list and the assembly probe are the game-side half, and
     # nothing past them names a game type.

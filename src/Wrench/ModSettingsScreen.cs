@@ -86,9 +86,13 @@ namespace Wrench
 			// a save that never happened.
 			DisarmReloadWatch();
 			watchedReloadTarget = null;
-			var keep = selected == null ? null : selected.Name;
+			// A mod is identified by its folder, not by the name its ModInfo
+			// carries: two installed mods can ship the same name, and
+			// reopening on the name would land the player on a different
+			// mod's settings.
+			var keep = selected == null ? null : selected.ModPath;
 			targets = TargetModDiscovery.Discover();
-			var index = targets.FindIndex(t => t.Name == keep);
+			var index = targets.FindIndex(t => t.ModPath == keep);
 			PopulateModRows();
 			SelectMod(index < 0 ? 0 : index);
 			// Subscribed last: OnClose is the only unhook, so a failure
@@ -138,6 +142,19 @@ namespace Wrench
 			watchedReloadTarget = null;
 			if (target != null && target.SaveState == TargetMod.ESaveState.Saved)
 				target.SaveState = state;
+			// The half of the save that lands in the file and the half that
+			// takes effect are separate events: the target's own watch either
+			// re-read the file or never did, and that is an operator's question
+			// long after this screen is closed.
+			if (target == null)
+				return;
+			if (state == TargetMod.ESaveState.AppliedLive)
+				Log.Out(ModApi.LogPrefix + " " + target.Name + " re-read " + target.TomlPath
+					+ " after the save; the change is live.");
+			else
+				Log.Warning(ModApi.LogPrefix + " " + target.Name + " did not re-read "
+					+ target.TomlPath + " within " + (int)RELOAD_CONFIRM_SECONDS
+					+ "s of the save; the change takes effect on the next restart.");
 			if (target == selected)
 				IsDirty = true;
 		}
@@ -164,7 +181,19 @@ namespace Wrench
 			if (selected == null)
 				return false;
 			var mod = selected;
-			var saved = mod.TrySave(entry, newRaw, out _);
+			var saved = mod.TrySave(entry, newRaw, out var error);
+			// The screen is the only thing that sees this outcome, and it is
+			// gone the moment the player closes it, so the write is said in the
+			// game log where an operator reading the server finds it: which
+			// mod, which key, the value written, the file it landed in, and
+			// whether it did. A settings file is the whole integration surface
+			// with another mod, so a silent write is a change nobody can trace.
+			if (saved)
+				Log.Out(ModApi.LogPrefix + " saved " + mod.Name + " " + entry.Name + " = "
+					+ newRaw + " in " + mod.TomlPath);
+			else
+				Log.Warning(ModApi.LogPrefix + " could not save " + mod.Name + " " + entry.Name
+					+ " = " + newRaw + " in " + mod.TomlPath + ": " + error);
 			// One save, one watch: a refused save, or one to a mod that only
 			// takes effect on a restart, disarms the watch entirely, so a line
 			// from an earlier save cannot stamp the next mod as "applied live"
