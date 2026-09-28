@@ -34,6 +34,13 @@ using Wrench;
 // that the mark decides the encoding without deciding whether the body
 // decodes at all.
 //
+// A third pass stands the same values up as log records rather than as
+// paths: a mod's ModInfo name and a telnet session's words both reach the
+// game log through ForLog, where a raw newline ends the record and whatever
+// follows reads as a line of its own. What that pass asserts is that what
+// ForLog writes is one line, that an ordinary value is logged as itself,
+// and that its escapes decode back to the value they stand for.
+//
 // The seed and case count are fixed, so two runs on an unchanged tree print
 // the same report. Run by scripts/test_toml_fuzz.py.
 static class Program
@@ -121,6 +128,15 @@ static class Program
 			}
 			CheckModName(i);
 		}
+		for (var i = 0; i < iterations / 4; i++)
+		{
+			// The other untrusted string the same harness already has a
+			// corpus for: a mod's ModInfo name and a telnet operator's words
+			// go into the game log, and ForLog is the only thing between
+			// them and the record the next log reader splits into lines.
+			CheckLogValue(i, Next(3) == 0 ? RandomText(Next(16)) : Names[Next(Names.Length)]);
+		}
+		CheckLogValue(0, null);
 		for (var i = 0; i < iterations / 4; i++)
 		{
 			var value = RandomText(Next(12));
@@ -542,11 +558,129 @@ static class Program
 				+ " -> " + full);
 	}
 
+	/// <summary>
+	/// What ForLog writes is the invariant, not a detail: a value out of
+	/// another mod's ModInfo, or a telnet session's words, reaches the game
+	/// log through this one function, and a raw newline in either ends the
+	/// record there, so whatever follows is read as a line of its own. So a
+	/// logged value is one line with no control character left in it, an
+	/// ordinary name is logged as itself rather than escaped into something a
+	/// reader has to decode, and the escapes carry the original exactly, so
+	/// a reader can say which value was really logged.
+	/// </summary>
+	static void CheckLogValue(int index, string value)
+	{
+		string logged;
+		try
+		{
+			logged = ModTomlPath.ForLog(value);
+		}
+		catch (Exception ex)
+		{
+			thrown++;
+			Fail(index, "the log sanitizer threw " + ex.GetType().Name,
+				Escape(value ?? "null"), ex.Message);
+			return;
+		}
+		if (logged == null)
+		{
+			Report("a value logged as null: " + Escape(value ?? "null"));
+			return;
+		}
+		if (string.IsNullOrEmpty(value))
+		{
+			if (logged.Length != 0)
+				Report("an empty value logged as " + Escape(logged));
+			return;
+		}
+		foreach (var c in logged)
+		{
+			if (c < ' ' || c == (char)0x7F)
+			{
+				Report("a logged value carries a control character: " + Escape(value)
+					+ " -> " + Escape(logged));
+				break;
+			}
+		}
+		// The escape only ever spells a character out, so it cannot shorten
+		// what it was given, and what it spells has to decode back to it.
+		if (logged.Length < value.Length)
+			Report("logging shortened a value: " + Escape(value) + " -> " + Escape(logged));
+		if (!Unescapes(logged, value))
+			Report("a logged value does not decode back to the value: " + Escape(value)
+				+ " -> " + Escape(logged));
+		if (!NeedsEscape(value) && logged != value)
+			Report("a value with nothing to escape was logged as something else: "
+				+ Escape(value) + " -> " + Escape(logged));
+		// Logged twice is still one line that decodes to the same value: a
+		// reader that pastes a record back into the log keeps it a record.
+		if (!Unescapes(ModTomlPath.ForLog(logged), value))
+			Report("logging an already logged value does not decode back: " + Escape(value)
+				+ " -> " + Escape(logged) + " -> " + Escape(ModTomlPath.ForLog(logged)));
+	}
+
+	/// <summary>Whether the value holds a character ForLog spells out.</summary>
+	static bool NeedsEscape(string value)
+	{
+		foreach (var c in value)
+		{
+			if (c == '\\' || c == '\r' || c == '\n' || c < ' ' || c == (char)0x7F)
+				return true;
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// A reader of the log undoing what ForLog did: <c>\n</c>, <c>\r</c>,
+	/// <c>\\</c> and <c>\uXXXX</c>, and nothing else. An escape the grammar
+	/// does not have is a log this cannot be read back out of.
+	/// </summary>
+	static bool Unescapes(string logged, string expected)
+	{
+		var builder = new StringBuilder(logged.Length);
+		for (var i = 0; i < logged.Length; i++)
+		{
+			var c = logged[i];
+			if (c != '\\')
+			{
+				builder.Append(c);
+				continue;
+			}
+			if (i + 1 >= logged.Length)
+				return false;
+			var escape = logged[++i];
+			if (escape == 'n')
+				builder.Append('\n');
+			else if (escape == 'r')
+				builder.Append('\r');
+			else if (escape == '\\')
+				builder.Append('\\');
+			else if (escape == 'u')
+			{
+				int code;
+				if (i + 4 >= logged.Length
+					|| !int.TryParse(logged.Substring(i + 1, 4), NumberStyles.HexNumber,
+						CultureInfo.InvariantCulture, out code))
+					return false;
+				builder.Append((char)code);
+				i += 4;
+			}
+			else
+				return false;
+		}
+		return string.Equals(builder.ToString(), expected, StringComparison.Ordinal);
+	}
+
 	static readonly string[] Names =
 	{
 		"Example", "Some.Mod 2", "../Escape", "sub/Escape", "..\\Escape",
 		"/etc/Config", "C:Config", "Escape:stream", ".", "..", "",
 		"caf\u00e9", "A B", "....//..", ".. ", " .", "\u65e5", "a\0b",
+		// Values shaped like a log forgery: an escape sequence, a line break
+		// the reader would split on, and backslashes that have to survive the
+		// escape grammar instead of being read as one.
+		"\u001B[31mWrench\u001B[0m", "a\nb", "a\rb", "a\r\nb", "\u007F",
+		"back\\slash", "\\n", "\\u0041", "\\\\", "\u0000\u0001\u0002",
 	};
 
 	// -- the byte layer ---------------------------------------------------

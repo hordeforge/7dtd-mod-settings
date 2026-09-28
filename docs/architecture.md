@@ -792,6 +792,30 @@ that exception. The send names itself as the caller says it should
 (`GameTelnet._send`), and the password send says "the console password".
 Enforced by `scripts/test_game_telnet.py`.
 
+## Decided 2026-09-28: what reaches the log and what comes off the wire are fuzzed too
+
+Two inputs that are not documents are parsed just as much as one is. The
+game log is a security record: a mod's `ModInfo` name and a telnet
+session's words both go into it through `ModTomlPath.ForLog`, and a raw
+newline in either ends the record where the next reader starts a line, so
+`scripts/toml_fuzz/` mutates those values and asserts the ones that make
+ForLog a guarantee: never throws, writes one line with no control character
+left in it, leaves a value with nothing to escape as itself, and spells its
+escapes so they decode back to the value they stand for.
+
+The console client's return value is the other direction: text the server's
+socket delivered, decoded with replacement, which decides what an oracle
+answers. That filtering is now `game_telnet.clean_output`, named apart from
+`GameTelnet.run` so it is drivable without a socket, and
+`scripts/test_telnet_output_fuzz.py` mutates transcripts of what the console
+actually prints (the command echo, the `Executing command` chatter, blank
+lines, `\r` and `\x85` breaks, lone surrogate halves) and asserts the parser
+raises on nothing, invents and reorders no line, never returns the echo or
+the chatter, keeps a planted answer whatever the mutation did around it,
+and cleans the same transcript the same way every time. The report counts
+the cases that reached the filter, so a run that stopped exercising it says
+so rather than reporting a green silence.
+
 ## Open questions
 
 - (none yet)

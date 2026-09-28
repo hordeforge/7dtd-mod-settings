@@ -14,7 +14,11 @@ its text, the level a downloaded modlet actually arrives in, and asserts
 that a file this mod can read it can also write back byte for byte mark
 included, that an invalid byte is refused in every marked encoding and not
 only the unmarked one, and that the mark picks the encoding without
-deciding whether the body decodes. Run by scripts/run-offline-tests.sh; the
+deciding whether the body decodes. A third pass stands the same values up as
+log records: what `ModTomlPath.ForLog` writes is one line, an ordinary value
+is logged as itself, and its escapes decode back to the value they stand for,
+because a mod's name and a telnet session's words reach the game log through
+that one function. Run by scripts/run-offline-tests.sh; the
 seed and case count are fixed, so the report is identical on two runs. The dotnet
 SDK it compiles the harness with is resolved as `make build` resolves it
 (`PATH`, then `DOTNET_ROOT`).

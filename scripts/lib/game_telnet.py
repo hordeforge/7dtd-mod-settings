@@ -236,11 +236,26 @@ class GameTelnet:
         """
         self._drain(0.1)
         self.send_raw(command)
-        output = self._drain(settle)
-        lines = [line.rstrip("\r") for line in output.splitlines()]
-        cleaned = [
-            line for line in lines
-            if line.strip() and line.strip() != command
-            and "Executing command" not in line
-        ]
-        return "\n".join(cleaned)
+        return clean_output(self._drain(settle), command)
+
+
+def clean_output(output: str, command: str) -> str:
+    """The command's own output out of everything the console printed.
+
+    What arrives here is whatever the server's socket delivered: text decoded
+    with replacement from bytes the game printed around the command, over a
+    connection that is not authenticated unless the server sets a password.
+    The echo, the blank lines and the "Executing command" chatter are the
+    client's own noise and are dropped; every other line is the server's
+    answer and is returned as it arrived, with the line ending's carriage
+    return removed. Named separately from :meth:`GameTelnet.run` so the
+    parsing is drivable without a socket, which is what
+    ``scripts/test_telnet_output_fuzz.py`` mutates.
+    """
+    lines = [line.rstrip("\r") for line in output.splitlines()]
+    cleaned = [
+        line for line in lines
+        if line.strip() and line.strip() != command
+        and "Executing command" not in line
+    ]
+    return "\n".join(cleaned)
