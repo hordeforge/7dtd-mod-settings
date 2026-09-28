@@ -60,8 +60,9 @@ commits by explicit path only — never `git add -A` / `git add .` /
 ## Playtest / live-client exclusivity
 
 There is one shared 7 Days to Die client (and dedicated-server runtime) on
-this machine, coordinated by the lock owned by `hordeforge/7dtd-playtest`
-(`scripts/playtest_lock.py`), at its default path
+this machine, coordinated by `hordeforge/7dtd-playtest` through its own
+`scripts/playtest_lock.py` (that file lives in the sibling checkout, not
+here), at the lock's default path
 `~/.cache/7dtd-playtest/playtest_running`. Before any exclusive live-client
 work: read the lock (missing file = free); a fresh `running=yes` for
 another session means **do not start**; acquire with your session id before
@@ -69,6 +70,9 @@ launching; refresh `heartbeat` (~30s, 120s stale window); release
 (`running=no`) when done if you own it. A stale lock may be reclaimed only
 when no live client/server process exists — and a sandboxed empty `ps` is
 not evidence of that. **Never invent a second lock or a second lock path.**
+The payload is in `docs/reference/playtest_running.example`. `make playtest`
+takes and releases the lock itself, so a session driving it never holds the
+lock by hand.
 
 ## Gates are not negotiable
 
@@ -80,8 +84,8 @@ defect somebody already shipped. If a gate is genuinely wrong (asserts
 something the design has since changed), say so in the commit message and
 the deciding doc, and make it *stricter about the new truth*, never looser.
 
-Corollaries; the first two are enforced by
-`scripts/test_rules_have_gates.py`, the third is a habit no gate can check:
+Corollaries; the first three are enforced by
+`scripts/test_rules_have_gates.py`, the last is a habit no gate can check:
 
 - A rule that has been broken gets a **gate**, not a paragraph: every
   AGENTS.md section that records a dated incident names the
@@ -114,14 +118,12 @@ relative path of this repo.
 
 ## Asset bundles (when this mod ships them)
 
-This mod ships none, and the Makefile has no asset targets on purpose. If
-it ever does, the bundle is built by **shamway**
-(`hordeforge/7dtd-asset-pipeline`) and every rebuild is gated there with
-`shamway validate` and `shamway check-icons` before a client launch; a
-bundle without a class-142 `AssetBundle` object is always rejected at
-runtime, and a matching UnityFS header is not acceptance evidence. If a
-build fails one of those gates, fix the cause, never downgrade the gate.
-The tool map is `docs/reference/sibling-tooling.md`.
+This mod ships none, and the Makefile has no asset targets on purpose. If it
+ever does, the bundle is built by **shamway** (`hordeforge/7dtd-asset-pipeline`)
+and gated there with `shamway validate` and `shamway check-icons` before a
+client launch. A bundle without a class-142 `AssetBundle` object is rejected
+at runtime, and a matching UnityFS header is not acceptance evidence. A
+failed gate there is fixed in the cause, never downgraded.
 
 ## Runtime settings are TOML
 
@@ -129,7 +131,7 @@ This mod's own tunables live in `Config/Wrench.toml`, read by the
 DLL from the installed mod folder — see the settings section of
 `docs/reference/csharp-harmony.md` for the full contract (hot reload on
 save, reset-then-apply, broken save keeps current values, console
-`settings|set|reload`). Add a setting in `ModSettings.cs` (its header
+`wrench settings|set|reload`). Add a setting in `ModSettings.cs` (its header
 comment lists the steps) and mirror it, commented, in the shipped TOML.
 `scripts/test_settings_reload.py` holds the contract offline.
 
@@ -141,9 +143,8 @@ package arrives by accident. ruff and mypy are developer and CI tools pinned
 in `requirements-dev.txt` (the one place a version is written down), together
 with the distributions mypy pulls in, because an unpinned one of those enters
 the lint lane unreviewed the day it is published; shellcheck is a host tool;
-the dotnet SDK is read-only reference for the C#
-TOML harnesses, so `make test` needs an interpreter and that SDK, no game
-install. A third-party package is a decision to make on purpose, not a
+the dotnet SDK is read-only reference for the C# TOML harnesses. A
+third-party package is a decision to make on purpose, not a
 reflex: declare it in `pyproject.toml`, take the install with it, and write
 down why. `scripts/test_stdlib_only.py` holds the no-import claim, so
 nothing arrives on one contributor's disk instead.
@@ -162,17 +163,6 @@ commit changed it. `scripts/test_version_declaration.py` holds all of
 that offline, including that no release is documented twice. The release
 tag is cut from the commit that sets the version, so the changelog's
 newest heading is that commit's release and nothing after it.
-
-Added 2026-09-28: the version was declared in three files that nothing
-held together.
-
-Added 2026-09-28: a behaviour change shipped as the patch `0.2.1` (a
-key spelled with the wrong case stopped applying), three more landed
-after it with no entry at all, and `docs/THREAT_MODEL.md` still named
-`0.2.0.0` as the build it reviewed. All three ship as the minor
-`0.3.0`; a doc that names a version, the newest entry's Compatibility
-section, and the placement of an `## [Unreleased]` heading are enforced
-by `scripts/test_version_declaration.py`.
 
 ## Local path inventory
 
@@ -218,15 +208,13 @@ added there. `make build` stages the deployable modlet under `dist/Wrench/`;
 `Mods/Wrench/ModInfo.xml`. Never nest deployable content under a further
 subfolder.
 
-Corrected 2026-09-28: the staged tree was made world-readable and
-writable by nobody for a reproducible zip, and the zip records those
-modes. Every install whose extractor restored them (unzip does) got a
-read-only `Config/`, and this mod saves a setting by writing a staged
-sibling into `Config/` and replacing `Config/Wrench.toml` with it, so
-every save failed on exactly those installs. The package is now staged
-`a+rX,u+w` and `scripts/test_package_contents.py` builds the real zip
-and holds the shipped file set, the entry modes, and a negative control
-on the read-only tree they replaced.
+The staged tree is `a+rX,u+w`, and the zip records those modes: an
+extractor that restores them (unzip does) would otherwise leave a
+read-only `Config/`, and a save writes a staged sibling into `Config/`
+and replaces `Config/Wrench.toml` with it.
+`scripts/test_package_contents.py` builds the real zip and holds the
+shipped file set, the entry modes, and a negative control on the
+read-only tree they replaced.
 
 ## XML conventions
 
@@ -292,31 +280,14 @@ on the read-only tree they replaced.
   `ModTomlPath.ForLog` escapes the line terminators whatever reaches it,
   since not every logged string came from a file name.
 
-Corrected 2026-09-28: the reload marker was looked up with the
-parameterless `Contains`, so one installed mod's re-read line stamped a
-different mod's save "applied live" whenever the two names folded together
-under the thread's culture, and a mod name holding U+2028 ended the log
-record there exactly as a newline does; enforced by
-`scripts/test_target_save_coherence.py` (the ordinal lookup, with a
-negative control) and `scripts/test_toml_document.py` (the name rules,
-through the compiled `scripts/toml_gate`).
-
-Corrected 2026-09-28: the two bottom labels were one line high, so the
-status line and the server note were clipped in every language, and
-nothing but the screen said so; enforced by
-`scripts/test_localization_catalog.py`, which measures each label against
-the catalog's own english text grown for translation, counts a CJK or kana
-character at full width, and holds `modnote` and `selmodstatus` (the two
-bindings whose text comes from the C# rather than a `text_key`) to the same
-measure.
-
-Corrected 2026-09-28: escapes, encoding, and key case in the TOML path;
-enforced by `scripts/test_toml_document.py` (spans, escapes, non-ASCII
-round trips, a file whose bytes are not valid in the encoding it declares
-refused on read, marked UTF-16 and UTF-32 included), `scripts/test_toml_fuzz.py`
-(mutated documents and mutated byte arrays against the
-reader/writer/resolver invariants, fixed seed), and
-`scripts/test_python_defects.py` (text output without an
+The gates that hold this section: `scripts/test_target_save_coherence.py`
+(the ordinal reload-marker lookup, with a negative control),
+`scripts/test_toml_document.py` and `scripts/test_toml_fuzz.py` (spans,
+escapes, key case, non-ASCII round trips, mutated documents and byte
+arrays), `scripts/test_localization_catalog.py` (a label is sized for the
+catalog's english text grown for translation, a CJK or kana character
+counted at full width, `modnote` and `selmodstatus` held to the same
+measure), and `scripts/test_python_defects.py` (text output without an
 explicit encoding).
 
 ## Command line surface
@@ -337,20 +308,29 @@ across all of them.
 - `local-env.sh`, `server-common.sh` and `cli.sh` are sourced, never run;
   they are not entrypoints.
 
-Corrected 2026-09-28: `build.sh --skip-dll` built and exited 0, and
-`run-offline-tests.sh --help` ran nothing and exited 1 with a "no test
-matches" error, because six scripts ignored every argument and the rest
-named a wrong command line only in their usage text; enforced by
-`scripts/test_cli_contract.py`, which drives every entrypoint's `-h`,
-`--help` and one unknown option, and holds a script to being listed as an
-entrypoint, a gate or a sourced file.
+`scripts/test_cli_contract.py` drives every entrypoint's `-h`, `--help` and
+one unknown option, and holds a script to being listed as an entrypoint, a
+gate or a sourced file.
 
 ## Testing
 
 Offline gates: `make test` (every `scripts/test_*.py`) and
 `make lint` (`make lint-python`: ruff plus mypy `--strict` over every tracked
 `*.py` per `pyproject.toml`; then `make lint-shell`: shellcheck at full
-severity) must pass before any commit.
+severity) must pass before any commit. `make check` is the same gates plus
+`verify-package` and `buildinfo`, and is what CI runs.
+
+`make test` needs the .NET SDK, not only a Python interpreter: the two TOML
+round-trip gates compile `src/Wrench/*.cs`, and a runtime answers `dotnet`
+and lists no SDKs (`scripts/test_toolchain_floor.py`). The lint tool
+versions are written down in `requirements-dev.txt` only, which CI installs
+(`scripts/test_lint_toolchain_declared.py`). Every `subprocess.run` and
+`subprocess.check_output` in a tracked `*.py` names a timeout, as a named
+module constant: a gate that starts a child without one waits on it
+forever, and `run-offline-tests.sh` waits on the gate
+(`scripts/test_python_defects.py`; `Popen` takes no such keyword and is
+out of the detector's reach).
+
 Install-dependent checks: `make validate-xml` (every Config xpath against
 vanilla), `make verify-patched-config` (after loading a world: every
 shipped patch element counted in the save's own `ConfigsDump`, attributed
@@ -360,9 +340,9 @@ give, since a patch matching nothing applies silently) and, for C# mods,
 installed Assembly-CSharp) — run them after any config/patch change and
 after every game update. `scripts/lib/game_telnet.py` is the stdlib client
 for dedicated-server console oracles when a check needs to ask the running
-game what is true. Dedicated
-server: `make install-server` / `deploy-server` / `server-smoke` boot the
-configured server briefly and prove the mod loaded from its log.
+game what is true. Dedicated server: `make install-server` /
+`deploy-server` / `server-smoke` boot the configured server briefly and
+prove the mod loaded from its log.
 
 Live behavior: deploy per `docs/reference/environment.md` and check the
 game log — a clean log alone does not prove an XPath matched; verify in
@@ -374,19 +354,6 @@ itself. Select another suite with `make playtest SUITE=<id>`. Never write a
 private launcher. A new case belongs to the suite whose feature it proves,
 never dropped into another feature's fixture (shared world/inventory state
 makes a borrowed case change every case after it).
-
-Corrected 2026-09-28: `make test` needs the .NET SDK, not only a Python
-interpreter, because `test_toml_document.py` and `test_toml_fuzz.py`
-compile `src/Wrench/*.cs` (`scripts/test_toolchain_floor.py`); the lint
-tool versions are written down in `requirements-dev.txt` only, which CI
-installs (`scripts/test_lint_toolchain_declared.py`).
-
-Added 2026-09-28: a gate that starts a child without a timeout waits on it
-forever, and `scripts/run-offline-tests.sh` waits on the gate, so one wedged
-child held the whole suite open with nothing reported. Every `subprocess.run`
-and `subprocess.check_output` in a tracked `*.py` names a timeout, as a named
-module constant; `Popen` takes no such keyword and is out of the detector's
-reach (`scripts/test_python_defects.py`).
 
 ## Git workflow
 
