@@ -22,6 +22,8 @@ namespace Wrench
 			Saved,
 			/// <summary>Written and the mod logged the re-read.</summary>
 			AppliedLive,
+			/// <summary>Written, but no re-read line arrived in time.</summary>
+			SaveUnconfirmed,
 			SaveFailed,
 		}
 

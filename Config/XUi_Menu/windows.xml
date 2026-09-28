@@ -46,6 +46,7 @@
 				<label name="selFile" depth="3" pos="960,-4" width="260" height="28" font_size="22" pivot="left" justify="left" text="{selmodfile}" color="[mediumGrey]" />
 
 				<rect name="modsArea" pos="0,0" width="430" height="750" on_scroll="true" gamepad_selectable="false" snap="false">
+					<label name="noMods" depth="3" pos="0,0" width="380" height="140" font_size="22" justify="center" wrap="true" text_key="wrenchNoMods" color="[mediumGrey]" visible="{nomods}" />
 					<options_scrollbar />
 					<scrollview depth="2" clippingsoftness="0,10" anchor_top="#parent,1,0" anchor_bottom="buttons,1,10">
 						<grid pos="0,-4" cols="1" rows="24" cell_width="400" cell_height="66" repeat_content="true" arrangement="horizontal">
@@ -60,6 +61,7 @@
 				</rect>
 
 				<rect name="settingsArea" pos="450,-44" width="760" height="700" on_scroll="true" gamepad_selectable="false" snap="false">
+					<label name="noSettings" depth="3" pos="0,0" width="700" height="140" font_size="22" justify="center" wrap="true" text_key="wrenchNoSettings" color="[mediumGrey]" visible="{noentries}" />
 					<options_scrollbar />
 					<scrollview depth="2" clippingsoftness="0,10" anchor_top="#parent,1,0" anchor_bottom="buttons,1,10">
 						<grid pos="0,-4" cols="1" rows="48" cell_width="720" cell_height="47" repeat_content="true" arrangement="horizontal">

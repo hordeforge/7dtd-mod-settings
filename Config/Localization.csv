@@ -1,3 +1,5 @@
 Key,File,Type,UsedInMainMenu,NoTranslate,KeepLoaded,english,Context / Alternate Text,german,spanish,french,italian,japanese,koreana,polish,brazilian,russian,turkish,schinese,tchinese
 wrenchModSettingsTab,UI,XUi OptionsMenu,x,,,Mod Settings,,,,,,,,,,,,,
 wrenchServerNote,UI,XUi OptionsMenu,x,,,"Joined to a server: edits change only your local copy. Server-owned values must be changed on the server (console/telnet).",,,,,,,,,,,,,
+wrenchNoMods,UI,XUi OptionsMenu,x,,,"No installed mod ships a Config/<Mod>.toml settings file, so there is nothing to edit here.",,,,,,,,,,,,,
+wrenchNoSettings,UI,XUi OptionsMenu,x,,,"This mod has no editable settings here. The status line below says why, if its settings file could not be read.",,,,,,,,,,,,,

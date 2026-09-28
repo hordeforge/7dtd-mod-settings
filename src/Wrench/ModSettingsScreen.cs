@@ -17,10 +17,17 @@ namespace Wrench
 	/// selected mod's keys, edited in place through
 	/// <see cref="TargetMod.TrySave"/>. After a save to a hot-reloading mod
 	/// the game log is watched for that mod's reload line, so the status
-	/// says whether the file was actually re-read.
+	/// says whether the file was actually re-read; a mod that never logs
+	/// one gets an explicit "not confirmed" status rather than an endless
+	/// "waiting".
 	/// </summary>
 	public class XUiC_ModSettingsScreen : XUiC_OptionsDialogBase
 	{
+		// A settings component that polls the file every few seconds should
+		// log its re-read well inside this. Past it the wait is over: the
+		// status must not keep promising a reload that never arrived.
+		const float RELOAD_CONFIRM_SECONDS = 10f;
+
 		internal List<TargetMod> targets = new List<TargetMod>();
 		internal TargetMod selected;
 		XUiC_WrenchModRow[] modRows = new XUiC_WrenchModRow[0];
@@ -29,6 +36,10 @@ namespace Wrench
 		// Written from the log callback (any thread), consumed in Update.
 		volatile bool reloadSeen;
 		string watchedReloadMarker;
+		// The mod the marker belongs to: the status is that mod's, whether or
+		// not it is still the selected one when the line (or the timeout) lands.
+		TargetMod watchedMod;
+		float reloadWait;
 
 		// Nothing here uses the vanilla unsaved-changes model: every edit is
 		// written (or refused) immediately.
@@ -72,6 +83,7 @@ namespace Wrench
 		{
 			Log.LogCallbacks -= OnLogLine;
 			watchedReloadMarker = null;
+			watchedMod = null;
 			base.OnClose();
 		}
 
@@ -81,11 +93,27 @@ namespace Wrench
 			{
 				reloadSeen = false;
 				watchedReloadMarker = null;
-				if (selected != null && selected.SaveState == TargetMod.ESaveState.Saved)
-					selected.SaveState = TargetMod.ESaveState.AppliedLive;
-				IsDirty = true;
+				SetWatchedSaveState(TargetMod.ESaveState.AppliedLive);
+			}
+			if (watchedReloadMarker != null)
+			{
+				reloadWait += _dt;
+				if (reloadWait >= RELOAD_CONFIRM_SECONDS)
+				{
+					watchedReloadMarker = null;
+					SetWatchedSaveState(TargetMod.ESaveState.SaveUnconfirmed);
+				}
 			}
 			base.Update(_dt);
+		}
+
+		/// <summary>Moves the watched mod out of the pending state, then stops watching it.</summary>
+		void SetWatchedSaveState(TargetMod.ESaveState state)
+		{
+			if (watchedMod != null && watchedMod.SaveState == TargetMod.ESaveState.Saved)
+				watchedMod.SaveState = state;
+			watchedMod = null;
+			IsDirty = true;
 		}
 
 		internal void SelectMod(int index)
@@ -112,12 +140,23 @@ namespace Wrench
 				return false;
 			var mod = selected;
 			var saved = mod.TrySave(entry, newRaw, out _);
-			// The Anvil component logs the re-read; until that line arrives
-			// the status stays at "saved". A refused edit disarms the watch,
-			// so a line from an earlier save cannot resurrect "applied live"
-			// over the failure this edit just recorded.
-			watchedReloadMarker = saved && mod.HotReloads ? mod.ReloadLogMarker : null;
-			reloadSeen = false;
+			if (saved && mod.HotReloads)
+			{
+				// The Anvil component logs the re-read; until that line
+				// arrives the status stays at "saved".
+				watchedReloadMarker = mod.ReloadLogMarker;
+				watchedMod = mod;
+				reloadSeen = false;
+				reloadWait = 0f;
+			}
+			else
+			{
+				// A refused edit disarms the watch, so a line from an
+				// earlier save cannot resurrect "applied live" over the
+				// failure this edit just recorded.
+				watchedReloadMarker = null;
+				reloadSeen = false;
+			}
 			// Spans moved with the edit: rebind rows to the re-parsed
 			// entries (also restores the file value after a refused edit).
 			PopulateSettingRows();
@@ -186,8 +225,12 @@ namespace Wrench
 				var cm = SingletonMonoBehaviour<ConnectionManager>.Instance;
 				_value = (cm != null && cm.IsConnected && cm.IsClient && !cm.IsServer).ToString();
 				return true;
-			case "hasmods":
-				_value = (targets.Count > 0).ToString();
+			case "nomods":
+				_value = (targets.Count == 0).ToString();
+				return true;
+			case "noentries":
+				_value = (selected == null || selected.Entries == null
+					|| selected.Entries.Count == 0).ToString();
 				return true;
 			default:
 				return base.GetBindingValueInternal(ref _value, _bindingName);
@@ -208,6 +251,9 @@ namespace Wrench
 					: "Saved. Takes effect after a restart.";
 			case TargetMod.ESaveState.AppliedLive:
 				return "Saved. The mod re-read the file and applied it.";
+			case TargetMod.ESaveState.SaveUnconfirmed:
+				return "Saved, but the mod has not re-read the file yet. If the change "
+					+ "does not take effect, restart the game.";
 			case TargetMod.ESaveState.SaveFailed:
 				return "Save failed: " + selected.SaveError;
 			default:

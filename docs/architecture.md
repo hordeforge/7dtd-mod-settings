@@ -100,6 +100,20 @@ on reopen. The "applied live" observation is a one-shot latch and is
 cleared when the screen opens, so a reload line seen while it was closed
 cannot stamp a newly discovered mod as saved-and-applied.
 
+## Decided 2026-09-28: bounded reload wait, empty-state labels
+
+The post-save wait for a hot-reloading mod's reload line is bounded by
+`RELOAD_CONFIRM_SECONDS` in `XUiC_ModSettingsScreen`; past it the mod's
+save state becomes `SaveUnconfirmed` and the status says the change was
+saved but not re-read, instead of promising a reload forever. The state
+belongs to the watched mod, not to the selection, so switching mods
+mid-wait cannot move the outcome onto the wrong row.
+
+Both list panes carry an empty-state label (`nomods`, `noentries`),
+so a window with nothing to show says why rather than showing an empty
+frame; the strings are localization keys, as every other Mod Settings
+string that is not a live status is.
+
 ## Open questions
 
 - (none yet)

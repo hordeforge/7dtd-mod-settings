@@ -15,6 +15,13 @@ namespace Wrench
 	internal static class TomlEdit
 	{
 		/// <summary>
+		/// What the user has to type. The value grammar is the whole
+		/// vocabulary here, and the parse error of the probe line would quote
+		/// a line number of text the user never saw.
+		/// </summary>
+		const string VALUE_HINT = "Enter a value: true, 12, 0.5, \"text\", or [a, b].";
+
+		/// <summary>
 		/// Validates one raw value token against the shared TOML subset
 		/// grammar (a bare <c>true</c>, <c>-3</c>, <c>0.5</c>, <c>"text"</c>,
 		/// or <c>[...]</c> array) and returns its normalized value.
@@ -26,12 +33,15 @@ namespace Wrench
 			raw = (raw ?? "").Trim();
 			List<TomlSettings.DocEntry> entries;
 			if (!TomlSettings.TryReadDocument("v = " + raw, out entries, out error))
+			{
+				error = VALUE_HINT;
 				return false;
+			}
 			// The probe line must consume the whole token: "true # x" would
 			// otherwise validate as its first word.
 			if (entries.Count != 1 || entries[0].ValueLength != raw.Length)
 			{
-				error = "not a single value.";
+				error = VALUE_HINT + " One value per key.";
 				return false;
 			}
 			normalized = entries[0].Value;
