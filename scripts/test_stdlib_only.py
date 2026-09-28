@@ -26,7 +26,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check
+from gate_report import check, result
 from git_tracked import tracked_paths
 from local_env import mod_dir
 
@@ -50,11 +50,20 @@ def in_tree_modules() -> set[str]:
     it as a third-party dependency until it was committed. The files this
     gate *scans* are still the tracked ones, so an untracked scratch file
     can neither add a dependency nor hide one.
+
+    An installed package tree is not this mod's source, though: every
+    directory leaf and every module stem below one is absorbed as an
+    in-tree name, so a `.venv` under the checkout (the uv workflow's
+    default) would make `import requests` in a gate pass this gate, and the
+    negative control below would stop detecting it too.
     """
     names: set[str] = set()
     for base, dirs, files in os.walk(MOD_DIR):
         dirs[:] = [d for d in dirs
-                   if d not in {".git", ".tmp", "dist", "__pycache__"}]
+                   if d not in {"__pycache__", "node_modules", ".venv", "venv",
+                                "bin", "build", "dist", "obj", ".git", ".tmp",
+                                ".mypy_cache", ".ruff_cache", ".pytest_cache",
+                                ".shamway", ".scratch"}]
         rel = os.path.relpath(base, MOD_DIR).split(os.sep)
         if rel != ["."]:
             names.update(rel)
@@ -102,8 +111,7 @@ def main() -> int:
         check("stdlib-or-local-imports:" + path, not foreign,
               f"undeclared third-party import(s): {', '.join(foreign)}")
 
-    print(f"{len(FAILURES)} failures.")
-    return 1 if FAILURES else 0
+    return result()
 
 
 if __name__ == "__main__":

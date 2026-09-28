@@ -28,6 +28,14 @@ SCRIPTS = Path(__file__).resolve().parent
 LOADER = SCRIPTS / "local-env.sh"
 PY_READER = SCRIPTS / "lib" / "local_env.py"
 
+# The keys the probe reads. An exported one outranks the file, so the probe
+# must not inherit the contributor's own.
+PROBED_KEYS = frozenset({
+    "SEVEN_DAYS_TO_DIE_DIR",
+    "SEVEN_DAYS_TO_DIE_STEAMCMD",
+    "WRENCH_ATOMIC_MOD_DIR",
+})
+
 PROBE = """
 set -u
 source "$1"
@@ -48,12 +56,18 @@ def load_env_file(directory: Path, body: str) -> Path:
 
 
 def run_probe(env_file: Path, env: dict[str, str] | None = None) -> list[str]:
+    # The inventory keys are stripped from what the probe inherits: the
+    # whole rule under test is that an exported variable wins over the file
+    # and a file-only key still applies, so a contributor who exports them
+    # would otherwise fail the checks that assert nothing is exported.
+    inherited = {name: value for name, value in os.environ.items()
+                 if name not in PROBED_KEYS}
     result = subprocess.run(
         ["bash", "-c", PROBE, "bash", str(LOADER), str(env_file)],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
         timeout=PROBE_TIMEOUT_SECONDS,
         check=True,
-        env={**os.environ, **(env or {})},
+        env={**inherited, **(env or {})},
     )
     return result.stdout.rstrip("\n").split("|")
 

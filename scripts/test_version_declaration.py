@@ -101,6 +101,16 @@ def main() -> int:
           REQUIRES_GAME.search("Requires 7 Days to Die V3.2, the same as 0.1.0.\n")
           is not None,
           "REQUIRES_GAME no longer matches the line naming the game version")
+    # A doc whose review line lost its version yields no match at all, which
+    # is the case the per-version loop below cannot see: prove the parser
+    # does find a version when one is there.
+    check("negative control: a doc's review line is read",
+          DOC_VERSION.findall("against the mod version `0.1.0.0`.\n")
+          == ["0.1.0.0"],
+          "DOC_VERSION no longer matches a doc naming the build it reviewed")
+    check("negative control: a doc naming no build yields no version",
+          DOC_VERSION.findall("Last reviewed: 2026-09-28.\n") == [],
+          "DOC_VERSION matches text that names no build")
 
     declared = version_in_modinfo("ModInfo.xml")
     check("ModInfo.xml declares a four-part version", bool(VERSION.match(declared)),
@@ -144,7 +154,16 @@ def main() -> int:
 
     for path in VERSIONED_DOCS:
         shown = path.replace(os.sep, "/")
-        for named in DOC_VERSION.findall(read(path)):
+        named_versions = DOC_VERSION.findall(read(path))
+        # At least one: a doc that names no build names none of the
+        # superseded ones either, and an empty findall would make the loop
+        # below report nothing at all, so the review line could be deleted
+        # and the gate would still be green.
+        check(shown + " names the build it was written against",
+              bool(named_versions),
+              "the doc names no build; write `mod version `<x.y.z.w>` into "
+              "its review line so the next bump has something to contradict")
+        for named in named_versions:
             check(shown + " names the version it was written against",
                   named == declared,
                   f"it says {named}, ModInfo.xml declares {declared}; a doc "

@@ -77,6 +77,30 @@ def main() -> int:
     gates = sorted(f for f in os.listdir(SCRIPTS)
                    if f.startswith("test_") and f.endswith(".py")
                    and os.path.abspath(os.path.join(SCRIPTS, f)) != SELF)
+
+    # One report shape, one definition. A gate that rolls its own verdict
+    # prints its own summary and picks its own exit status, and the copies
+    # drift: two of them had stopped calling `result()` and reimplemented
+    # the two lines by hand, one of them in two places that could disagree.
+    # `run-offline-tests.sh` reads exactly that shape, so the shape is the
+    # contract, not a style. The two harness gates report through
+    # `run_harness` and are held to that instead.
+    with open(os.path.join(SCRIPTS, "lib", "gate_report.py"), encoding="utf-8") as handle:
+        report_source = handle.read()
+    check("the report has one definition of the verdict",
+          report_source.count("def result(") == 1)
+    for gate in sorted(f for f in os.listdir(SCRIPTS)
+                       if f.startswith("test_") and f.endswith(".py")):
+        with open(os.path.join(SCRIPTS, gate), encoding="utf-8") as handle:
+            source = handle.read()
+        # This gate names the failure list itself, in the check below, so it
+        # is the one file exempt from the clause about reading it.
+        hand_rolled = ("FAIL" + "URES") in source and gate != os.path.basename(SELF)
+        check("gate-reports-through-one-definition:" + gate,
+              ("return result()" in source and not hand_rolled)
+              or "return run_harness(" in source,
+              "the gate does not end its main() with the shared result()")
+
     for gate in gates:
         path = os.path.join(SCRIPTS, gate)
         runs = [subprocess.run([sys.executable, path], capture_output=True,

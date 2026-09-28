@@ -47,12 +47,14 @@ ALLOW: dict[str, dict[str, str]] = {}
 
 def main() -> int:
     word = {n: re.compile(re.escape(n)) for n in BANNED}
+    scanned = 0
     for base, dirs, files in os.walk(SCRIPTS):
         dirs[:] = sorted(d for d in dirs if d != "__pycache__")
         for name in sorted(files):
             path = os.path.join(base, name)
             if os.path.abspath(path) == SELF:
                 continue
+            scanned += 1
             rel = os.path.relpath(path, MOD_DIR)
             with open(path, encoding="utf-8", errors="replace") as handle:
                 content = handle.read()
@@ -64,6 +66,10 @@ def main() -> int:
                     continue
                 check(f"banned-tool:{rel}:{needle}", False,
                       f"belongs upstream: {BANNED[needle]}")
+    # A clean tree produces no checks at all above, so nothing says the walk
+    # ran: a moved scripts/ or a narrowed walk reports the same green.
+    check("the walk covered the scripts directory", scanned > 1,
+          f"only {scanned} file(s) were scanned under scripts/")
     for rel in sorted(ALLOW):
         exists = os.path.isfile(os.path.join(MOD_DIR, rel))
         check("allow-entry-exists:" + rel, exists, "stale ALLOW entry; remove it")

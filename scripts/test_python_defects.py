@@ -69,10 +69,10 @@ def _unreachable_statements(tree: ast.Module) -> list[str]:
     return [f"{line}: {kind}" for line, kind in sorted(found)]
 
 
-SUBPROCESS_CALLS = {"run", "Popen", "check_output"}
-# The calls with a `timeout` keyword, so a child that never exits fails the
-# caller instead of taking the suite down with it.
-TIMED_SUBPROCESS_CALLS = {"run", "check_output"}
+SUBPROCESS_CALLS = {"run", "Popen", "check_call", "check_output"}
+# The calls that take a `timeout` keyword, so a child that never exits fails
+# the caller instead of taking the suite down with it.
+TIMED_SUBPROCESS_CALLS = {"run", "check_call", "check_output"}
 TEXT_ARGUMENTS = {"text", "universal_newlines"}
 
 
@@ -235,12 +235,13 @@ def negative_controls() -> None:
     implicit = undecoded_text_calls(
         "import subprocess\n"
         "subprocess.run(['x'], text=True)\n"
+        "subprocess.check_call(['x'], text=True)\n"
         "subprocess.check_output(['x'], universal_newlines=True)\n"
     )
     check(
         "negative control rejects text decoded with the locale's encoding",
-        len(implicit) == 2,
-        f"{len(implicit)} of 2 undecoded calls slipped through: {implicit!r}",
+        len(implicit) == 3,
+        f"{len(implicit)} of 3 undecoded calls slipped through: {implicit!r}",
     )
     timed = untimed_subprocess_calls(
         "import subprocess\n"

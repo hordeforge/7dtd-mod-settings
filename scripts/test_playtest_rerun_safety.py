@@ -41,8 +41,11 @@ def case_body(source: str, header: str) -> str:
 
 def main() -> int:
     if not os.path.isfile(PROVIDER):
-        print("FAIL provider-exists: " + PROVIDER, file=sys.stderr)
-        return 1
+        # The report is stdout, PASS and FAIL alike: a redirected or piped
+        # run keeps the failure, and the exit status stays the machine
+        # signal. stderr is for a gate that produced no report at all.
+        check("provider-exists", False, PROVIDER + " is missing")
+        return result()
     with open(PROVIDER, encoding="utf-8") as handle:
         source = handle.read()
 

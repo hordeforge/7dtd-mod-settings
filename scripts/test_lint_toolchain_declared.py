@@ -14,7 +14,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-from gate_report import FAILURES, check
+from gate_report import check, result
 from git_tracked import tracked_paths
 
 MOD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -57,13 +57,13 @@ def tracked_text_files() -> list[str]:
 
     A path the working tree no longer holds is left out: `git ls-files` still
     lists a file between the delete and the commit that records it, and
-    reading it then raises instead of reporting a verdict. The listing itself
-    is the shared one, so a `git` that fails stops this gate instead of
-    reporting every file clean.
+    reading it then raises instead of reporting a verdict. A listing that
+    could not be read is a `SystemExit` from the shared reader, not an
+    empty list: a drift check that walked nothing finds nothing.
     """
-    return [name for name in tracked_paths()
-            if (name.endswith(TEXT_SUFFIXES) or name in ("Makefile", REQUIREMENTS))
-            and os.path.isfile(os.path.join(MOD_DIR, name))]
+    return sorted(name for name in tracked_paths()
+                  if (name.endswith(TEXT_SUFFIXES) or name in ("Makefile", REQUIREMENTS))
+                  and os.path.isfile(os.path.join(MOD_DIR, name)))
 
 
 def pinned(text: str) -> dict[str, str]:
@@ -74,9 +74,8 @@ def pinned(text: str) -> dict[str, str]:
 def main() -> int:
     requirements = os.path.join(MOD_DIR, REQUIREMENTS)
     check("requirements-dev.txt exists", os.path.isfile(requirements))
-    if FAILURES:
-        print(f"{len(FAILURES)} failures.")
-        return 1
+    if not os.path.isfile(requirements):
+        return result()
 
     declared = pinned(read(requirements))
     check("every lint tool is pinned in requirements-dev.txt",
@@ -114,8 +113,7 @@ def main() -> int:
                     for name, found in sorted(stray.items()))
           + f" -- state it in {REQUIREMENTS} only")
 
-    print(f"{len(FAILURES)} failures.")
-    return 1 if FAILURES else 0
+    return result()
 
 
 if __name__ == "__main__":
