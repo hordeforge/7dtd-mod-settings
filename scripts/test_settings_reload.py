@@ -32,6 +32,8 @@ MOD_NAME = next(
     for p in ET.parse(os.path.join(MOD_DIR, "ModInfo.xml")).getroot()
     if p.tag == "Name")
 SRC = os.path.join(MOD_DIR, "src", MOD_NAME)
+# A call into System.IO.File, not the tail of this mod's `TomlFile.`.
+bcl_file_call = re.compile(r"(?<![\w.])File\.")
 
 
 def main() -> int:
@@ -41,6 +43,14 @@ def main() -> int:
 
     def read(name: str) -> str:
         path = os.path.join(SRC, name)
+        if not os.path.isfile(path):
+            return ""
+        with open(path, encoding="utf-8") as handle:
+            return handle.read()
+
+    def read_script(name: str) -> str:
+        """A build-time file of this mod, by a path relative to its root."""
+        path = os.path.join(MOD_DIR, name)
         if not os.path.isfile(path):
             return ""
         with open(path, encoding="utf-8") as handle:
@@ -125,7 +135,7 @@ def main() -> int:
           "WriteAllText(TomlPath" not in target
           and 'var tempPath = TomlPath + ".wrench-tmp";' in target
           and "files.WriteAllText(tempPath, newText, encoding)" in target
-          and "files.Replace(tempPath, TomlPath)" in target
+          and "files.Replace(tempPath, TomlPath);" in target
           and "TryDeleteTemp(tempPath)" in target
           and "ModFileSystem.Current.ReadAllBytes(TomlPath)" in target)
     # The mod name comes out of another mod's ModInfo.xml, and this screen
@@ -135,6 +145,16 @@ def main() -> int:
           read("ModTomlPath.cs") != ""
           and "ModTomlPath.TryResolve(mod.Path, mod.Name" in target
           and 'Path.Combine(mod.Path, "Config", mod.Name' not in target)
+    # A Linux or macOS host reports only NUL and the separator as the
+    # characters a file name may not hold, so a downloaded modlet can name
+    # itself with a line break; the name then goes into a log line and into
+    # the reload-marker match.
+    gate = read_script(os.path.join("scripts", "toml_gate", "Program.cs"))
+    check("a mod name cannot carry a control character into the log or the "
+          "reload marker",
+          "c < ' ' || c == (char)0x7f" in read("ModTomlPath.cs")
+          and 'Rejected("a name with a newline"' in gate)
+
     # Both hooks are registered on a static/engine-owned list that nothing
     # else unhooks, so an unguarded second registration keeps the first one
     # alive for the rest of the session: the file watch polls twice per
@@ -161,12 +181,6 @@ def main() -> int:
           and "handlers = Applied;" in body(settings, "static bool Apply(")
           and "Invoke()" not in body(settings, "static bool ReloadLocked(")
           and "Invoke()" not in body(settings, "static bool ApplyMissingFileDefaults("))
-    # `File.` is the static call, not every type name that ends in it:
-    # TomlFile.ReadAllText is this mod's own reader. Anchor the match to a
-    # member access so the gate still fires on System.IO.File.WriteAllText.
-    def calls_static_file(name: str) -> bool:
-        return re.search(r"(?<!\w)File\.", code_of(name)) is not None
-
     # The disk-touching spellings that do not go through `File.` are named
     # separately, so a stream or a directory reached for directly past the
     # seam fails the gate too.
@@ -175,12 +189,14 @@ def main() -> int:
     def calls_disk(name: str) -> bool:
         return any(call in code_of(name) for call in other_disk_calls)
 
+    # `File.` has to be matched as the BCL type, not as the tail of this mod's
+    # own `TomlFile.`, which is a call through the seam and nothing else.
     check("the shipped sources touch a disk only through the two seams",
           "interface IFileSystem" in files
           and "class SystemFileSystem : IFileSystem" in files
           and "static IFileSystem Current { get; set; }" in files
-          and not calls_static_file("ModSettings.cs")
-          and not calls_static_file("TargetMod.cs")
+          and not bcl_file_call.search(code_of("ModSettings.cs"))
+          and not bcl_file_call.search(code_of("TargetMod.cs"))
           and not calls_disk("ModSettings.cs")
           and not calls_disk("TargetMod.cs"))
 

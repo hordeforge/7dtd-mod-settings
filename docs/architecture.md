@@ -192,6 +192,13 @@ be able to destroy it. Two properties, both held by
   with none, which is the one outcome the file-as-surface rule exists to
   prevent. A runtime with no atomic replace falls back to delete-then-move,
   which still never writes over the target in place.
+- The staged file is created with `FileMode.CreateNew` after unlinking
+  whatever is at that name, never `FileMode.Create`. The stage has a fixed,
+  guessable name beside the target, so on a shared server install anything
+  that can write the mod folder can leave a link there before the save;
+  create-or-truncate follows it and truncates whatever it points at, while
+  the delete-then-create unlinks it. The wait is the mod's monotonic clock,
+  the same bounded retry the replace uses.
 - `TargetMod.TryRead` reads bytes, not text, and reports the encoding it
   decoded; the save writes that same encoding back. Both go through
   `ModFileSystem.Current`, which detects the declared mark (UTF-8, UTF-16
@@ -300,15 +307,19 @@ value may now be followed only by end of line or a comment.
 reads and writes `Config/<Name>.toml` under that mod's folder. So the path
 goes through `ModTomlPath.TryResolve`, which requires the name to be one
 plain file name (no directory separator on any platform, no drive or stream
-colon, nothing the platform forbids in a file name, and no name Windows
-reserves for a device such as `NUL` or `Com1`, which .NET's invalid-name
-list does not carry) and then requires the composed path to still resolve
-inside `<mod>/Config/`. A mod that fails is skipped with a line in the log
-rather than half-listed. The second check is the guarantee; the name filter
-only makes the failure message say why. The device names are refused on
-every platform for the reason the separators are: a name that is a device
-on the machine the mod runs on opens that device, so a read returns
-nothing and a save disappears.
+colon, nothing the platform forbids in a file name, no control character,
+and no name Windows reserves for a device such as `NUL` or `Com1`, which
+.NET's invalid-name list does not carry) and then requires the composed
+path to still resolve inside `<mod>/Config/`. A mod that fails is skipped
+with a line in the log rather than half-listed. The second check is the
+guarantee; the name filter only makes the failure message say why.
+
+The two rules the platform does not give are the control character and the
+device name. A Linux or macOS host reports only NUL and the separator as the
+characters a name may not hold, and the name is then written into a log line
+and matched against the reload marker, where a newline forges a line. A name
+that is a device on the machine the mod runs on opens that device, so a read
+returns nothing and a save disappears.
 
 Enforced by `scripts/toml_gate/Program.cs` (`TestModTomlPath`, run by
 `scripts/test_toml_document.py`) and, at source level, by

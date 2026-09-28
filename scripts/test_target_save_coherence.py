@@ -177,6 +177,14 @@ def main() -> int:
           and seam.count("SharedAccess") >= 4
           and "File.ReadAllBytes(" not in code_of(seam))
 
+    # The staged sibling has a name any writer in the mod folder can guess,
+    # so it is created exclusively: create-or-truncate follows a link planted
+    # there and truncates whatever it points at.
+    check("the staged file is created, never created-or-truncated over a link",
+          "FileMode.CreateNew" in toml_file
+          and "File.Delete(path);" in toml_file
+          and "FileMode.Create," not in toml_file)
+
     opened = body(screen, "public override void OnOpen()")
     check("the reload latch does not survive the closing it was set in",
           "DisarmReloadWatch()" in opened)

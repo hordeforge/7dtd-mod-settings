@@ -386,6 +386,13 @@ static class Program
 		Rejected("a lower-case reserved device name", root, "nul");
 		Rejected("a reserved device name with an extension", root, "Com1.Mod");
 		Rejected("a reserved device name with trailing spaces", root, "aux  ");
+		// A name carrying a line break resolves to a real file on a Linux or
+		// macOS host, where the only characters the platform itself forbids
+		// are NUL and the separator, and then forges a log line through the
+		// name.
+		Rejected("a name with a newline", root, "Example\n2026-01-01 ERROR: forged");
+		Rejected("a name with a carriage return", root, "Example\rmod");
+		Rejected("a name with an escape", root, "Example\u001b[2J");
 		Rejected("an empty name", root, "");
 		Rejected("a null name", root, null);
 		Rejected("an empty mod path", "", "Example");

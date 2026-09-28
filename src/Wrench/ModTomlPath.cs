@@ -77,12 +77,20 @@ namespace Wrench
 		/// <summary>
 		/// Whether the name names one file inside a directory: no directory
 		/// separator, no drive or stream colon, no character the platform
-		/// forbids in a file name, and no name Windows reserves for a device.
+		/// forbids in a file name, no control character, not a
+		/// relative-path token, and no name Windows reserves for a device.
 		/// The separators and the device names are checked on every platform
 		/// because .NET only reports the host's own, and a settings file
-		/// written on the machine that downloaded the mod is the machine that
-		/// runs it. Reading such a file there opens the device instead of the
-		/// file, and a save to it goes nowhere.
+		/// written on the machine that downloaded the mod is the machine
+		/// that runs it. Reading such a file there opens the device instead of
+		/// the file, and a save to it goes nowhere.
+		///
+		/// Control characters are refused on every platform too, for a reason
+		/// <see cref="Path.GetInvalidFileNameChars"/> does not cover: a Linux
+		/// or macOS host reports only NUL and the separator, so a name holding
+		/// a newline would resolve to a real file whose name then goes into a
+		/// log line and the reload-marker match, and a newline in either
+		/// forges a line the reader takes for one of its own.
 		/// </summary>
 		static bool IsPlainName(string name)
 		{
@@ -95,6 +103,8 @@ namespace Wrench
 			{
 				var c = name[i];
 				if (c == '/' || c == '\\' || c == ':')
+					return false;
+				if (c < ' ' || c == (char)0x7f)
 					return false;
 				if (Array.IndexOf(invalid, c) >= 0)
 					return false;
