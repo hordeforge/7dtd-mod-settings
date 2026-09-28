@@ -86,12 +86,9 @@ namespace Wrench
 			// a save that never happened.
 			DisarmReloadWatch();
 			watchedReloadTarget = null;
-			// The folder, not the name, is a mod's identity here: a second
-			// modlet shipping the same ModInfo name is a different mod, and
-			// the path is the identity the hot-reload cache already keys on.
-			var keep = selected == null ? null : selected.Mod.Path;
-			targets = TargetMod.Discover();
-			var index = targets.FindIndex(t => t.Mod.Path == keep);
+			var keep = selected == null ? null : selected.Name;
+			targets = TargetModDiscovery.Discover();
+			var index = targets.FindIndex(t => t.Name == keep);
 			PopulateModRows();
 			SelectMod(index < 0 ? 0 : index);
 			// Subscribed last: OnClose is the only unhook, so a failure
@@ -269,7 +266,7 @@ namespace Wrench
 				settingRows[i].SetEntry(selected, entry);
 			}
 			if (entries != null && entries.Count > settingRows.Length)
-				Log.Warning(ModApi.LogPrefix + " " + selected.Mod.Name + " has " + entries.Count
+				Log.Warning(ModApi.LogPrefix + " " + selected.Name + " has " + entries.Count
 					+ " settings but only " + settingRows.Length + " rows; the rest are not shown.");
 		}
 
@@ -278,7 +275,7 @@ namespace Wrench
 			switch (_bindingName)
 			{
 			case "selmodname":
-				_value = selected == null ? "" : selected.Mod.DisplayName;
+				_value = selected == null ? "" : selected.DisplayName;
 				return true;
 			case "selmodfile":
 				_value = selected == null ? "" : "Config/" + selected.TomlFileName;

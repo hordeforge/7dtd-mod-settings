@@ -59,8 +59,61 @@ static class Program
 		TestFileIo();
 		TestModTomlPath();
 		TestShippedFile();
+		TestSimulatedSave();
 		Console.WriteLine(failures + " failures.");
 		Environment.Exit(failures > 0 ? 1 : 0);
+	}
+
+	// The save path, driven by a seed instead of by the game: a virtual
+	// clock, an in-memory disk, and faults at the points the disk produces
+	// them. Every seed is a whole run whose invariants are checked after
+	// every step, and the same seed twice has to print the same trace, so a
+	// failure is replayable from the seed printed with it.
+	static void TestSimulatedSave()
+	{
+		var traces = new Dictionary<int, string>();
+		var broken = 0;
+		for (var seed = 1; seed <= Simulation.SeedCount; seed++)
+		{
+			try
+			{
+				traces[seed] = Simulation.Run(seed);
+			}
+			catch (Exception ex)
+			{
+				broken++;
+				Check("seed " + seed + " holds its invariants", false, ex.Message);
+			}
+		}
+		Check("every seed's run holds the save invariants", broken == 0, broken + " seeds broke one");
+		var distinct = new HashSet<string>(traces.Values);
+		Check("the seeds explore different runs, not one run thirty times",
+			traces.Count == Simulation.SeedCount && distinct.Count > 1,
+			traces.Count + " runs, " + distinct.Count + " distinct");
+
+		// Determinism, proven rather than claimed: one seed, two runs, the
+		// same trace. A non-empty diff names a decision that came from
+		// outside the seed.
+		var first = Simulation.Run(Simulation.Seed);
+		var second = Simulation.Run(Simulation.Seed);
+		Check("the same seed replays the same run", first == second, FirstDifference(first, second));
+
+		// And the seed is on the record, so a failure names the one value
+		// that reproduces it.
+		Console.WriteLine("seed " + Simulation.Seed + ": " + Simulation.StepsPerSeed
+			+ " steps, deterministic; trace follows");
+		Console.Write(first);
+	}
+
+	static string FirstDifference(string left, string right)
+	{
+		var limit = Math.Min(left.Length, right.Length);
+		for (var i = 0; i < limit; i++)
+		{
+			if (left[i] != right[i])
+				return "traces differ at " + i + ": '" + left[i] + "' vs '" + right[i] + "'";
+		}
+		return "traces differ in length: " + left.Length + " vs " + right.Length;
 	}
 
 	static void TestParse()

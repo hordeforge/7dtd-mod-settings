@@ -68,6 +68,11 @@ Adds a Mod Settings screen to the in-game options menu, listing every loaded mod
       printing its seed so a failure replays from it. Needs the state
       machines free of `UnityEngine`/game references to be driven from
       the game-free gate host in `scripts/toml_gate/`.
+      Done for the save path: `TargetMod` is game-free and
+      `scripts/toml_gate/Simulation.cs` runs it from a seed with those
+      faults. Left: the watch itself, which still reaches
+      `UnityEngine.Debug` and takes a `Mod`; it needs the same log seam
+      and split before the poll and debounce can be stepped.
 - [ ] Re-run the live suite after the save path moved onto `TomlFile`
       (read, temp sibling and all): the offline gates cannot compile the
       mod DLL here, so the atomic replace, the mark round trip and the

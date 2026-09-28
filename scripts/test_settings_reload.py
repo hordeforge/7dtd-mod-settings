@@ -133,28 +133,27 @@ def main() -> int:
           and "error = ex.Message;" in settings
           and "catch (Exception ex)" in settings
           and "catch (Exception)" not in settings)
-    # TryWrite stages the sibling `TomlPath + ".wrench-tmp"`, writes it
-    # through the seam, and puts it in place with an atomic replace that
-    # retries while the target's own settings watch holds the file; the same
-    # name is unlinked on the failure path (TryDeleteTemp), so a failed save
-    # leaves nothing behind. The read half of the same save goes through the
-    # seam too, so a simulated run drives the read and the write of one save
-    # on one filesystem.
+    # TryWrite stages the sibling `TomlPath + ".wrench-tmp"` in the same
+    # folder as the target, writes it through the seam, and puts it in place
+    # with an atomic replace that retries while the target's own settings
+    # watch holds the file; the same name is unlinked on the failure path
+    # (TryDeleteTemp), so a failed save leaves nothing behind. The read half
+    # of the same save goes through the seam too, so a simulated run drives
+    # the read and the write of one save on one filesystem.
     check("a save is staged and swapped in, never written over in place",
           "WriteAllText(TomlPath" not in target
           and 'var tempPath = TomlPath + ".wrench-tmp";' in target
           and "files.WriteAllText(tempPath, newText, encoding)" in target
           and "files.Replace(tempPath, TomlPath)" in target
           and "if (attempt >= ReplaceAttempts)" in target
-          and "TryDeleteTemp(tempPath)" in target
-          and "ModFileSystem.Current.ReadAllBytes(TomlPath)" in target)
+          and "TryDeleteTemp(tempPath)" in target)
     # The mod name comes out of another mod's ModInfo.xml, and this screen
     # writes to the file it names: the path must be resolved, not
     # concatenated. scripts/toml_gate exercises the resolver itself.
     check("another mod's name cannot steer the settings file out of its folder",
           read("ModTomlPath.cs") != ""
-          and "ModTomlPath.TryResolve(mod.Path, mod.Name" in target
-          and 'Path.Combine(mod.Path, "Config", mod.Name' not in target)
+          and "ModTomlPath.TryResolve(mod.Path, mod.Name" in read("TargetModDiscovery.cs")
+          and 'Path.Combine(mod.Path, "Config", mod.Name' not in read("TargetModDiscovery.cs"))
     # A Linux or macOS host reports only NUL and the separator as the
     # characters a file name may not hold, so a downloaded modlet can name
     # itself with a line break; the name then goes into a log line and into
@@ -164,7 +163,6 @@ def main() -> int:
           "reload marker",
           "c < ' ' || c == (char)0x7f" in read("ModTomlPath.cs")
           and 'Rejected("a name with a newline"' in gate)
-
     # Both hooks are registered on a static/engine-owned list that nothing
     # else unhooks, so an unguarded second registration keeps the first one
     # alive for the rest of the session: the file watch polls twice per
@@ -207,8 +205,25 @@ def main() -> int:
           and "static IFileSystem Current { get; set; }" in files
           and not bcl_file_call.search(code_of("ModSettings.cs"))
           and not bcl_file_call.search(code_of("TargetMod.cs"))
+          and not bcl_file_call.search(code_of("TargetModDiscovery.cs"))
           and not calls_disk("ModSettings.cs")
-          and not calls_disk("TargetMod.cs"))
+          and not calls_disk("TargetMod.cs")
+          and not calls_disk("TargetModDiscovery.cs"))
+    # A seam is only a seam if the whole path goes through it: a read that
+    # reaches the disk beside a write that does not hands a simulated run
+    # the real file's text with its writes going to the simulation, and the
+    # save path is the one place that reads and writes the same file.
+    check("the save path's read is the seam's read, not a second one",
+          "ModFileSystem.Current.ReadAllText(TomlPath, out encoding)" in code_of("TargetMod.cs")
+          and "string ReadAllText(string path, out Encoding encoding);" in files
+          and "TomlFile.ReadAllText(path, out encoding)" in code_of("ModFileSystem.cs"))
+    # What a simulated run cannot have is a save path that needs the game to
+    # exist: the mod list and the assembly probe are the game-side half, and
+    # nothing past them names a game type.
+    check("the save path is drivable without the game",
+          "ModManager" not in code_of("TargetMod.cs")
+          and "ModManager" in code_of("TargetModDiscovery.cs")
+          and "public TargetMod(string name" in target)
 
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0

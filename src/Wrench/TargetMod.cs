@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using System.Text;
 
 namespace Wrench
@@ -14,6 +13,13 @@ namespace Wrench
 	/// of the last save. The file itself is the whole integration surface
 	/// (ADR 0001); no other file is ever kept, and a save only ever lands
 	/// through a short-lived temp sibling of that same file.
+	///
+	/// Nothing here names a game type: what the mod is called arrives as two
+	/// strings, and finding the file and probing its assemblies is
+	/// <see cref="TargetModDiscovery"/>'s work, on the game side. So the
+	/// whole save path, from the read that locates the span to the replace
+	/// that lands it, is the code a simulated run drives against its own
+	/// clock and its own filesystem.
 	/// </summary>
 	internal sealed class TargetMod
 	{
@@ -24,8 +30,8 @@ namespace Wrench
 		/// needs delete access, so one attempt can lose to a poll that was
 		/// never going to be there on the next one.
 		/// </summary>
-		const int ReplaceAttempts = 3;
-		const int ReplaceRetryMilliseconds = 40;
+		public const int ReplaceAttempts = 3;
+		public const int ReplaceRetryMilliseconds = 40;
 
 		public enum ESaveState
 		{
@@ -39,7 +45,10 @@ namespace Wrench
 			SaveFailed,
 		}
 
-		public readonly Mod Mod;
+		/// <summary>The mod's own name, as its ModInfo spells it.</summary>
+		public readonly string Name;
+		/// <summary>The name to show a player.</summary>
+		public readonly string DisplayName;
 		public readonly string TomlPath;
 		/// <summary>The file's own name, safe to show and to match in a log line.</summary>
 		public readonly string TomlFileName;
@@ -55,31 +64,14 @@ namespace Wrench
 		public ESaveState SaveState;
 		public string SaveError;
 
-		TargetMod(Mod mod, string tomlPath)
+		public TargetMod(string name, string displayName, string tomlPath, bool hotReloads)
 		{
-			Mod = mod;
+			Name = name;
+			DisplayName = displayName;
 			TomlPath = tomlPath;
 			TomlFileName = Path.GetFileName(tomlPath);
-			HotReloads = CachedHasSettingsComponent(mod);
+			HotReloads = hotReloads;
 			Reload();
-		}
-
-		// Probing a mod walks every type every one of its assemblies declares,
-		// and an installed mod's assemblies do not change while the game runs,
-		// so the answer is paid once per mod rather than on every opening of
-		// the screen. The only cost of being wrong about that is the live
-		// reload label, as it is for the probe itself (ADR 0001).
-		static readonly Dictionary<string, bool> hotReloadsByModPath =
-			new Dictionary<string, bool>(StringComparer.Ordinal);
-
-		static bool CachedHasSettingsComponent(Mod mod)
-		{
-			bool known;
-			if (hotReloadsByModPath.TryGetValue(mod.Path, out known))
-				return known;
-			var found = HasSettingsComponent(mod);
-			hotReloadsByModPath[mod.Path] = found;
-			return found;
 		}
 
 		/// <summary>
@@ -283,7 +275,11 @@ namespace Wrench
 		{
 			try
 			{
-				text = TomlFile.Decode(ModFileSystem.Current.ReadAllBytes(TomlPath), out encoding);
+				// Through the seam, not straight at the disk: the same read has
+				// to be drivable against a simulated filesystem, and a
+				// hardwired reader here would hand a simulated save the real
+				// file's text while its writes went to the simulation.
+				text = ModFileSystem.Current.ReadAllText(TomlPath, out encoding);
 				error = null;
 				return true;
 			}
@@ -294,93 +290,6 @@ namespace Wrench
 				error = ex.Message;
 				return false;
 			}
-		}
-
-		/// <summary>Every loaded mod with a Config/&lt;Mod&gt;.toml, load order preserved.</summary>
-		public static List<TargetMod> Discover()
-		{
-			var result = new List<TargetMod>();
-			foreach (var mod in ModManager.GetLoadedMods())
-			{
-				if (mod == null || string.IsNullOrEmpty(mod.Path))
-					continue;
-				// The mod's name is its own ModInfo's, so the file it points
-				// at is resolved, never concatenated: a name carrying a
-				// directory part would make this screen read, and its save
-				// write, outside the mod folder.
-				string tomlPath;
-				string error;
-				if (!ModTomlPath.TryResolve(mod.Path, mod.Name, out tomlPath, out error))
-				{
-					Log.Warning(ModApi.LogPrefix + " skipped " + mod.Name + " (" + error + ")");
-					continue;
-				}
-				if (!ModFileSystem.Current.Exists(tomlPath))
-					continue;
-				try
-				{
-					result.Add(new TargetMod(mod, tomlPath));
-				}
-				catch (Exception ex)
-				{
-					// One mod whose DLLs cannot be inspected must not take the
-					// whole screen down; the rest stay editable, and the mod
-					// that was dropped says so in the log.
-					Log.Warning(ModApi.LogPrefix + " skipped " + mod.Name
-						+ " (" + tomlPath + "): " + ex.Message);
-				}
-			}
-			return result;
-		}
-
-		/// <summary>
-		/// True when any of the mod's assemblies carries the Anvil settings
-		/// component: a ModSettings type with the FilePollIntervalSeconds
-		/// constant, i.e. the debounced save watch that re-reads the file.
-		/// Matched by name because the component is another mod's type
-		/// (ADR 0001: no shared assembly). A rename upstream can only cost
-		/// the live-reload label and the applied-live status, never a
-		/// wrong write, so the heuristic is safe to keep.
-		///
-		/// One assembly the runtime cannot fully load must not take the whole
-		/// screen down: it only decides this mod's status line, and the other
-		/// mods in the list still have settings to edit.
-		/// </summary>
-		static bool HasSettingsComponent(Mod mod)
-		{
-			if (mod.AllAssemblies == null)
-				return false;
-			foreach (var assembly in mod.AllAssemblies)
-			{
-				if (assembly == null)
-					continue;
-				Type[] types;
-				try
-				{
-					types = assembly.GetTypes();
-				}
-				catch (ReflectionTypeLoadException ex)
-				{
-					// Null entries are the types whose dependencies could not
-					// be loaded; the rest still answer the question.
-					types = ex.Types;
-				}
-				catch (Exception)
-				{
-					Log.Warning(ModApi.LogPrefix + " could not inspect an assembly of "
-						+ mod.Name + "; the mod is treated as not hot-reloading.");
-					continue;
-				}
-				foreach (var type in types)
-				{
-					if (type == null || type.Name != "ModSettings")
-						continue;
-					if (type.GetField("FilePollIntervalSeconds",
-						BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static) != null)
-						return true;
-				}
-			}
-			return false;
 		}
 	}
 }

@@ -39,6 +39,16 @@ namespace Wrench
 		/// </summary>
 		string ReadAllText(string path);
 
+		/// <summary>
+		/// Reads a target mod's settings file as its bytes decode them, and
+		/// reports the encoding those bytes declared, so the save writes the
+		/// file back the way it was read. The single-encoding read above is
+		/// not enough: a byte order mark the file was saved with is stripped
+		/// on read and never written back, which changes bytes outside the
+		/// edited value span.
+		/// </summary>
+		string ReadAllText(string path, out Encoding encoding);
+
 		/// <summary>Reads a file's bytes, byte order mark included.</summary>
 		byte[] ReadAllBytes(string path);
 
@@ -89,8 +99,13 @@ namespace Wrench
 		public string ReadAllText(string path)
 		{
 			using (var stream = File.Open(path, FileMode.Open, FileAccess.Read, SharedAccess))
-			using (var reader = new StreamReader(stream))
+			using (var reader = ModFileText.OpenText(stream))
 				return reader.ReadToEnd();
+		}
+
+		public string ReadAllText(string path, out Encoding encoding)
+		{
+			return TomlFile.ReadAllText(path, out encoding);
 		}
 
 		public byte[] ReadAllBytes(string path)

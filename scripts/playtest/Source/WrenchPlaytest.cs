@@ -37,7 +37,7 @@ namespace WrenchPlaytest
 		static TargetMod Target(string modName)
 		{
 			var screen = Screen();
-			return screen?.targets?.Find(t => t.Mod.Name == modName);
+			return screen?.targets?.Find(t => t.Name == modName);
 		}
 
 		public void AppendSuite(List<CaseDef> queue, string suite, int lap)
@@ -58,7 +58,7 @@ namespace WrenchPlaytest
 				if (originalToml != null)
 					return;
 				var screen = Screen();
-				var index = screen.targets.FindIndex(t => t.Mod.Name == "AtomicDoomsday");
+				var index = screen.targets.FindIndex(t => t.Name == "AtomicDoomsday");
 				screen.SelectMod(index);
 				originalToml = screen.selected.Text;
 				var entry = screen.selected.Entries.Find(e => e.Name == "RaidMode");
@@ -105,7 +105,7 @@ namespace WrenchPlaytest
 				act: ctx =>
 				{
 					var screen = Screen();
-					var index = screen.targets.FindIndex(t => t.Mod.Name == "AtomicDoomsday");
+					var index = screen.targets.FindIndex(t => t.Name == "AtomicDoomsday");
 					screen.SelectMod(index);
 					CaptureBaseline();
 					var entry = screen.selected.Entries.Find(e => e.Name == "RaidMode");
@@ -151,7 +151,7 @@ namespace WrenchPlaytest
 					var screen = Screen();
 					if (screen == null)
 						return false;
-					var index = screen.targets.FindIndex(t => t.Mod.Name == "AtomicDoomsday");
+					var index = screen.targets.FindIndex(t => t.Name == "AtomicDoomsday");
 					screen.SelectMod(index);
 					ctx.Detail = "mod settings screen open on AtomicDoomsday";
 					return LocalPlayerUI.primaryUI.windowManager.IsWindowOpen(GroupName);

@@ -218,10 +218,10 @@ candidate is still re-parsed and compared key by key against the caller's
 parse of the original text, which the caller supplies instead of having
 the writer re-derive it.
 
-`TargetMod.HasSettingsComponent` walks every type every assembly of a mod
-declares, and an installed mod's assemblies do not change while the game
-runs, so its answer is memoized per mod path and paid once per mod rather
-than on every opening of the screen. Enforced by
+`TargetModDiscovery.HasSettingsComponent` walks every type every assembly
+of a mod declares, and an installed mod's assemblies do not change while the
+game runs, so its answer is memoized per mod path and paid once per mod
+rather than on every opening of the screen. Enforced by
 `scripts/test_target_save_coherence.py`.
 
 ## Decided 2026-09-28: bounded reload wait, empty-state labels
@@ -410,6 +410,46 @@ fails, and a reload that lands at a chosen moment.
 `scripts/test_settings_reload.py` holds both seams: no `File.` and no
 `Thread.Sleep` outside a comment in `ModSettings.cs` or `TargetMod.cs`,
 and each caller reading its clock and its filesystem through the seam.
+
+## Decided 2026-09-28: the save path is game-free, and simulated from a seed
+
+Two seams are only seams if the whole path goes through them. One read
+did not: `TargetMod.TryRead` called `TomlFile` directly while the write
+beside it went through `ModFileSystem`, so a simulated save would have read
+the real file and written the simulated one. That read is now
+`IFileSystem.ReadAllText(path, out encoding)`, whose production
+implementation is `TomlFile`, and the byte-level reader is public so a
+simulated disk decodes by the same rule the game does.
+
+The second thing a simulated save needs is for the code it drives to exist
+without the game. `TargetMod` took a `Mod`, probed its assemblies and
+called `ModManager` and `Log`; the screen, the playtest provider and every
+caller of it reached through that. So the mod list and the assembly probe
+moved to `TargetModDiscovery.cs`, and a `TargetMod` is now a name, a
+display name, a path and a yes/no. `TargetMod.cs` compiles with no game
+reference, which is what lets `scripts/toml_gate/` build it as shipped.
+
+`scripts/toml_gate/Simulation.cs` is that run: a virtual clock, an
+in-memory disk whose faults are offered on demand (a replace lost to a
+reader, a write that fails before it lands, a read that fails, a runtime
+with no atomic replace), and a seed that draws the faults and the edits
+and nothing else. Thirty-two seeds, each a whole run, each checked after
+every step rather than at the end: the file is always a whole document
+that parses with all of its keys, a save reported as successful is
+byte-identical to the text the target then holds, a save reported as
+failed changed nothing, a staging file never outlives its save, and one
+lost replace waits exactly once, on the injected clock. Every fourth step
+another writer gets in first, so the stale-span relocate is walked too.
+The gate runs the canonical seed twice and diffs the two traces, so a
+determinism leak is a non-empty diff naming the step that leaked, and the
+seed is printed with the trace so a failure replays from it.
+
+`ModSettings`, the watched file's poll and debounce, is not in that run
+yet: it is coupled to `UnityEngine`'s logger and to `Mod`, and giving it a
+log seam is the same move `TargetMod` just made. Enforced by
+`scripts/test_settings_reload.py` and
+`scripts/test_target_save_coherence.py` (the seams, and the game-free
+save path), and by `scripts/test_toml_document.py` (the run itself).
 
 ## Decided 2026-09-28: the package carries nothing about the machine that made it
 

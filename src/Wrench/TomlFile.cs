@@ -67,8 +67,12 @@ namespace Wrench
 		/// The encoding whose byte order mark the bytes start with, and how
 		/// long that mark is. No mark means UTF-8 without one, the encoding
 		/// every other reader of these files assumes.
+		///
+		/// Public because a simulated filesystem holds a file's bytes
+		/// rather than a path, and has to decode them by the same rule this
+		/// does, or a run would read back an encoding the game never chose.
 		/// </summary>
-		static Encoding DetectEncoding(byte[] bytes, out int preambleLength)
+		public static Encoding DetectEncoding(byte[] bytes, out int preambleLength)
 		{
 			foreach (var candidate in KnownEncodings)
 			{

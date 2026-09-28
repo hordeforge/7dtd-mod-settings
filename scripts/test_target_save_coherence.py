@@ -92,8 +92,10 @@ def main() -> int:
         return 0
 
     target = read("TargetMod.cs")
+    discovery = read("TargetModDiscovery.cs")
     screen = read("ModSettingsScreen.cs")
     edit = read("TomlEdit.cs")
+    files = read("ModFileSystem.cs")
 
     save = body(target, "public bool TrySave(")
     check("a save re-reads the file before splicing into it",
@@ -113,7 +115,7 @@ def main() -> int:
           and replace.count("TryReadDocument(") == 1
           and "out List<TomlSettings.DocEntry> after" in edit)
 
-    probe = body(target, "static bool CachedHasSettingsComponent(")
+    probe = body(discovery, "static bool CachedHasSettingsComponent(")
     check("the assembly probe is paid once per installed mod, not once per "
           "screen opening",
           "hotReloadsByModPath.TryGetValue(mod.Path" in probe
@@ -127,9 +129,22 @@ def main() -> int:
     check("a key that is now ambiguous is refused, not guessed at",
           "more than once" in relocate)
 
-    probe = body(target, "static bool HasSettingsComponent(")
+    probe = body(discovery, "static bool HasSettingsComponent(")
     check("one unloadable assembly does not take the settings list down",
           "catch (Exception)" in probe and "continue;" in probe)
+
+    # The save path reaches the disk only through the seam, so a simulated
+    # run's own filesystem is what a save is made against; and the discovery
+    # half, which is the only part that needs the game, is not in that path.
+    check("the save path names no game type, so it can be simulated",
+          "ModManager" not in target
+          and "Log." not in target
+          and "Reflection" not in target
+          and "public TargetMod(string name" in target)
+    check("finding the mods and probing them is the game-side half",
+          "ModManager.GetLoadedMods()" in discovery
+          and "CachedHasSettingsComponent(mod)" in discovery
+          and "new TargetMod(mod.Name, mod.DisplayName" in discovery)
 
     # The writer is the shared byte-faithful one, so the check holds the
     # staged path rather than a File.* spelling: it is the temp sibling the
@@ -147,10 +162,13 @@ def main() -> int:
           "TryDeleteTemp(tempPath);" in write)
 
     read_body = body(target, "bool TryRead(")
-    check("a read takes the file's bytes and its encoding, not just its text, "
-          "and reaches the disk through the same seam a save writes with",
-          "ModFileSystem.Current.ReadAllBytes(TomlPath)" in read_body
-          and "TomlFile.Decode(" in read_body
+    # The read is the other half of the atomic save: it has to report the
+    # encoding the file's bytes declared, or the save writes it back in a
+    # different one. It reaches the disk through the seam, so the byte-level
+    # reader (TomlFile) is the seam's own and no caller reaches past it.
+    check("a read takes the file's bytes and its encoding, through the seam",
+          "ModFileSystem.Current.ReadAllText(TomlPath, out encoding)" in read_body
+          and "TomlFile.ReadAllText" in files
           and "File.ReadAllBytes(" not in target
           and "TomlFile.ReadAllText(" not in target)
     check("a save writes the encoding the file is in",

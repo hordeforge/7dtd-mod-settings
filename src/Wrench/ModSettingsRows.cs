@@ -42,7 +42,7 @@ namespace Wrench
 			switch (_bindingName)
 			{
 			case "modname":
-				_value = Target == null ? "" : Target.Mod.DisplayName;
+				_value = Target == null ? "" : Target.DisplayName;
 				return true;
 			case "modnote":
 				_value = Target == null ? ""

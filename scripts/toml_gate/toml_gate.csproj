@@ -11,12 +11,19 @@
     <BaseIntermediateOutputPath>../../.tmp/toml_gate/obj/</BaseIntermediateOutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <!-- The classes under test, compiled as shipped: no game references. -->
+    <!-- The classes under test, compiled as shipped: no game references.
+         The save path (TargetMod) and both seams it reaches through
+         (ModFileSystem, ModClock) are in here so a simulated run drives
+         the shipped code, not a copy of it. -->
     <Compile Include="../../src/Wrench/TomlSettings.cs" />
     <Compile Include="../../src/Wrench/TomlEdit.cs" />
     <Compile Include="../../src/Wrench/TomlFile.cs" />
     <!-- the shipped filesystem the reader and the writer both go through -->
     <Compile Include="../../src/Wrench/ModFileSystem.cs" />
     <Compile Include="../../src/Wrench/ModTomlPath.cs" />
+    <Compile Include="../../src/Wrench/ModFileText.cs" />
+    <Compile Include="../../src/Wrench/ModFileSystem.cs" />
+    <Compile Include="../../src/Wrench/ModClock.cs" />
+    <Compile Include="../../src/Wrench/TargetMod.cs" />
   </ItemGroup>
 </Project>
