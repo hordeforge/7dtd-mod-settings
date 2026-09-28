@@ -243,6 +243,25 @@ not a helper only the gate exercises. Enforced by
 shapes through the shipped writer, and by `test_target_save_coherence.py`,
 which holds the shape `TargetMod` keeps.
 
+## Decided 2026-09-28: the settings reader is fuzzed with a fixed seed
+
+A downloaded modlet carries its own `Config/<Mod>.toml`, so the reader
+parses bytes this mod did not write, inside the game process. A parser
+with no fuzz target is a parser whose malformed-input behavior is whatever
+the unit cases happen to cover. `scripts/toml_fuzz/` mutates seed documents
+(the shipped `Config/Wrench.toml` and the shapes the screen edits) and
+asserts the invariants the screen depends on: the reader never throws, a
+refusal always gives a reason, a captured span re-parses to its own value,
+an edit changes one value span and nothing else, an encoded value reads
+back unchanged, and an accepted mod name resolves inside the mod folder.
+The seed and case count are fixed, so `scripts/test_toml_fuzz.py` is
+deterministic and runs with the rest of the offline suite.
+
+The first run of that harness found the reader accepting `A = 0.001B = 2`
+as two keys: the value span ended before the trailing text, so an edit
+rewrote it to `A = trueB = 2`, which the mod on the other side refuses. A
+value may now be followed only by end of line or a comment.
+
 ## Decided 2026-09-28: a mod's settings file is resolved, never concatenated
 
 `Mod.Name` is not this mod's to choose: it comes out of whichever

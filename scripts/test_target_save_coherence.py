@@ -174,14 +174,15 @@ def main() -> int:
           and "watchedReloadMarker = null;" in take
           and "volatile bool reloadSeen" not in screen)
 
-    atomic = body(target, "static bool TryWrite(")
-    check("a save is written through a temp file and renamed over the "
-          "destination, never truncated in place",
+    atomic = write
+    check("a save is staged in a temp file and swapped in, never truncated "
+          "in place",
           'var temp = path + ".wrench-tmp";' in atomic
-          and "File.WriteAllText(temp, text, encoding)" in atomic
-          and "File.Replace(temp, path, null)" in atomic
+          and "files.WriteAllText(temp," in atomic
+          and "files.Replace(temp, path);" in atomic
           and "TryDeleteTemp(temp)" in atomic
-          and "File.WriteAllText(TomlPath" not in save)
+          and "File.WriteAllText(" not in atomic
+          and "WriteAllText(TomlPath" not in save)
 
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0

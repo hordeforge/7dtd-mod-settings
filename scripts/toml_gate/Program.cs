@@ -165,6 +165,12 @@ static class Program
 		Check("reject a key injection", !TomlEdit.TryReplaceValue(Fixture, doc, count, "1\nInjected = 2", out newText, out after, out error));
 		Check("reject a comment rider", !TomlEdit.TryReplaceValue(Fixture, doc, count, "1 # note", out newText, out after, out error));
 		Check("reject an empty value", !TomlEdit.TryReplaceValue(Fixture, doc, count, "", out newText, out after, out error));
+		// Text after a value is not a second key: read as one, it would be
+		// written back glued to the edited value, and the mod on the other
+		// side of the file would refuse what Wrench just saved.
+		Check("reject text after a value", !TomlSettings.TryReadDocument("A = 0.001B = 2\n", out doc, out error));
+		Check("reject trailing garbage after a string", !TomlSettings.TryReadDocument("A = \"x\" y\n", out doc, out error));
+		Check("accept a comment after a value", TomlSettings.TryReadDocument("A = 1 # note\nB = 2\n", out doc, out error) && doc.Count == 2, error ?? "");
 
 		Check("reject a table file", !TomlSettings.TryReadDocument("[table]\nA = 1\n", out doc, out error));
 		Check("reject a duplicate key", !TomlSettings.TryReadDocument("A = 1\nA = 2\n", out doc, out error));
@@ -178,8 +184,10 @@ static class Program
 		if (doc != null && doc.Count == 2)
 		{
 			string caseText, caseError;
+			List<TomlSettings.DocEntry> caseAfter;
 			Check("a case-variant edit lands on the named key only",
-				TomlEdit.TryReplaceValue("Foo = 1\nfoo = 2\n", doc[1], "9", out caseText, out caseError)
+				TomlEdit.TryReplaceValue("Foo = 1\nfoo = 2\n", doc, doc[1], "9",
+					out caseText, out caseAfter, out caseError)
 				&& caseText == "Foo = 1\nfoo = 9\n",
 				caseError ?? "");
 		}
@@ -193,6 +201,7 @@ static class Program
 	{
 		List<TomlSettings.DocEntry> doc;
 		string error, newText;
+		List<TomlSettings.DocEntry> after;
 
 		var samples = new[]
 		{
@@ -252,7 +261,7 @@ static class Program
 		var b = doc.Find(e => e.Name == "B");
 		Check("an edit next to non-ASCII splices the right span",
 			b != null
-			&& TomlEdit.TryReplaceValue(unicode, b, "42", out newText, out error)
+			&& TomlEdit.TryReplaceValue(unicode, doc, b, "42", out newText, out after, out error)
 			&& newText == "# caf\u00e9 \u2615\nA = 1\nB = 42\nC = 3\n", error ?? "");
 	}
 
@@ -380,8 +389,9 @@ static class Program
 			return;
 		}
 		var entry = doc.Find(e => e.Name == "A");
+		List<TomlSettings.DocEntry> after;
 		Check(name + ": edit replaces the value span",
-			TomlEdit.TryReplaceValue(text, entry, "7", out newText, out error)
+			TomlEdit.TryReplaceValue(text, doc, entry, "7", out newText, out after, out error)
 			&& text.Replace("A = 1", "A = 7") == newText, error ?? "");
 		TomlFile.WriteAllText(path, newText, read);
 		var reread = File.ReadAllBytes(path);

@@ -216,7 +216,9 @@ subfolder.
 
 Corrected 2026-09-28: escapes, encoding, and key case in the TOML path;
 enforced by `scripts/test_toml_document.py` (spans, escapes, non-ASCII
-round trips) and `scripts/test_python_defects.py` (text output without an
+round trips), `scripts/test_toml_fuzz.py` (mutated documents against the
+reader/writer/resolver invariants, fixed seed), and
+`scripts/test_python_defects.py` (text output without an
 explicit encoding).
 
 ## Testing

@@ -166,6 +166,17 @@ namespace Wrench
 						return false;
 					}
 					entries.Add(new DocEntry(name, value, kind, valueStart, valueLength, comment));
+					// Nothing but a comment may follow a value on its line.
+					// `A = 0.001B = 2` read as two keys here would be written
+					// back as `A = trueB = 2`, which the mod on the other side
+					// of the file refuses, so a value spliced in place cannot
+					// leave text the writer did not put there.
+					SkipSpaces();
+					if (!AtEnd && Peek != '#' && Peek != '\n' && Peek != '\r')
+					{
+						error = "line " + line + ": unexpected text after the value.";
+						return false;
+					}
 					// A comment trailing the value on its own line is not the
 					// next key's block; capture resumes on the next line.
 					SkipRestOfLine();
