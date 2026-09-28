@@ -20,7 +20,6 @@ Import it with:
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
 
 from local_env import mod_dir
 
@@ -31,7 +30,7 @@ from local_env import mod_dir
 LIST_TIMEOUT_SECONDS = 60
 
 
-def tracked_paths(patterns: str = "*", root: Path | None = None) -> list[str]:
+def tracked_paths(patterns: str = "*") -> list[str]:
     """Every tracked path matching the space-separated *patterns*, sorted.
 
     Sorted, because two runs of one gate have to produce byte-identical
@@ -41,10 +40,11 @@ def tracked_paths(patterns: str = "*", root: Path | None = None) -> list[str]:
     here, so a gate that imported this reports the miss instead of a
     traceback from its own import line.
     """
-    listing = f"git ls-files in {root or mod_dir()}"
+    root = mod_dir()
+    listing = f"git ls-files in {root}"
     try:
         done = subprocess.run(
-            ["git", "-C", str(root or mod_dir()), "ls-files", "-z", "--", *patterns.split()],
+            ["git", "-C", str(root), "ls-files", "-z", "--", *patterns.split()],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=LIST_TIMEOUT_SECONDS, check=False,
         )

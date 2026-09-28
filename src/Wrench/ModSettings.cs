@@ -165,19 +165,15 @@ namespace Wrench
 			{
 				if (ioError == null)
 				{
-					if (appliedLength < 0 && !startup)
+					// A poll has nobody to report to, so "still on the
+					// defaults" is the whole of what it needs to say. A
+					// forced reload is somebody asking what is in force, and
+					// the same state is a success on the path below: a file
+					// that was never written is not a reload that failed.
+					if (appliedLength < 0 && !startup && !force)
 					{
-						// A poll has nobody to report to, so "still on the
-						// defaults" is the whole of what it needs to say. A
-						// forced reload is somebody asking what is in force, and
-						// the same state is a success on the path below: a file
-						// that was never written is not a reload that failed.
-						if (!force)
-						{
-							message = "defaults (no " + RelativePath + ")";
-							return false;
-						}
-						return ApplyMissingFileDefaults(out message);
+						message = "defaults (no " + RelativePath + ")";
+						return false;
 					}
 					return ApplyMissingFileDefaults(out message);
 				}
