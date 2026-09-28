@@ -34,16 +34,26 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib
 from gate_report import FAILURES, check
 
 
-def xml_files() -> list[str]:
-    found: list[str] = []
+# Build output, caches, and scratch/agent state. Skipping by directory name
+# at any depth: the dotnet gate writes into .tmp/, and a stray generated
+# XML under it would otherwise make this gate's output depend on which
+# targets ran before it.
+SKIP_DIRS = {".git", "dist", "bin", "obj", "__pycache__", ".tmp", ".scratch", ".shamway"}
+
+
+def walk(rel_suffix: str) -> list[str]:
+    """Every file under the mod whose name ends with *rel_suffix*."""
+    found = []
     for base, dirs, files in os.walk(MOD_DIR):
-        dirs[:] = sorted(d for d in dirs if d not in {".git", "dist", "bin", "obj", "__pycache__"})
-        found.extend(
-            os.path.relpath(os.path.join(base, f), MOD_DIR)
-            for f in sorted(files)
-            if f.endswith(".xml")
-        )
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+        for f in sorted(files):
+            if f.endswith(rel_suffix):
+                found.append(os.path.relpath(os.path.join(base, f), MOD_DIR))
     return found
+
+
+def xml_files() -> list[str]:
+    return walk(".xml")
 
 
 def main() -> int:
@@ -103,10 +113,13 @@ def main() -> int:
     check("localization-inside-config",
           not os.path.isfile(os.path.join(MOD_DIR, "Localization.csv")),
           "move it to Config/Localization.csv; the engine ignores a root-level file")
+    # Every Localization.txt, not just the ones the .xml walk above turned
+    # up: a Config/Localization.txt is the exact shape the engine silently
+    # ignores, and the old check only ever saw the root one.
+    stray_txt = walk("Localization.txt")
     check("no-localization-txt",
-          not os.path.isfile(os.path.join(MOD_DIR, "Localization.txt"))
-          and not any(rel.endswith("Localization.txt") for rel in files),
-          "V3 uses Localization.csv")
+          not stray_txt,
+          "V3 uses Localization.csv; delete " + ", ".join(stray_txt))
 
     check("no-legacy-xui-dir",
           not os.path.isdir(os.path.join(MOD_DIR, "Config", "XUi")),
