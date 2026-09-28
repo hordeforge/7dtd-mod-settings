@@ -536,7 +536,7 @@ namespace Wrench
 			/// A fixed number of decimal places is not that: seven of them
 			/// turn 0.00000001 into 0, and the row then shows and writes a
 			/// setting the file never held. The shortest round-trip form
-			/// ("R") is exact, but it may use exponent notation, which this
+			/// is exact, but it may use exponent notation, which this
 			/// grammar has no reader for, so that spelling is expanded to
 			/// plain digits here. Zero and -0 both normalize to "0": TOML
 			/// has one zero, and this text is the decoded value, not the
@@ -546,7 +546,17 @@ namespace Wrench
 			{
 				if (value == 0d)
 					return "0";
-				var text = value.ToString("R", CultureInfo.InvariantCulture);
+					// The shipped DLL targets net48, where "R" is the pre-3.0
+				// round-trip format and is not exact for every double; "G17"
+				// is the one that always reads back as the same value. The
+				// offline gate compiles this file as net8, where "R" is the
+				// shortest spelling, so the two runtimes need different
+				// format strings.
+#if NETFRAMEWORK
+			var text = value.ToString("G17", CultureInfo.InvariantCulture);
+#else
+			var text = value.ToString("R", CultureInfo.InvariantCulture);
+#endif
 				var exponent = text.IndexOfAny(new[] { 'E', 'e' });
 				if (exponent < 0)
 					return text;

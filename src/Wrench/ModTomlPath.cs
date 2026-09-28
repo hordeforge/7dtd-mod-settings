@@ -62,16 +62,33 @@ namespace Wrench
 		}
 
 		/// <summary>
+		/// The names Windows reserves for its own devices. A file called
+		/// <c>AUX.toml</c> or <c>NUL.toml</c> cannot exist there: the name is
+		/// the device however it is spelled, with any extension, and
+		/// <see cref="Path.GetInvalidFileNameChars"/> lists none of them.
+		/// </summary>
+		static readonly string[] ReservedDeviceNames =
+		{
+			"CON", "PRN", "AUX", "NUL",
+			"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+		};
+
+		/// <summary>
 		/// Whether the name names one file inside a directory: no directory
 		/// separator, no drive or stream colon, no character the platform
-		/// forbids in a file name, and not a relative-path token. The
-		/// separators are checked on every platform because .NET only
-		/// reports the host's own, and a settings file written on the
-		/// machine that downloaded the mod is the machine that runs it.
+		/// forbids in a file name, and no name Windows reserves for a device.
+		/// The separators and the device names are checked on every platform
+		/// because .NET only reports the host's own, and a settings file
+		/// written on the machine that downloaded the mod is the machine that
+		/// runs it. Reading such a file there opens the device instead of the
+		/// file, and a save to it goes nowhere.
 		/// </summary>
 		static bool IsPlainName(string name)
 		{
 			if (name == "." || name == "..")
+				return false;
+			if (IsReservedDeviceName(name))
 				return false;
 			var invalid = Path.GetInvalidFileNameChars();
 			for (var i = 0; i < name.Length; i++)
@@ -83,6 +100,23 @@ namespace Wrench
 					return false;
 			}
 			return true;
+		}
+
+		/// <summary>
+		/// Whether the name is one of Windows' device names, extension
+		/// included: <c>NUL</c>, <c>nul</c> and <c>Nul.Mod</c> are all the
+		/// null device, because the name before the first dot is the device.
+		/// </summary>
+		static bool IsReservedDeviceName(string name)
+		{
+			var dot = name.IndexOf('.');
+			var stem = (dot < 0 ? name : name.Substring(0, dot)).TrimEnd(' ');
+			for (var i = 0; i < ReservedDeviceNames.Length; i++)
+			{
+				if (string.Equals(stem, ReservedDeviceNames[i], StringComparison.OrdinalIgnoreCase))
+					return true;
+			}
+			return false;
 		}
 	}
 }

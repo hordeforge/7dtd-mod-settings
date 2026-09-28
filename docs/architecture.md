@@ -292,14 +292,31 @@ value may now be followed only by end of line or a comment.
 reads and writes `Config/<Name>.toml` under that mod's folder. So the path
 goes through `ModTomlPath.TryResolve`, which requires the name to be one
 plain file name (no directory separator on any platform, no drive or stream
-colon, nothing the platform forbids in a file name) and then requires the
-composed path to still resolve inside `<mod>/Config/`. A mod that fails is
-skipped with a line in the log rather than half-listed. The second check is
-the guarantee; the name filter only makes the failure message say why.
+colon, nothing the platform forbids in a file name, and no name Windows
+reserves for a device such as `NUL` or `Com1`, which .NET's invalid-name
+list does not carry) and then requires the composed path to still resolve
+inside `<mod>/Config/`. A mod that fails is skipped with a line in the log
+rather than half-listed. The second check is the guarantee; the name filter
+only makes the failure message say why. The device names are refused on
+every platform for the reason the separators are: a name that is a device
+on the machine the mod runs on opens that device, so a read returns
+nothing and a save disappears.
 
 Enforced by `scripts/toml_gate/Program.cs` (`TestModTomlPath`, run by
 `scripts/test_toml_document.py`) and, at source level, by
 `scripts/test_settings_reload.py`.
+
+## Decided 2026-09-28: a float is written in the spelling of the runtime that writes it
+
+The in-game DLL targets net48 and the offline gate compiles the same file
+as net8, so the two are not the same runtime and do not format a double
+alike. `"R"` is the shortest round-trip spelling only from .NET Core 3.0
+on; on .NET Framework it is the older format and is not exact for every
+double, which is how a setting the player saved comes back as a different
+number. `FormatFloat` therefore uses `"G17"` under `NETFRAMEWORK` and
+`"R"` everywhere else. The gate can only exercise the net8 branch, so the
+net48 one rests on the format's documented guarantee rather than on a
+failing case that was seen.
 
 ## Decided 2026-09-28: a handler on a static list is registered once
 

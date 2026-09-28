@@ -380,6 +380,12 @@ static class Program
 		Rejected("a stream name", root, "Escape:stream");
 		Rejected("a current-directory name", root, ".");
 		Rejected("a parent-directory token", root, "..");
+		// Windows resolves these to its own devices, with any extension and
+		// in any case, so a read opens the device and a save goes nowhere.
+		Rejected("a reserved device name", root, "NUL");
+		Rejected("a lower-case reserved device name", root, "nul");
+		Rejected("a reserved device name with an extension", root, "Com1.Mod");
+		Rejected("a reserved device name with trailing spaces", root, "aux  ");
 		Rejected("an empty name", root, "");
 		Rejected("a null name", root, null);
 		Rejected("an empty mod path", "", "Example");

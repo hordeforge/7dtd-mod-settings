@@ -73,7 +73,15 @@ ATOMIC_DIR="${WRENCH_ATOMIC_MOD_DIR:-}"
 # Framework-dependent net8 apphosts (the orch tooling) need DOTNET_ROOT on
 # Arch-family installs; detect from the muxer, preserve an explicit override.
 if command -v dotnet >/dev/null 2>&1; then
-	WRENCH_DOTNET_ROOT="$(dirname "$(readlink -f "$(command -v dotnet)")")"
+	dotnet_bin="$(command -v dotnet)"
+	# `readlink -f` is a GNU extension older macOS ships without, where it
+	# fails rather than printing the target; resolve the directory physically
+	# instead, which needs nothing but the shell.
+	dotnet_real="$(readlink -f "$dotnet_bin" 2>/dev/null || true)"
+	if [[ -z "$dotnet_real" ]]; then
+		dotnet_real="$(cd "$(dirname "$dotnet_bin")" && pwd -P)/$(basename "$dotnet_bin")"
+	fi
+	WRENCH_DOTNET_ROOT="$(dirname "$dotnet_real")"
 	if [[ -d "$WRENCH_DOTNET_ROOT/shared/Microsoft.NETCore.App" ]]; then
 		export DOTNET_ROOT="${DOTNET_ROOT:-$WRENCH_DOTNET_ROOT}"
 	fi
