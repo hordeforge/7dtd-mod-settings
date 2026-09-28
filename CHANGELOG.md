@@ -43,6 +43,23 @@ its own numbered heading when the version it ships under is declared.
   mods can carry the same ModInfo name, so the two lines are
   indistinguishable. Such a save is written, reported unconfirmed, and
   said so in the game log.
+- A settings file whose arrays nest more than 16 levels deep is refused
+  with a parse error instead of taking the game down. Reading a value
+  reads a value again, so a file shaped `[[[[...` one bracket per
+  character ended in a stack overflow, and a stack overflow is not
+  catchable: the game process went with it. Such a file can be shipped in
+  an installed mod, so it is refused like any other document the parser
+  does not accept.
+
+- A name or a console argument carrying a newline or another control
+  character is written into the game log as an escape, not as a line
+  break. A mod whose `ModInfo` name holds one, or a `wrench set` argument
+  sent over telnet, could end the log record and have the rest of its
+  text read as a line of its own.
+
+- The telnet client no longer puts the server console password in the
+  exception it raises when the send carrying it fails, and that exception
+  is printed by every caller.
 
 - Another mod's settings file marked UTF-16 or UTF-32 is refused when it
   holds a byte that is not valid in the encoding its own mark names,

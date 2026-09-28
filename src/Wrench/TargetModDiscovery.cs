@@ -74,7 +74,8 @@ namespace Wrench
 				string error;
 				if (!ModTomlPath.TryResolve(mod.Path, mod.Name, out tomlPath, out error))
 				{
-					Log.Warning(ModApi.LogPrefix + " skipped " + mod.Name + " (" + error + ")");
+					Log.Warning(ModApi.LogPrefix + " skipped " + ModTomlPath.ForLog(mod.Name)
+						+ " (" + error + ")");
 					continue;
 				}
 				try
@@ -100,7 +101,7 @@ namespace Wrench
 					// One mod whose DLLs cannot be inspected must not take the
 					// whole screen down; the rest stay editable, and the mod
 					// that was dropped says so in the log.
-					Log.Warning(ModApi.LogPrefix + " skipped " + mod.Name
+					Log.Warning(ModApi.LogPrefix + " skipped " + ModTomlPath.ForLog(mod.Name)
 						+ " (" + tomlPath + "): " + ex.Message);
 				}
 			}
@@ -167,7 +168,8 @@ namespace Wrench
 					// The label costs the player one status line, a wrong one
 					// costs them the truth for the rest of the session.
 					Log.Warning(ModApi.LogPrefix + " could not inspect an assembly of "
-						+ mod.Name + " (" + ex.Message + "); the mod is reported as "
+						+ ModTomlPath.ForLog(mod.Name) + " (" + ex.Message
+						+ "); the mod is reported as "
 						+ "not hot-reloading until an inspection succeeds.");
 					complete = false;
 					continue;

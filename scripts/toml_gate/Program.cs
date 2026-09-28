@@ -504,6 +504,59 @@ static class Program
 				&& caseText == "Foo = 1\nfoo = 9\n",
 				caseError ?? "");
 		}
+		TestNestingDepth();
+	}
+
+	// A value is read by reading a value, so a document whose arrays nest
+	// deeply enough recurses until the stack runs out, and a stack overflow
+	// is not catchable: the game is gone rather than the file refused. The
+	// file is another mod's, so its shape is the mod author's, and it must
+	// be refused rather than obeyed.
+	static void TestNestingDepth()
+	{
+		List<TomlSettings.DocEntry> doc;
+		string error;
+		var deep = new string('[', 50000) + new string(']', 50000);
+		Check("refuse arrays nested past the depth limit",
+			!TomlSettings.TryReadDocument("A = " + deep + "\n", out doc, out error)
+			&& (error ?? "").Contains("nest deeper"), error ?? "");
+
+		var atLimit = "A = " + new string('[', TomlSettings.MaxNestingDepth)
+			+ new string(']', TomlSettings.MaxNestingDepth) + "\n";
+		Check("accept arrays nested exactly to the depth limit",
+			TomlSettings.TryReadDocument(atLimit, out doc, out error), error ?? "");
+
+		// The value field on the screen reaches the same reader, so a value
+		// typed there is refused rather than parsed to death.
+		string normalized;
+		Check("refuse a deeply nested typed value",
+			!TomlEdit.TryParseRawValue(deep, out normalized, out error));
+		TestLogNeutralisedNames();
+	}
+
+	// A mod's own name reaches the log when its settings file is refused,
+	// and a newline in that name would end the log record there and let the
+	// name write the line after it. Every place a name is refused has to say
+	// it on one line.
+	static void TestLogNeutralisedNames()
+	{
+		var sneaky = "Good\nINFO: an operator did something";
+		Check("a refused mod name is logged as one line",
+			ModTomlPath.ForLog(sneaky) == "Good\\nINFO: an operator did something",
+			ModTomlPath.ForLog(sneaky));
+		Check("a control character in a refused mod name is escaped",
+			ModTomlPath.ForLog("A\u001BB") == "A\\u001BB",
+			ModTomlPath.ForLog("A\u001BB").Replace("\u001B", "<ESC>"));
+		Check("an ordinary name is left alone",
+			ModTomlPath.ForLog("Atomic Doomsday") == "Atomic Doomsday");
+
+		string tomlPath, error;
+		ModTomlPath.TryResolve("/tmp/mods/Sneaky", sneaky, out tomlPath, out error);
+		Check("the refusal itself carries no raw newline",
+			!error.Contains("\n"), error);
+		ModTomlPath.TryResolve("/tmp/mods/Sneaky", "Good/../../escape", out tomlPath, out error);
+		Check("a name with a directory part is refused, not resolved",
+			tomlPath == null && !error.Contains("\n"), error);
 	}
 
 	// Every value the writer can produce must read back, and every escape the
@@ -670,7 +723,13 @@ static class Program
 	// and a file another process holds open while it watches for changes.
 	static void TestFileIo()
 	{
-		var dir = Path.Combine(Path.GetTempPath(), "wrench-toml-gate");
+		// A name of this process's own, not a fixed one: the shared temp
+		// directory is writable by every account on the host, and a fixed
+		// name is one another user can create first, so the fixtures below
+		// would be written into a tree this run did not make and this run's
+		// cleanup would delete whatever is in it.
+		var dir = Path.Combine(Path.GetTempPath(),
+			"wrench-toml-gate-" + Path.GetRandomFileName());
 		Directory.CreateDirectory(dir);
 		try
 		{

@@ -37,7 +37,7 @@ namespace Wrench
 			}
 			if (!IsPlainName(modName))
 			{
-				error = "the mod name '" + modName + "' is not a plain file name.";
+				error = "the mod name '" + ForLog(modName) + "' is not a plain file name.";
 				return false;
 			}
 
@@ -48,7 +48,7 @@ namespace Wrench
 				var candidate = Path.GetFullPath(Path.Combine(configDir, modName + ".toml"));
 				if (!candidate.StartsWith(configDir, StringComparison.Ordinal))
 				{
-					error = "the mod name '" + modName + "' resolves outside the mod folder.";
+					error = "the mod name '" + ForLog(modName) + "' resolves outside the mod folder.";
 					return false;
 				}
 				tomlPath = candidate;
@@ -74,6 +74,34 @@ namespace Wrench
 			"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
 			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 		};
+
+		/// <summary>
+		/// A name or an argument as it goes into the game log: one line, with
+		/// every other control character spelled out. Both reach the log from
+		/// outside this mod (a mod's own ModInfo name, a telnet session's
+		/// words), and a raw newline in either ends the record there: whatever
+		/// follows is read by whoever reads the log next as a line of its own,
+		/// so a name can write the line saying another mod was skipped for a
+		/// reason it never had. The log is a security record, so a value that
+		/// lands in it has to stay a value.
+		/// </summary>
+		internal static string ForLog(string value)
+		{
+			if (string.IsNullOrEmpty(value))
+				return "";
+			var builder = new System.Text.StringBuilder(value.Length);
+			foreach (var c in value)
+			{
+				if (c == '\\' || c == '\r' || c == '\n')
+					builder.Append("\\").Append(c == '\r' ? 'r' : 'n');
+				else if (c < ' ' || c == (char)0x7F)
+					builder.Append("\\u").Append(((int)c).ToString("X4",
+						System.Globalization.CultureInfo.InvariantCulture));
+				else
+					builder.Append(c);
+			}
+			return builder.ToString();
+		}
 
 		/// <summary>
 		/// Whether the name names one file inside a directory: no directory

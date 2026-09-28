@@ -24,6 +24,19 @@ namespace Wrench
 	/// </summary>
 	internal static class TomlSettings
 	{
+		/// <summary>
+		/// How deep an array may nest before the document is refused. A value
+		/// is read by <see cref="Reader.ReadValue"/>, which reads an array by
+		/// calling itself again, so an array nested once per character of
+		/// file recurses once per level and ends in a stack overflow. A stack
+		/// overflow cannot be caught, so the process goes with it: a settings
+		/// file that deep in an installed mod's folder, or typed into the
+		/// value field, would take the game down rather than being refused. A
+		/// settings file has no use for nesting past the levels a
+		/// hand-written one has, so the grammar stops there and says why.
+		/// </summary>
+		public const int MaxNestingDepth = 16;
+
 		internal enum ValueKind
 		{
 			Bool,
@@ -144,7 +157,7 @@ namespace Wrench
 					string value;
 					ValueKind kind;
 					captureComments = false;
-					var ok = ReadValue(out value, out kind, out error);
+					var ok = ReadValue(0, out value, out kind, out error);
 					if (!ok)
 						return false;
 					var valueLength = index - valueStart;
@@ -191,7 +204,7 @@ namespace Wrench
 				return true;
 			}
 
-			bool ReadValue(out string value, out ValueKind kind, out string error)
+			bool ReadValue(int depth, out string value, out ValueKind kind, out string error)
 			{
 				value = null;
 				kind = ValueKind.Bool;
@@ -208,8 +221,14 @@ namespace Wrench
 				}
 				if (Peek == '[')
 				{
+					if (depth >= MaxNestingDepth)
+					{
+						error = "line " + line + ": arrays nest deeper than "
+							+ MaxNestingDepth + " levels.";
+						return false;
+					}
 					kind = ValueKind.Array;
-					return ReadArray(out value, out error);
+					return ReadArray(depth, out value, out error);
 				}
 				if (Peek == 't' || Peek == 'f')
 				{
@@ -398,7 +417,7 @@ namespace Wrench
 				return c >= '\uDC00' && c <= '\uDFFF';
 			}
 
-			bool ReadArray(out string value, out string error)
+			bool ReadArray(int depth, out string value, out string error)
 			{
 				value = null;
 				error = null;
@@ -408,7 +427,7 @@ namespace Wrench
 				while (!AtEnd && Peek != ']')
 				{
 					string item;
-					if (!ReadValue(out item, out _, out error))
+					if (!ReadValue(depth + 1, out item, out _, out error))
 						return false;
 					parts.Add(item);
 					SkipIgnorable();

@@ -115,7 +115,7 @@ class GameTelnet:
         try:
             if self.password:
                 self._read_until("Please enter password:", timeout=self.timeout)
-                self.send_raw(self.password)
+                self._send(self.password, describe_as="the console password")
             # Drain the banner so the first command's output is not mixed with it.
             self._read_until_any(READY_MARKERS, timeout=self.timeout, required=False)
             self._drain(0.5)
@@ -144,12 +144,21 @@ class GameTelnet:
     # -- io ---------------------------------------------------------------
 
     def send_raw(self, line: str) -> None:
+        self._send(line, describe_as=repr(line))
+
+    def _send(self, line: str, describe_as: str) -> None:
+        """Send one line, naming it in an error as the caller chooses.
+
+        The password is a line like any other, so it goes through here too:
+        its send failing must not put the password itself in the exception,
+        which every caller of this module prints.
+        """
         if self._sock is None:
             raise TelnetError("not connected")
         try:
             self._sock.sendall(_encode(line))
         except OSError as exc:
-            raise TelnetError(f"sending {line!r} failed: {exc}") from exc
+            raise TelnetError(f"sending {describe_as} failed: {exc}") from exc
 
     def _recv(self) -> str:
         if self._sock is None:

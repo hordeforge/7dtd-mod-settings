@@ -70,28 +70,37 @@ namespace Wrench
 				string setMessage;
 				var set = ModSettings.TrySet(_params[1], _params[2], out setMessage);
 				Output(setMessage);
+				// The name and the value are what the log records about who
+				// changed what, so they are the two that go in as one line
+				// each; the outcome, which this mod wrote, needs no such care.
+				var recorded = " ran 'wrench set " + ModTomlPath.ForLog(_params[1]) + " "
+					+ ModTomlPath.ForLog(_params[2]) + "': " + setMessage;
 				if (set)
-					Log.Out(ModApi.LogPrefix + " " + Sender(_senderInfo) + " ran 'wrench set "
-						+ _params[1] + " " + _params[2] + "': " + setMessage);
+					Log.Out(ModApi.LogPrefix + " " + Sender(_senderInfo) + recorded);
 				else
-					Log.Warning(ModApi.LogPrefix + " " + Sender(_senderInfo)
-						+ " ran 'wrench set " + _params[1] + " " + _params[2] + "': " + setMessage);
+					Log.Warning(ModApi.LogPrefix + " " + Sender(_senderInfo) + recorded);
 				return;
 
 			default:
 				Log.Warning(ModApi.LogPrefix + " " + Sender(_senderInfo) + " ran 'wrench "
-					+ subcommand + "': unknown subcommand.");
+					+ ModTomlPath.ForLog(subcommand) + "': unknown subcommand.");
 				Output("Unknown subcommand '" + subcommand + "'. See: help wrench");
 				return;
 			}
 		}
 
-		/// <summary>Who ran a command, for the log line that outlives the console.</summary>
+		/// <summary>
+		/// Who ran a command, for the log line that outlives the console. The
+		/// name and the arguments below it are one line each in that log:
+		/// they come from a telnet session, and a raw newline in one ends the
+		/// record there, so a name could write the line saying a setting was
+		/// changed by someone else.
+		/// </summary>
 		static string Sender(CommandSenderInfo sender)
 		{
 			return sender == null || string.IsNullOrEmpty(sender.PlayerName)
 				? "unknown sender"
-				: sender.PlayerName;
+				: ModTomlPath.ForLog(sender.PlayerName);
 		}
 
 		static void Output(string line)

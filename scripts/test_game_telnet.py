@@ -201,12 +201,78 @@ def _patched_create_connection(sock: socket.socket) -> Iterator[None]:
         socket.create_connection = original
 
 
+class _FailingSocket:
+    """A socket that reads but fails every send, so a send error is drivable."""
+
+    def __init__(self, peer: socket.socket) -> None:
+        self._peer = peer
+
+    def recv(self, size: int) -> bytes:
+        return self._peer.recv(size)
+
+    def settimeout(self, timeout: float | None) -> None:
+        self._peer.settimeout(timeout)
+
+    def fileno(self) -> int:
+        return self._peer.fileno()
+
+    def sendall(self, _data: bytes) -> None:
+        raise OSError("connection reset by peer")
+
+    def close(self) -> None:
+        self._peer.close()
+
+
+def test_password_is_not_quoted_back_in_a_send_failure() -> None:
+    # A failed send raises, and every caller prints the exception, so the
+    # line it names is a line that can reach a log. The password is a line
+    # like any other and must not be the one named: connect() is where it
+    # is sent, so that is where the gate drives it.
+    secret = "hunter2-not-a-real-password"
+    mine, server = socket.socketpair()
+    prompt = threading.Thread(
+        target=_announce_password_prompt, args=(server,), daemon=True)
+    prompt.start()
+    telnet = GameTelnet(password=secret, timeout=5.0)
+    try:
+        with _patched_create_connection(_FailingSocket(mine)):  # type: ignore[arg-type]
+            telnet.connect(wait=5.0)
+    except TelnetError as exc:
+        check("a failed send of the password does not name the password",
+              secret not in str(exc) and "password" in str(exc), str(exc))
+    else:
+        check("a failed send of the password raises", False, "no error raised")
+    prompt.join(timeout=5.0)
+    server.close()
+
+    # The same failure with an ordinary command still names the command:
+    # the fix is about the secret, not about hiding every line.
+    other, other_server = socket.socketpair()
+    plain = GameTelnet()
+    plain._sock = _FailingSocket(other)  # type: ignore[assignment]
+    try:
+        plain.send_raw("giveself")
+    except TelnetError as exc:
+        check("a failed send of a command still names the command",
+              "giveself" in str(exc), str(exc))
+    else:
+        check("a failed send of a command raises", False, "no error raised")
+    other.close()
+    other_server.close()
+
+
+def _announce_password_prompt(peer: socket.socket) -> None:
+    with contextlib.suppress(OSError):
+        peer.sendall(b"Please enter password:\r\n")
+
+
 def main() -> int:
     test_run_returns_output_without_the_echo()
     test_run_survives_a_session_ending_command()
     test_send_before_connect_raises()
     test_close_sends_exit()
     test_reconnect_releases_the_first_socket()
+    test_password_is_not_quoted_back_in_a_send_failure()
     return result()
 
 

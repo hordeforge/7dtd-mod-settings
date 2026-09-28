@@ -719,6 +719,34 @@ and the one call site that names the target's path. A negative control
 turns the staging write into an in-place one and requires the gate to
 reject it.
 
+## Decided 2026-09-28: a document that can end the process is refused, and a log line stays a line
+
+Two values this mod writes into the game log arrive from outside it: a
+mod's own `ModInfo` name (in the refusal from `ModTomlPath.TryResolve`
+and in every line `TargetModDiscovery` writes) and a `wrench set`
+argument typed over telnet. A newline in either ends the log record
+there, and the rest of the text is read as a line of its own, so a name
+could write the line saying an operator did something. Both go through
+`ModTomlPath.ForLog` now, which escapes the newline, the carriage return,
+the backslash and every other control character, and it is the one place
+that does so. Enforced by `scripts/test_toml_document.py`.
+
+The TOML reader reads a value by reading a value, so a document whose
+arrays nest once per bracket recursed until the stack ran out, and a
+stack overflow is not catchable: the game process went with it. A file
+that deep is reachable from outside, in an installed mod's `Config/`
+folder or typed into the screen's value field, so
+`TomlSettings.MaxNestingDepth` refuses a document past 16 levels with an
+ordinary parse error, which is what the rest of the reader already
+returns for a document it will not accept.
+
+The telnet client's password goes out through the same send as a command,
+and the exception a failed send raises used to name the line it failed to
+send, which put the password in it; every caller of the module prints
+that exception. The send names itself as the caller says it should
+(`GameTelnet._send`), and the password send says "the console password".
+Enforced by `scripts/test_game_telnet.py`.
+
 ## Open questions
 
 - (none yet)
