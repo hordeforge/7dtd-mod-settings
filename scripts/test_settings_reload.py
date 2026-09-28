@@ -139,21 +139,25 @@ def main() -> int:
           and 'error = ex.GetType().Name + ": " + ex.Message;' in settings
           and "catch (Exception ex)" in settings
           and "catch (Exception)" not in settings)
-    # TryWrite stages the sibling `path + ".wrench-tmp"` in the same
-    # folder as the target, writes it through the seam, and puts it in place
-    # with an atomic replace that retries while the target's own settings
-    # watch holds the file; the same name is unlinked on the failure path
-    # (TryDeleteTemp), so a failed save leaves nothing behind. The read half
-    # of the same save goes through the seam too, so a simulated run drives
-    # the read and the write of one save on one filesystem. The writer takes
-    # the path it stages beside, so the call site, not the writer, is where
-    # the target's own path is named: that call site is asserted too.
+    # TryWrite stages a sibling in the same folder as the target, under a
+    # name carrying the writing process's id so two writers of one file do
+    # not stage under one name and each report success having written the
+    # other's bytes; it writes that sibling through the seam, and puts it in
+    # place with an atomic replace that retries while the target's own
+    # settings watch holds the file. The same name is unlinked on the failure
+    # path (TryDeleteTemp), so a failed save leaves nothing behind. The read
+    # half of the same save goes through the seam too, so a simulated run
+    # drives the read and the write of one save on one filesystem. The writer
+    # takes the path it stages beside, so the call site, not the writer, is
+    # where the target's own path is named: that call site is asserted too.
     write = body(target, "static bool TryWrite(string path, string text, Encoding encoding,"
                          " out string error)")
     check("a save is staged and swapped in, never written over in place",
           "WriteAllText(TomlPath" not in target
           and "TryWrite(TomlPath, newText, currentEncoding, out error)" in target
-          and 'var temp = path + ".wrench-tmp";' in write
+          and 'var temp = path + ".wrench-tmp." + stagingOwner;' in write
+          and "static readonly int stagingOwner = StagingOwnerId();" in target
+          and "process.Id" in target
           and "files.WriteAllText(temp, text, encoding)" in write
           and "files.Replace(temp, path)" in write
           and "if (attempt >= ReplaceAttempts)" in write
