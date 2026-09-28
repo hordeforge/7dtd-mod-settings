@@ -65,6 +65,15 @@ value.
   rather than silently replaced. A value's span is measured in
   characters, so a value containing non-ASCII text is no longer written
   back at a wrong offset.
+- `make deploy-server` could not swap the package into the server's
+  `Mods/Wrench`: moving a folder needs write permission on the folder
+  being moved, and the staged tree is read-only. A re-run could not
+  clear the staging and rollback folders an earlier run left (they are
+  read-only for the same reason), and `make rollback-server` deleted the
+  deployed mod before the previous one was in place, so an interrupted
+  rollback left the server with no mod and no way back. Both directions
+  now keep the folder they replace until their own move has landed, and
+  a run after an interrupted one converges.
 
 ### Compatibility
 
