@@ -77,9 +77,12 @@ carries the full contract, taken from AtomicDoomsday (its ADRs 0006/0015):
 - **saving the file applies without a restart**: a mtime/length watch
   polled from `ModEvents.UnityUpdate`, debounced so a half-written save is
   not read; `<mod> reload` re-reads immediately. The mtime is read with
-  `GetLastWriteTimeUtc` and both intervals are elapsed time off a
-  `Stopwatch`, never `Time.unscaledTime` (a float that stops resolving
-  sub-second intervals on a server with weeks of uptime)
+  `GetLastWriteTimeUtc` and both intervals are elapsed time off
+  `ModClock` (`StopwatchClock` in the game), never `Time.unscaledTime`
+  (a float that stops resolving sub-second intervals on a server with
+  weeks of uptime). Every file read and write goes through
+  `ModFileSystem`, so a simulated run can put its own clock and
+  filesystem in those two slots.
 - a reload **resets to shipped defaults, then applies the file**; a broken
   save keeps the current values and logs the error
 - the console command's `set` shares one name/value grammar with the file

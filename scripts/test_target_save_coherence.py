@@ -127,18 +127,18 @@ def main() -> int:
 
     write = body(target, "static bool TryWrite(")
     check("a save is written to a temp file, never over the target",
-          "File.WriteAllText(temp," in write and "File.WriteAllText(path" not in write)
+          "files.WriteAllText(temp," in write and "WriteAllText(path" not in write)
     check("the temp file is replaced in, so the target is never half-written",
-          "File.Replace(temp, path, null);" in write)
+          "files.Replace(temp, path);" in write)
     check("a target holding the file for its own read is retried, not failed",
           "catch (IOException)" in write and "ReplaceAttempts" in write
-          and "Thread.Sleep(ReplaceRetryMilliseconds)" in write)
+          and "ModClock.Current.Sleep(ReplaceRetryMilliseconds)" in write)
     check("a failed replace leaves no temp file behind",
           "TryDeleteTemp(temp);" in write)
 
     read_body = body(target, "bool TryRead(")
     check("a read takes the file's bytes and its encoding, not just its text",
-          "File.ReadAllBytes(" in read_body
+          "ModFileSystem.Current.ReadAllBytes(" in read_body
           and "Decode(bytes, out encoding)" in read_body)
     check("a save writes the encoding the file is in",
           "out currentEncoding" in save

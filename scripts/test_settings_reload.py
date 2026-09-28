@@ -67,8 +67,15 @@ def main() -> int:
                     return source[brace:index + 1]
         return ""
 
+    def code_of(name: str) -> str:
+        """The file without its comment lines, so a check reads the code."""
+        return "\n".join(line for line in read(name).splitlines()
+                         if not line.strip().startswith("//"))
+
     settings = read("ModSettings.cs")
     target = read("TargetMod.cs")
+    clock = read("ModClock.cs")
+    files = read("ModFileSystem.cs")
     api = read("ModApi.cs")
     screen = read("ModSettingsScreen.cs")
     toml_path = os.path.join(MOD_DIR, "Config", MOD_NAME + ".toml")
@@ -83,11 +90,20 @@ def main() -> int:
           and "ModSettings.Poll()" in api
           and "FilePollIntervalSeconds" in settings
           and "FileReloadDebounceSeconds" in settings
-          and "SdFile.GetLastWriteTimeUtc" in settings)
-    check("the file watch measures elapsed time on a monotonic clock",
-          "Stopwatch.StartNew()" in settings
+          and "ModFileSystem.Current.GetLastWriteTimeUtc" in settings)
+    check("the file watch measures elapsed time on the mod's one clock",
+          "ModClock.Current.NowSeconds" in settings
+          and "Stopwatch" not in settings
           and "Time.unscaledTime -" not in settings
-          and "seenAt = Time.unscaledTime" not in settings)
+          and "seenAt = Time.unscaledTime" not in settings
+          and "DateTime.Now" not in settings)
+    check("every wait goes through that clock, so a simulated run can step it",
+          "interface IMonotonicClock" in clock
+          and "class StopwatchClock : IMonotonicClock" in clock
+          and "static IMonotonicClock Current { get; set; }" in clock
+          and "Thread.Sleep" not in code_of("TargetMod.cs")
+          and "Thread.Sleep" not in code_of("ModSettings.cs")
+          and "ModClock.Current.Sleep(ReplaceRetryMilliseconds)" in target)
     check("reload resets to defaults then applies the file",
           "ResetToDefaults();" in settings
           and '"reload " + RelativePath' in settings)
@@ -103,10 +119,9 @@ def main() -> int:
     # name is unlinked on the failure path (TryDeleteTemp) so a failed save
     # leaves nothing behind.
     check("a save is staged and swapped in, never written over in place",
-          "File.WriteAllText(TomlPath" not in target
-          and 'var temp = path + ".wrench-tmp";' in target
-          and "File.WriteAllText(temp, text, encoding)" in target
-          and "File.Replace(temp, path, null)" in target
+          "WriteAllText(TomlPath" not in target
+          and "files.WriteAllText(temp, text, encoding)" in target
+          and "files.Replace(temp, path)" in target
           and "TryDeleteTemp(temp)" in target)
     # The mod name comes out of another mod's ModInfo.xml, and this screen
     # writes to the file it names: the path must be resolved, not
@@ -141,6 +156,12 @@ def main() -> int:
           and "handlers = Applied;" in body(settings, "static bool Apply(")
           and "Invoke()" not in body(settings, "static bool ReloadLocked(")
           and "Invoke()" not in body(settings, "static bool ApplyMissingFileDefaults("))
+    check("the shipped sources touch a disk only through the two seams",
+          "interface IFileSystem" in files
+          and "class SystemFileSystem : IFileSystem" in files
+          and "static IFileSystem Current { get; set; }" in files
+          and "File." not in code_of("ModSettings.cs")
+          and "File." not in code_of("TargetMod.cs"))
 
     print("RESULT " + ("FAIL" if FAILURES else "PASS"))
     return 1 if FAILURES else 0

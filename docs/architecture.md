@@ -285,6 +285,34 @@ dedicated server runs the console command on its telnet thread, and
 Enforced by `scripts/test_settings_reload.py` and
 `scripts/test_target_save_coherence.py`.
 
+## Decided 2026-09-28: time and the file system are injected, not reached for
+
+The two places this mod waits or touches a disk are the settings file's
+watch (a poll interval and a debounce, on elapsed time) and a save's
+staging swap (a retry that waits between attempts). Both read the
+environment directly: a private `Stopwatch` for elapsed time, and
+`System.IO.File` for everything. A run of either therefore cannot be
+reproduced, and neither can be stepped through the timing that decides
+what happens: the debounce that stands between a half-written save and a
+read one, and the replace that loses to the target's own reader.
+
+`ModClock` (`IMonotonicClock`, `StopwatchClock`, one settable `Current`)
+is the only clock the shipped sources read, and `ModFileSystem`
+(`IFileSystem`, `SystemFileSystem`, one settable `Current`) is the only
+filesystem they read or write through. The production implementations
+hold the behavior that was already there: monotonic elapsed time rather
+than `Time.unscaledTime` (a float loses sub-second resolution on a
+dedicated server with weeks of uptime, and a saved file silently stops
+being picked up), and the tolerant share mode plus the file's own encoding
+on the way out. What changed is that a simulated run can put its own
+clock and filesystem in those two slots and drive the same decisions the
+game makes, including a save that loses the replace race, a write that
+fails, and a reload that lands at a chosen moment.
+
+`scripts/test_settings_reload.py` holds both seams: no `File.` and no
+`Thread.Sleep` outside a comment in `ModSettings.cs` or `TargetMod.cs`,
+and each caller reading its clock and its filesystem through the seam.
+
 ## Open questions
 
 - (none yet)

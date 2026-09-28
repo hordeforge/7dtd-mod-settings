@@ -71,16 +71,16 @@ namespace Wrench
 		static double nextPollAt;
 		static string loggedProblem;
 
-		// Elapsed time is read from a monotonic clock, not from
+		// Elapsed time is read from the mod's one monotonic clock, not from
 		// Time.unscaledTime: that one is a float, so a dedicated server with
 		// weeks of uptime can no longer resolve the sub-second poll interval
 		// and debounce, and a saved file silently stops being picked up.
-		static readonly System.Diagnostics.Stopwatch Clock =
-			System.Diagnostics.Stopwatch.StartNew();
-
+		// Going through ModClock also keeps the interval and debounce
+		// drivable by a virtual clock, so a simulated run steps them without
+		// spending the real seconds they stand for.
 		static double NowSeconds()
 		{
-			return Clock.Elapsed.TotalSeconds;
+			return ModClock.Current.NowSeconds;
 		}
 
 		/// <summary>
@@ -169,7 +169,7 @@ namespace Wrench
 				return false;
 			}
 
-			if (!SdFile.Exists(watchedPath))
+			if (!ModFileSystem.Current.Exists(watchedPath))
 			{
 				if (appliedLength < 0 && !startup)
 				{
@@ -317,9 +317,8 @@ namespace Wrench
 			error = null;
 			try
 			{
-				writeUtc = SdFile.GetLastWriteTimeUtc(path);
-				using (var stream = SdFile.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-					length = stream.Length;
+				writeUtc = ModFileSystem.Current.GetLastWriteTimeUtc(path);
+				length = ModFileSystem.Current.GetLength(path);
 				return true;
 			}
 			catch (Exception ex)
@@ -335,9 +334,7 @@ namespace Wrench
 			error = null;
 			try
 			{
-				using (var stream = SdFile.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-				using (var reader = ModFileText.OpenText(stream))
-					text = reader.ReadToEnd();
+				text = ModFileSystem.Current.ReadAllText(path);
 				return true;
 			}
 			catch (Exception ex)

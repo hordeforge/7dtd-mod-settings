@@ -59,6 +59,15 @@ Adds a Mod Settings screen to the in-game options menu, listing every installed 
 - [ ] Re-run `make playtest` after the raw-token row rework (cases drive
       SaveEdit directly, so they should hold; the flip button and text
       entry deserve one more human click-through).
+- [ ] Simulated runs of the settings watch and a save, through the
+      `ModClock` / `ModFileSystem` seams (docs/architecture.md,
+      2026-09-28): a seeded scenario drives the poll interval, the
+      debounce and the replace retry on a virtual clock and an in-memory
+      filesystem, with faults injected (replace lost to a reader, a write
+      that fails half way, a reload at a chosen moment), each run
+      printing its seed so a failure replays from it. Needs the state
+      machines free of `UnityEngine`/game references to be driven from
+      the game-free gate host in `scripts/toml_gate/`.
 
 ## Open questions
 

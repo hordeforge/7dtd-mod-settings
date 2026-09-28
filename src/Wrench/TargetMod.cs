@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using System.Threading;
 
 namespace Wrench
 {
@@ -180,14 +179,15 @@ namespace Wrench
 		static bool TryWrite(string path, string text, Encoding encoding, out string error)
 		{
 			var temp = path + ".wrench-tmp";
+			var files = ModFileSystem.Current;
 			try
 			{
-				File.WriteAllText(temp, text, encoding);
+				files.WriteAllText(temp, text, encoding);
 				for (var attempt = 1; ; attempt++)
 				{
 					try
 					{
-						File.Replace(temp, path, null);
+						files.Replace(temp, path);
 						break;
 					}
 					catch (NotSupportedException)
@@ -195,8 +195,8 @@ namespace Wrench
 						// A runtime with no atomic replace: the file goes away
 						// for an instant instead of being half-written, which
 						// is the closest this platform gets.
-						File.Delete(path);
-						File.Move(temp, path);
+						files.Delete(path);
+						files.Move(temp, path);
 						break;
 					}
 					catch (IOException)
@@ -207,7 +207,7 @@ namespace Wrench
 						// gone before the next one starts.
 						if (attempt >= ReplaceAttempts)
 							throw;
-						Thread.Sleep(ReplaceRetryMilliseconds);
+						ModClock.Current.Sleep(ReplaceRetryMilliseconds);
 					}
 				}
 			}
@@ -225,7 +225,7 @@ namespace Wrench
 		{
 			try
 			{
-				File.Delete(temp);
+				ModFileSystem.Current.Delete(temp);
 			}
 			catch (Exception)
 			{
@@ -282,7 +282,7 @@ namespace Wrench
 		{
 			try
 			{
-				var bytes = File.ReadAllBytes(TomlPath);
+				var bytes = ModFileSystem.Current.ReadAllBytes(TomlPath);
 				text = Decode(bytes, out encoding);
 				error = null;
 				return true;
@@ -347,7 +347,7 @@ namespace Wrench
 					Log.Warning(ModApi.LogPrefix + " skipped " + mod.Name + " (" + error + ")");
 					continue;
 				}
-				if (!File.Exists(tomlPath))
+				if (!ModFileSystem.Current.Exists(tomlPath))
 					continue;
 				try
 				{
