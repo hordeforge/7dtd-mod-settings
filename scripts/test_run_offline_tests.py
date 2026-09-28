@@ -3,8 +3,8 @@
 
 `run-offline-tests.sh` decides PASS/FAIL for every other scripts/test_*.py,
 so a regression in its exit-code plumbing would silence the entire suite at
-once — the exact failure nothing else here can catch. Its docstring pins four
-guarantees; this gate drives each one against fixture copies of the runner in
+once — the exact failure nothing else here can catch. Four guarantees are at
+stake, and this gate drives each one against fixture copies of the runner in
 a throwaway directory, never against the shared tree:
 
 1. every fixture test passing, no filter -> exit 0;

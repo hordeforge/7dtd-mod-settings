@@ -35,7 +35,7 @@ RUN_TIMEOUT = 60
 
 # The scripts a person runs, and the tracked scripts that are not: the
 # `test_*.py` gates, which the offline runner invokes with no arguments at
-# all, and `local-env.sh` and `server-common.sh`, which the others source.
+# all, and the sourced `cli.sh`, `local-env.sh` and `server-common.sh`.
 ENTRYPOINTS = (
     "build.sh",
     "configure-server-config.py",
@@ -51,6 +51,7 @@ ENTRYPOINTS = (
     "verify-package.sh",
     "verify-patch-targets.py",
     "verify-patched-config.py",
+    "verify-package.sh",
 )
 SOURCED = frozenset({"cli.sh", "local-env.sh", "server-common.sh"})
 NOT_ENTRYPOINTS = SOURCED | {

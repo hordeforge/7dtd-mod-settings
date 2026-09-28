@@ -62,7 +62,7 @@ One gate at a time: `make test TF="toml"` runs only the offline tests whose
 name contains `toml`.
 
 `make check` is the whole pre-push step: it is the same sequence, in the same
-order, as `.github/workflows/ci.yml`, and the workflow's package steps call
+order, as `.github/workflows/ci.yml`, and the workflow's package step calls
 `scripts/verify-package.sh` rather than repeating it, so the two cannot drift.
 
 Host tools: Python 3.10+ (the floor `pyproject.toml` and `make test` both

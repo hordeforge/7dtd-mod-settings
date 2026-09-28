@@ -37,7 +37,7 @@ keybind, a console command's arguments, a property's meaning, a Harmony
 target's signature — check these first, in order:
 
 1. **The installed game.** `Data/Config/*.xml` for content,
-   `Data/Config/controls.xml` for bindings, and
+   `Data/Config/templates.xml` for bindings, and
    `ilspycmd -t <Class> Assembly-CSharp.dll` for method bodies,
    console-command names, usage strings, and argument defaults.
    Authoritative for the installed version; read-only.

@@ -117,7 +117,7 @@ def main() -> int:
 
     # "offline" is not "nothing to install": test_toml_document.py and
     # test_toml_fuzz.py build a net8 runner and have no fallback, so a
-    # runtime-only .NET install fails two of the eighteen gates part way
+    # runtime-only .NET install fails two of the twenty-four gates part way
     # through the run. Both lists a contributor reads first have to say so.
     makefile = makefile_text("Makefile")
     check("make help states the .NET SDK the offline suite needs",

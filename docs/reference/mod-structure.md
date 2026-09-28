@@ -46,13 +46,17 @@ MyMod/
 ├── Prefabs/            # custom prefabs (POIs, world objects)
 ├── Resources/           # custom Unity asset bundles (*.unity3d) — models, sounds
 ├── UIAtlases/           # custom icon atlases (ItemIconAtlas, UIAtlas)
-├── UI/                  # custom XUi windows.xml / styles
+├── UI/                  # custom XUi windows.xml / styles, outside Config/
+├── WebMod/              # a WebMod client payload
 ├── Harmony-MyMod.dll     # optional compiled C# Harmony patch assembly
 └── *.dll                 # any other compiled code
 ```
 
 Any of these subfolders is optional — include only what the mod needs. A
-pure config-tweak mod may be nothing but `ModInfo.xml` + `Config/`.
+pure config-tweak mod may be nothing but `ModInfo.xml` + `Config/`. The
+build stages by allowlist, so a mod-content directory ships only once
+`scripts/build.sh` lists it: XUi windows belong under `Config/XUi_Menu/`,
+which is already staged.
 
 ## Load order
 

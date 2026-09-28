@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The package lane: what a player would extract, and that two builds of the
 # same tree are the same bytes. One definition, run two ways: `make check`
-# locally, and the two package steps of .github/workflows/ci.yml, so the
+# locally, and the package step of .github/workflows/ci.yml, so the
 # check a contributor runs before pushing is the check CI runs.
 #
 # WRENCH_SKIP_DLL=1 is forced: the DLL build needs the proprietary game
@@ -38,6 +38,24 @@ ENVIRONMENT
 EXIT STATUS
   0  the package has the expected layout and is byte-reproducible
   1  a build step failed, a tool is missing, or the package is not reproducible
+  2  unknown option" "$@"
+
+# shellcheck source=cli.sh
+source "$SCRIPT_DIR/cli.sh"
+
+reject_options "Usage: scripts/verify-package.sh
+
+Package the modlet twice and require the two archives to be identical.
+
+OPTIONS
+  -h, --help   this text
+
+ENVIRONMENT
+  WRENCH_SKIP_DLL  forced to 1; this packages the XML-only modlet
+
+EXIT STATUS
+  0  the package extracts where it should and is byte-reproducible
+  1  a tool is missing, the package is wrong, or it is not reproducible
   2  unknown option" "$@"
 
 for tool in make zip unzip sha256sum; do

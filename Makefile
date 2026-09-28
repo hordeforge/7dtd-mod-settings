@@ -46,8 +46,8 @@ help:
 # No game install, but the two TOML round-trip gates compile C# and need the
 # .NET SDK (the runtime alone answers `dotnet` and lists no SDKs).
 # Everything .github/workflows/ci.yml runs, in the order it runs them, so a
-# green local run means a green push. The two package steps of the workflow
-# call scripts/verify-package.sh rather than repeating it, so this target and
+# green local run means a green push. The workflow's package step calls
+# scripts/verify-package.sh rather than repeating it, so this target and
 # CI cannot drift apart.
 check: test lint verify-package buildinfo
 

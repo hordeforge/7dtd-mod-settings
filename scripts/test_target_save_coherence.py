@@ -3,7 +3,7 @@
 
 The screen keeps each mod's file text and its parsed entries in memory
 (`TargetMod.Text` / `TargetMod.Entries`) and edits them in place by byte
-offset. Three things must hold for that to be safe:
+offset. Four things must hold for that to be safe:
 
 - a save is spliced into the file as it is *now*, not into the copy parsed
   when the screen opened, or a save made elsewhere in the meantime is
@@ -26,7 +26,7 @@ offset. Three things must hold for that to be safe:
   recovery reads the same names a live swap is between, so it takes the same
   per-file gate a save does.
 
-All three are source-level contracts here: the behavior is proven live by the
+All four are source-level contracts here: the behavior is proven live by the
 `wrench-mod-settings` suite, and the C# cannot be executed offline. This gate
 holds the shape of the fix so a refactor cannot quietly drop it.
 

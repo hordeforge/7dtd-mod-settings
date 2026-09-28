@@ -34,11 +34,13 @@ HELP
 }
 
 # Every folder below holds, or has held, a deployed modlet, and a deployed
-# modlet is world-readable and writable by nobody (scripts/build.sh makes it
-# so). Unlinking a file needs write permission on the directory holding it,
-# and moving a folder needs the same, so a re-run that has to clear what an
-# earlier run left would fail on the leftovers instead of replacing them.
-# Owner-write is restored first, exactly as build.sh does for its own output.
+# modlet is world-readable but writable only by its owner (scripts/build.sh
+# stages it that way: a+rX, u+w, so a setting save can write its staged
+# sibling into Config/). Unlinking a file needs write permission on the
+# directory holding it, and moving a folder needs the same, so a re-run that
+# has to clear what an earlier run left would fail on the leftovers instead
+# of replacing them. Owner-write is restored first, exactly as build.sh does
+# for its own output.
 remove_tree() {
 	if [[ -e "$1" ]]; then
 		chmod -R u+w "$1" 2>/dev/null || true
@@ -125,11 +127,12 @@ fi
 
 remove_tree "$STAGING"
 cp -R "$SOURCE" "$STAGING"
-# The staged package is read-only (build.sh makes it so for a reproducible
-# zip), and cp carries those mode bits over. Moving a directory rewrites its
-# ".." entry, which needs write permission on the directory being moved, so
-# the swap below fails on a read-only staging folder. The read-only mode is
-# about the package's bytes; a deployed copy is a working install.
+# The staged package is owner-writable (build.sh stages it that way for a
+# reproducible zip), and cp carries those mode bits over. Moving a directory
+# rewrites its ".." entry, which needs write permission on the directory
+# being moved, so the swap below fails on a staging folder its owner cannot
+# write. The mode is about the package's bytes; a deployed copy is a working
+# install.
 chmod -R u+w "$STAGING"
 
 if [[ -d "$TARGET" ]]; then

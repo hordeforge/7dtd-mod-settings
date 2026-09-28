@@ -17,7 +17,9 @@ namespace Wrench
 	/// through a short-lived temp sibling of that same file.
 	///
 	/// Nothing here names a game type: what the mod is and where it is
-	/// installed arrive as three strings, and finding the file and probing
+	/// installed arrive as four strings (its ModInfo name, the name to show a
+	/// player, its own folder and the path resolved from the two) plus a
+	/// yes/no, and finding the file and probing
 	/// its assemblies is
 	/// <see cref="TargetModDiscovery"/>'s work, on the game side. So the
 	/// whole save path, from the read that locates the span to the replace

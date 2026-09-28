@@ -41,9 +41,9 @@ gh repo clone hordeforge/<repo> "$HORDEFORGE_ROOT/<repo>"
 
 Screenshot/window tools (`spectacle`, `grim`, KWin/`qdbus`, `xdotool`),
 audio recorders (`parec`, `pw-record`), `pactl` mute loops, a local
-`playtest_lock.py` or any second lock path, OCR menu drivers,
-`steam -applaunch` suite launchers, `pgrep`-on-the-runtime waits, forks of a
-sibling's script under the same basename.
+`playtest_running` lock or any second lock path, OCR menu drivers
+(`tesseract`), `steam -applaunch` suite launchers, and virtual input
+(`uinput`).
 
 ## When a capability is general, put it upstream
 

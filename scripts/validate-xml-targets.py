@@ -97,9 +97,6 @@ def _resolve(root: ET.Element, xpath: str) -> bool | None:
     # The path is absolute from the document root, which is the element this
     # checker was handed, so only the leading "/" is dropped. A first step
     # naming that root is dropped too (it reaches the same node either way).
-    # The path is absolute from the document root, which is the element this
-    # checker was handed, so only the leading "/" is dropped. A first step
-    # naming that root is dropped too (it reaches the same node either way).
     relative = xpath[1:]
     head = relative.split("/", 1)[0]
     if head == root.tag:

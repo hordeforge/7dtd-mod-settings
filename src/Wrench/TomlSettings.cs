@@ -6,7 +6,9 @@ using System.Text;
 namespace Wrench
 {
 	/// <summary>
-	/// A TOML subset reader for <c>Config/Wrench.toml</c>.
+	/// A TOML subset reader for the settings TOML this mod reads: its own
+	/// <c>Config/Wrench.toml</c>, and another mod's
+	/// <c>Config/&lt;Mod&gt;.toml</c> on the Mod Settings screen.
 	///
 	/// Supports bare keys, booleans, integers, floats, basic strings, and
 	/// arrays of those (including multiline arrays and <c>#</c> comments).

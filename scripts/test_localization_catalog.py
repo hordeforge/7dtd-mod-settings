@@ -2,7 +2,7 @@
 """The Mod Settings catalog stays in step with the strings that use it.
 
 Every user-facing string the mod shows is a `Config/Localization.csv` key:
-the four XUi labels name theirs in `text_key`, and the C# screen and row
+the five XUi labels name theirs in `text_key`, and the C# screen and row
 controllers read theirs through `WrenchText.Get`/`WrenchText.Format`. A
 key with no catalog row renders as the bare key in the game, and a
 catalog row whose english column disagrees with the code's English

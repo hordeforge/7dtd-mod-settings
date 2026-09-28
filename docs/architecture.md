@@ -12,9 +12,11 @@ the TOML document (`TomlSettings.cs` parses, `TomlEdit.cs` writes, and
 `ModFileSystem.cs`, the one filesystem) and the
 target-mod model (`TargetMod.cs`, `ModTomlPath.cs`) know nothing about the
 UI; the XUi controllers (`ModSettingsScreen.cs`, `ModSettingsRows.cs`) sit on
-top of them; the entry points (`ModApi.cs`, `ConsoleCmdWrench.cs`,
-`ModSettings.cs`, which is the mod's own `Config/Wrench.toml` reader and
-reads it through `ModFileText.cs`) wire the two together, with `WrenchText.cs`
+top of them; the game-side adapters and entry points (`ModApi.cs`,
+`ConsoleCmdWrench.cs`, `TargetModDiscovery.cs`, which is the only place the
+mod list and the assembly probe reach the game, and `ModSettings.cs`, which
+is the mod's own `Config/Wrench.toml` reader and reads it through
+`ModFileText.cs`) wire the two together, with `WrenchText.cs`
 holding the screen's localization lookups. One namespace, no subfolders: at
 this size a folder split would carry no information the names do not.
 
@@ -33,9 +35,10 @@ below), so nothing in the mod reaches for `Time`, `File.` or
   the marker walk every script uses to find the mod root, along with
   `mod_dir()` and `mod_name()`, `dotnet_host.py` the build-and-run of a C#
   harness, `git_tracked.py` the tracked-file walk, `csharp_source.py` the
-  C# method-body reader the source-shape gates use, and `game_telnet.py`
-  the stdlib console client. A script that needs any of them imports it; it
-  does not keep a second copy.
+  C# method-body reader the source-shape gates use, `modlet_tree.py` the
+  throwaway copy of the modlet the packaging gates build against, and
+  `game_telnet.py` the stdlib console client. A script that needs any of
+  them imports it; it does not keep a second copy.
 - `toml_gate/`, `toml_fuzz/` and `playtest/` are the C# hosts: two console
   runners over the game-free sources (one round-trips the parser, writer
   and `TomlFile`, the other fuzzes the reader) and the provider that drives
@@ -44,7 +47,11 @@ below), so nothing in the mod reaches for `Time`, `File.` or
 
 Shell scripts sit beside the Python they drive (`server-common.sh` with the
 server lane, `run-offline-tests.sh` with the gates) and share no library
-with them. `configure-server-config.py` is a tool, not a gate: it derives
+with the Python; among themselves they share only the sourced helpers
+`local-env.sh` (the shell half of the `.local.env` rule), `cli.sh` (the
+help and unknown-option guard) and `server-common.sh` (the server lane's
+lock and staging paths), which are never entrypoints themselves.
+`configure-server-config.py` is a tool, not a gate: it derives
 the mod-owned serverconfig from the vanilla one before the mod is
 deployed.
 
@@ -456,8 +463,7 @@ dedicated server runs the console command on its telnet thread, and
   `wrench set` from telnet therefore cannot land between a reload's
   `ResetToDefaults` and its apply. `Monitor` is reentrant, which is what
   lets the reload path call the public `TrySet` while holding the gate,
-  and the `Applied` event is raised after the lock is released so a
-  handler never sees half-applied values.
+  so the reset and the apply are one indivisible step.
 - the screen's reload latch is marker and flag under one lock, not a
   `volatile` flag beside a plain field: a log line arriving between the
   marker swap and the flag clear would otherwise be dropped.

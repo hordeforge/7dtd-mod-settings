@@ -98,8 +98,10 @@ carries the full contract, taken from AtomicDoomsday (its ADRs 0006/0015):
   saved with survives the round trip, and both sides open with
   `FileShare.ReadWrite | FileShare.Delete`, the mode the save watcher
   above polls with, so a save on a Windows client is not refused with a
-  sharing violation while the watcher's handle is open. The in-place
-  writer is gated by `scripts/test_toml_document.py`.
+  sharing violation while the watcher's handle is open. The value-span
+  edit is gated by `scripts/test_toml_document.py`, and the staged write
+  that puts it in the file, with its atomic replace, by
+  `scripts/test_settings_reload.py`.
 
 In multiplayer the **server's copy is authoritative** for server-side
 behavior; when clients need the values, sync them explicitly (AtomicDoomsday

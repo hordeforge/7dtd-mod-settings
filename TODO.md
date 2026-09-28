@@ -73,17 +73,14 @@ Adds a Mod Settings screen to the in-game options menu, listing every loaded mod
       faults. Left: the watch itself, which still reaches
       `UnityEngine.Debug` and takes a `Mod`; it needs the same log seam
       and split before the poll and debounce can be stepped.
-- [ ] Decide the four save-path checks `scripts/toml_gate/` reports and
-      `TargetMod` does not meet (the harness built and ran for the first
-      time on 2026-09-28): a save that stages while another program writes
-      the same file lands its own whole-file copy over the other program's
-      save, and a save whose fallback move fails deletes the staged text
-      instead of leaving it and naming where it is. The stamp is checked
-      before the staging write and not after it, and the catch block
-      deletes the staging file whenever the destination survived. Both
-      behaviours are deliberate as written, so the deciding call is
-      whether the gate or the save path is right, and neither may be
-      relaxed to make the other pass.
+- [x] The four save-path checks `scripts/toml_gate/` first reported on
+      2026-09-28 (the save path moved onto `TomlFile` and gained the
+      post-staging signature re-read). A save that stages while another
+      program writes the same file now re-splices around that write
+      instead of landing its own whole-file copy over it, and a fallback
+      move that fails keeps the staged text and names where it was left
+      beside the file. The gate asserts all four now, including "a save
+      keeps the other program's save made mid-save".
 - [ ] Re-run the live suite after the save path moved onto `TomlFile`
       (read, temp sibling and all): the offline gates cannot compile the
       mod DLL here, so the atomic replace, the mark round trip and the
