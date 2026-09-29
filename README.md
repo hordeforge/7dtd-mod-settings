@@ -4,12 +4,13 @@
 
 ![CI](https://github.com/hordeforge/7dtd-mod-settings/actions/workflows/ci.yml/badge.svg)
 ![license](https://img.shields.io/github/license/hordeforge/7dtd-mod-settings)
+![release](https://img.shields.io/github/v/release/hordeforge/7dtd-mod-settings)
 
 Adds a Mod Settings screen to the in-game options menu, listing every installed mod that ships a Config/<Mod>.toml settings file and letting the player view and edit those settings from the UI. Edits are written back in place to the mod's own TOML; mods built on Anvil's settings component apply them live through their existing hot-reload watch, with no coupling between this mod and theirs.
 
 A 7 Days to Die mod. Scaffolded from
 [Anvil](https://github.com/hordeforge/7dtd-mod-template); the modlet is this
-directory itself — `make build` stages the deployable copy under
+directory itself: `make build` stages the deployable copy under
 `dist/Wrench/`, `make package` zips it for release.
 
 ## What it does
@@ -46,7 +47,7 @@ make check                  # everything CI runs: test, lint, verify-package, bu
 make test                   # offline gates (scripts/test_*.py; needs the .NET SDK)
 make lint                   # ruff + mypy --strict over scripts/, then shellcheck
 make build                  # stage dist/Wrench/ (needs .local.env, see below)
-make package                # dist/Wrench.zip — extracts to Mods/Wrench/
+make package                # dist/Wrench.zip, extracts to Mods/Wrench/
 make buildinfo              # the tool versions and commit an artifact was built from
 make validate-xml           # every Config xpath against the installed game
 make verify-patched-config  # every patch element proven applied, from a save's ConfigsDump
@@ -77,7 +78,7 @@ install is not enough); `ilspycmd` (`dotnet tool install -g ilspycmd`) for patch
 validation, `steamcmd` for the dedicated-server lane.
 
 Machine-local paths (game install, hordeforge tool checkouts) live in the
-ignored `.local.env` — copy `.local.env.example` and fill it in.
+ignored `.local.env`: copy `.local.env.example` and fill it in.
 
 Runtime settings live in `Config/Wrench.toml` in the installed mod
 folder; saving it applies without a restart, and the in-game/telnet
@@ -85,11 +86,11 @@ command `wrench` lists, changes, and reloads them.
 
 ## Docs
 
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — the pre-push command, a PR's requirements, adding a gate
-- [`TODO.md`](TODO.md) — what's next
-- [`CHANGELOG.md`](CHANGELOG.md) — what each release changed for a player or a mod author
-- [`docs/design.md`](docs/design.md) — gameplay decisions
-- [`docs/architecture.md`](docs/architecture.md) — technical decisions ([`docs/adr/`](docs/adr/) for formal records)
-- [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) — attack surface, trust boundaries, risks, and the controls that back them
-- [`docs/reference/`](docs/reference/) — general 7DTD modding reference and best practices (binding)
-- [`AGENTS.md`](AGENTS.md) — working instructions for agent sessions
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): the pre-push command, a PR's requirements, adding a gate
+- [`TODO.md`](TODO.md): what's next
+- [`CHANGELOG.md`](CHANGELOG.md): what each release changed for a player or a mod author
+- [`docs/design.md`](docs/design.md): gameplay decisions
+- [`docs/architecture.md`](docs/architecture.md): technical decisions ([`docs/adr/`](docs/adr/) for formal records)
+- [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md): attack surface, trust boundaries, risks, and the controls that back them
+- [`docs/reference/`](docs/reference/): general 7DTD modding reference and best practices (binding)
+- [`AGENTS.md`](AGENTS.md): working instructions for agent sessions
