@@ -12,14 +12,23 @@
 # runs on. Without it uv falls back to its own default and writes
 # requires-python = ">=3.14" into uv.lock, which refuses a 3.10 or 3.12
 # interpreter the rest of the repo supports. The package is virtual and has
-# no dependencies: ruff and mypy are host tools, installed by each
-# contributor's package manager, and nothing here is built or published.
+# no runtime dependencies: nothing here is built or published. ruff and mypy
+# are the `dev` group, pinned here and nowhere else; uv.lock pins and hashes
+# the distributions mypy pulls in, because an unpinned one of those enters the
+# lint lane unreviewed the day it is published. `make lint-python` runs
+# through `uv run --locked`, which installs the group from uv.lock.
 # The mod's own version is declared in ModInfo.xml, not here.
 [project]
 name = "wrench-dev-tools"
 version = "0.0.0"
 requires-python = ">=3.10"
 dependencies = []
+
+[dependency-groups]
+dev = [
+    "ruff==0.16.4",
+    "mypy==2.3.1",
+]
 
 [tool.ruff]
 line-length = 100

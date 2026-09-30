@@ -137,12 +137,13 @@ comment lists the steps) and mirror it, commented, in the shipped TOML.
 The mod's Python is stdlib only: `pyproject.toml` declares a virtual project
 with no dependencies and `uv.lock` resolves it empty, so no third-party
 package arrives by accident. ruff and mypy are developer and CI tools pinned
-in `requirements-dev.txt` (the one place a version is written down), together
-with the distributions mypy pulls in, because an unpinned one of those enters
-the lint lane unreviewed the day it is published. That file is installed with
-`uv pip install -r requirements-dev.txt`, in CI and on a contributor's
-machine alike: uv is the only Python toolchain here, so a second installer is
-a second answer to how the toolchain is obtained, and
+in the `dev` dependency group of `pyproject.toml` (the one place a version is
+written down); `uv.lock` pins and hashes the distributions mypy pulls in,
+because an unpinned one of those enters the lint lane unreviewed the day it
+is published. `make lint-python` runs through `uv run --locked`, which
+installs the group from `uv.lock`, in CI and on a contributor's machine
+alike: uv is the only Python toolchain here, so a second installer is a
+second answer to how the toolchain is obtained, and
 `scripts/test_lint_toolchain_declared.py` fails a tracked file that reaches
 for pip instead. shellcheck is a host tool;
 the dotnet SDK is read-only reference for the C# TOML harnesses. A
@@ -331,7 +332,7 @@ plus `verify-package` and `buildinfo`, and is what CI runs.
 round-trip gates compile the TOML sources under `src/Wrench/` into a runner,
 and a runtime answers `dotnet` and lists no SDKs
 (`scripts/test_toolchain_floor.py`). The lint tool
-versions are written down in `requirements-dev.txt` only, which CI installs
+versions are written down in the `dev` group of `pyproject.toml` only
 (`scripts/test_lint_toolchain_declared.py`). Every `subprocess.run` and
 `subprocess.check_output` in a tracked `*.py` names a timeout, as a named
 module constant: a gate that starts a child without one waits on it

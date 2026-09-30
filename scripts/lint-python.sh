@@ -5,8 +5,9 @@
 # Blocking in CI (.github/workflows/ci.yml) and runnable locally with the
 # same config, so a green local run and a green remote run mean the same
 # thing. All three read pyproject.toml at the repo root; nothing here
-# overrides it. The two versions are pinned in requirements-dev.txt, which is
-# what CI installs and what the error below names.
+# overrides it. The two versions are the dev group in pyproject.toml, locked
+# in uv.lock; `make lint-python` runs this through `uv run --locked`, as CI
+# does, and the error below names that command.
 #
 # `ruff format --check` fails on a file whose layout drifted, and prints the
 # command that fixes it, so the tree's formatting is decided by one tool
@@ -41,8 +42,8 @@ EXIT STATUS
 
 for tool in ruff mypy; do
 	command -v "$tool" >/dev/null 2>&1 || {
-		echo "ERROR: $tool not found. Install the pinned toolchain first:" >&2
-		echo "  uv pip install -r requirements-dev.txt" >&2
+		echo "ERROR: $tool not found. Run through uv, which installs the pinned dev group:" >&2
+		echo "  uv run --locked scripts/lint-python.sh   (or: make lint-python)" >&2
 		exit 1
 	}
 done

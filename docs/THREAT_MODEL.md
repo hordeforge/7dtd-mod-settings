@@ -25,7 +25,7 @@ path someone else can change:
 | What | Where it enters | Held by |
 |---|---|---|
 | The mod itself (C# DLL, XML patches, shipped TOML) | none; this repository | `scripts/test_stdlib_only.py` for the Python half; no `.csproj` declares a `PackageReference` or carries vendored source |
-| ruff, mypy and mypy's transitive distributions | `requirements-dev.txt`, installed with `uv pip install` by `.github/workflows/ci.yml` | exact pins in that one file, single-sourced by `scripts/test_lint_toolchain_declared.py`, which also fails a tracked file that installs through pip |
+| ruff, mypy and mypy's transitive distributions | the `dev` group in `pyproject.toml`, installed from `uv.lock` by `uv run --locked` in `make lint-python` | exact pins in that one group and hashed pins in `uv.lock`, single-sourced by `scripts/test_lint_toolchain_declared.py`, which also fails a tracked file that installs through pip |
 | Assembly-CSharp, UnityEngine.CoreModule, LogLibrary, 0Harmony | the game install, by path at build time (`src/Wrench/Wrench.csproj`) | the install is read-only reference; `make build` fails loud when a path is absent |
 | The hordeforge tool checkouts (playtest, ilspycmd) | `.local.env` | `scripts/test_local_path_inventory.py`, `scripts/test_upstream_tooling.py` |
 

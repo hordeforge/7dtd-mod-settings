@@ -60,9 +60,10 @@ test:
 # scripts/, then shellcheck at full severity.
 lint: lint-python lint-shell
 
-# ruff and mypy --strict over every tracked *.py (pyproject.toml at the root).
+# ruff and mypy --strict over every tracked *.py (pyproject.toml at the root),
+# at the dev-group versions uv.lock pins.
 lint-python:
-	$(ROOT)/scripts/lint-python.sh
+	uv run --locked $(ROOT)/scripts/lint-python.sh
 
 # Shellcheck over every tracked shell script (full severity).
 lint-shell:
