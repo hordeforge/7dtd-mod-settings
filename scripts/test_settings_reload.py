@@ -267,7 +267,11 @@ def main() -> int:
     check(
         "a reload returns the applied values still under the lock, so no "
         "caller can observe a half-applied reload",
-        "return ReloadLocked(" in body(settings, "static bool Apply(")
+        # Apply decides under Gate and writes the decided log lines after
+        # releasing it, so the result is assigned inside the lock and the
+        # lines are flushed outside it.
+        "lock (Gate)" in body(settings, "static bool Apply(")
+        and "applied = ReloadLocked(" in body(settings, "static bool Apply(")
         and "Invoke()" not in body(settings, "static bool ReloadLocked(")
         and "Invoke()" not in body(settings, "static bool ApplyMissingFileDefaults("),
     )
