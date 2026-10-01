@@ -586,6 +586,12 @@ static class Program
 			ModTomlPath.ForLog("A\u001BB").Replace("\u001B", "<ESC>"));
 		Check("an ordinary name is left alone",
 			ModTomlPath.ForLog("Atomic Doomsday") == "Atomic Doomsday");
+		// A backslash spelled as \n made a logged backslash and a logged
+		// newline the same text, so a reader could not tell which was sent.
+		Check("a backslash is logged as \\\\, not as an escape it shares",
+			ModTomlPath.ForLog("back\\slash") == "back\\\\slash"
+				&& ModTomlPath.ForLog("A\\nB") != ModTomlPath.ForLog("A\nB"),
+			ModTomlPath.ForLog("back\\slash"));
 
 		// U+0085, U+2028 and U+2029 are the line terminators Unicode defines
 		// beside CR and LF. They are not C0 control characters, so the

@@ -612,11 +612,13 @@ static class Program
 		if (!NeedsEscape(value) && logged != value)
 			Report("a value with nothing to escape was logged as something else: "
 				+ Escape(value) + " -> " + Escape(logged));
-		// Logged twice is still one line that decodes to the same value: a
-		// reader that pastes a record back into the log keeps it a record.
-		if (!Unescapes(ModTomlPath.ForLog(logged), value))
-			Report("logging an already logged value does not decode back: " + Escape(value)
-				+ " -> " + Escape(logged) + " -> " + Escape(ModTomlPath.ForLog(logged)));
+		// Logged twice decodes once to the first record, not to the value:
+		// an escaper that left a logged value alone would log "\n" and a
+		// newline as the same text, and a reader could not say which it was.
+		var twice = ModTomlPath.ForLog(logged);
+		if (!Unescapes(twice, logged))
+			Report("an already logged value does not decode back to its record: " + Escape(value)
+				+ " -> " + Escape(logged) + " -> " + Escape(twice));
 	}
 
 	/// <summary>Whether the value holds a character ForLog spells out.</summary>

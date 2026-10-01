@@ -112,7 +112,9 @@ namespace Wrench
 			var builder = new System.Text.StringBuilder(value.Length);
 			foreach (var c in value)
 			{
-				if (c == '\\' || c == '\r' || c == '\n')
+				if (c == '\\')
+					builder.Append("\\\\");
+				else if (c == '\r' || c == '\n')
 					builder.Append("\\").Append(c == '\r' ? 'r' : 'n');
 				else if (c < ' ' || c == (char)0x7F || IsUnicodeLineBreak(c))
 					builder.Append("\\u").Append(((int)c).ToString("X4",

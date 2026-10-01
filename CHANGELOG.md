@@ -16,6 +16,9 @@ its own numbered heading when the version it ships under is declared.
 
 ### Fixed
 
+- A backslash in a logged mod name or console argument is written as `\\`.
+  It was written as `\n`, the same text as a newline, so the game log could
+  not say which of the two a value held.
 - `configure-server-config.py --typo target.xml` exits 2 naming the option.
   Two arguments passed the count check, so the option was read as the source
   config and the run failed later with exit 1 on a missing file.
