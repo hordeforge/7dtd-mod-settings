@@ -54,6 +54,12 @@ usage() {
 		  MODS_DIR                the Proton per-user Mods directory
 		  CONNECT_NAME            7dtd-fastconnect
 		  FRESH                   1      0 or 1; 0 keeps the existing playtest save
+
+		EXIT STATUS
+		  0  the suite ran and passed
+		  1  a setting or a deploy source is missing or invalid
+		  2  unknown option
+		  otherwise, the status of the failing deploy step or of playtest_run.py
 	EOF
 }
 

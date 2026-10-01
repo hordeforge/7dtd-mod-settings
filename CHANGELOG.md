@@ -16,6 +16,10 @@ its own numbered heading when the version it ships under is declared.
 
 ### Fixed
 
+- `configure-server-config.py --typo target.xml` exits 2 naming the option.
+  Two arguments passed the count check, so the option was read as the source
+  config and the run failed later with exit 1 on a missing file.
+  `playtest-maci.sh --help` now lists its exit statuses.
 - A simulated save's trace no longer carries the process id of whatever
   process ran it. The staging file's name is built from
   `TargetMod.StagingOwner`, which the game fills with the process id and a

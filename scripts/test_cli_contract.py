@@ -146,6 +146,21 @@ def main() -> int:
         defect = ignores_the_option(run(name, BOGUS_OPTION))
         check(f"an unknown option exits 2:{name}", not defect, defect)
 
+    # Two arguments pass the positional count, so an option in a positional
+    # slot used to be read as SOURCE_CONFIG and fail later as a missing file.
+    done = subprocess.run(
+        [os.path.join(SCRIPTS, "configure-server-config.py"), BOGUS_OPTION, "target.xml"],
+        cwd=tempfile.gettempdir(),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=RUN_TIMEOUT,
+        check=False,
+    )
+    defect = ignores_the_option(done)
+    check("an option in a positional slot exits 2:configure-server-config.py", not defect, defect)
+
     return result()
 
 

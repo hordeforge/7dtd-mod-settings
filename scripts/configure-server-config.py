@@ -42,6 +42,13 @@ def main() -> int:
     if "-h" in argv or "--help" in argv:
         print(USAGE.rstrip())
         return 0
+    # A mistyped option would otherwise be read as SOURCE_CONFIG and the run
+    # would fail later, on a file that does not exist, blaming the wrong thing.
+    for argument in argv:
+        if argument.startswith("-"):
+            print(f"ERROR: unknown option {argument}", file=sys.stderr)
+            print(USAGE.rstrip(), file=sys.stderr)
+            return 2
     if len(argv) != 2:
         print(
             f"ERROR: expected SOURCE_CONFIG and TARGET_CONFIG, got {len(argv)} "
