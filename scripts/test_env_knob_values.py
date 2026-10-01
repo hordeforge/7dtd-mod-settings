@@ -64,20 +64,24 @@ source "$1"
 require_env_path WRENCH_TEST_PATH "$2"
 """
 
+
 # An inventory-free environment: every check below is about the knob, and a
 # value inherited from the machine the gate runs on would decide it.
 def clean_env(extra: dict[str, str]) -> dict[str, str]:
-    return {"PATH": os.environ.get("PATH", ""),
-            "HOME": os.environ.get("HOME", ""),
-            **extra}
+    return {"PATH": os.environ.get("PATH", ""), "HOME": os.environ.get("HOME", ""), **extra}
 
 
-def run_bash(probe: str, *args: str,
-             env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+def run_bash(
+    probe: str, *args: str, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["bash", "-c", probe, "bash", str(LOADER), *args],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-        timeout=PROBE_TIMEOUT_SECONDS, check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=PROBE_TIMEOUT_SECONDS,
+        check=False,
         env=clean_env(env or {}),
     )
 
@@ -91,12 +95,16 @@ def path_run(value: str) -> subprocess.CompletedProcess[str]:
     return run_bash(PATH_PROBE, value)
 
 
-def run_script(script: str, extra: dict[str, str],
-               cwd: Path) -> subprocess.CompletedProcess[str]:
+def run_script(script: str, extra: dict[str, str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [str(SCRIPTS / script)],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-        timeout=SCRIPT_TIMEOUT_SECONDS, check=False, cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=SCRIPT_TIMEOUT_SECONDS,
+        check=False,
+        cwd=str(cwd),
         env=clean_env(extra),
     )
 
@@ -111,8 +119,9 @@ def stage_tree(destination: Path) -> Path:
     for entry in TREE_ENTRIES:
         source = MOD_DIR / entry
         if source.is_dir():
-            shutil.copytree(source, destination / entry,
-                            ignore=shutil.ignore_patterns("__pycache__"))
+            shutil.copytree(
+                source, destination / entry, ignore=shutil.ignore_patterns("__pycache__")
+            )
     for name in TREE_FILES:
         shutil.copy2(MOD_DIR / name, destination / name)
     return destination
@@ -122,19 +131,32 @@ def main() -> int:
     # Unset is the caller's default; a value the grammar names is that
     # value; everything else, a blank included, is a typo that stops the
     # run. The blank is the case the old `!= "1"` test read as off.
-    for value, accepted in ((None, True), ("0", True), ("1", True),
-                            ("", False), ("yes", False), ("true", False),
-                            ("2", False), ("01", False), (" 1", False)):
+    for value, accepted in (
+        (None, True),
+        ("0", True),
+        ("1", True),
+        ("", False),
+        ("yes", False),
+        ("true", False),
+        ("2", False),
+        ("01", False),
+        (" 1", False),
+    ):
         name = "unset" if value is None else repr(value)
-        check(f"require_env_flag accepts {name}: {accepted}",
-              (flag_run(value).returncode == 0) is accepted)
+        check(
+            f"require_env_flag accepts {name}: {accepted}",
+            (flag_run(value).returncode == 0) is accepted,
+        )
 
-    check("require_env_path accepts an absolute path",
-          path_run("/srv/7dtd/serverconfig.wrench.xml").returncode == 0)
-    check("require_env_path refuses a relative path",
-          path_run("serverconfig.wrench.xml").returncode != 0)
-    check("require_env_path refuses an empty path",
-          path_run("").returncode != 0)
+    check(
+        "require_env_path accepts an absolute path",
+        path_run("/srv/7dtd/serverconfig.wrench.xml").returncode == 0,
+    )
+    check(
+        "require_env_path refuses a relative path",
+        path_run("serverconfig.wrench.xml").returncode != 0,
+    )
+    check("require_env_path refuses an empty path", path_run("").returncode != 0)
 
     with tempfile.TemporaryDirectory(prefix="test-env-knob-") as raw:
         tmp = Path(raw)
@@ -143,48 +165,68 @@ def main() -> int:
         tree = stage_tree(tmp / "tree")
         build = subprocess.run(
             [str(tree / "scripts" / "build.sh")],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-            timeout=SCRIPT_TIMEOUT_SECONDS, check=False, cwd=str(tmp),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=SCRIPT_TIMEOUT_SECONDS,
+            check=False,
+            cwd=str(tmp),
             env=clean_env({"WRENCH_SKIP_DLL": "yes"}),
         )
-        check("build.sh refuses a WRENCH_SKIP_DLL it cannot read",
-              refused_knob(build, "WRENCH_SKIP_DLL"),
-              f"exited {build.returncode}: {build.stderr.strip()[:200]}")
-        check("build.sh stages nothing before the knob is read",
-              not (tree / "dist").exists())
+        check(
+            "build.sh refuses a WRENCH_SKIP_DLL it cannot read",
+            refused_knob(build, "WRENCH_SKIP_DLL"),
+            f"exited {build.returncode}: {build.stderr.strip()[:200]}",
+        )
+        check("build.sh stages nothing before the knob is read", not (tree / "dist").exists())
 
         playtest = run_script("playtest-maci.sh", {"FRESH": "no"}, tmp)
-        check("playtest-maci.sh refuses a FRESH it cannot read",
-              refused_knob(playtest, "FRESH"),
-              f"exited {playtest.returncode}: {playtest.stderr.strip()[:200]}")
+        check(
+            "playtest-maci.sh refuses a FRESH it cannot read",
+            refused_knob(playtest, "FRESH"),
+            f"exited {playtest.returncode}: {playtest.stderr.strip()[:200]}",
+        )
         # The same script with a value the grammar names: the run then
         # stops on the inventory it cannot find instead, so the check above
         # is about FRESH and not about the script failing at all.
         keeping = run_script("playtest-maci.sh", {"FRESH": "0"}, tmp)
-        check("playtest-maci.sh reads FRESH=0 as keeping the save",
-              keeping.returncode == 1 and "FRESH" not in keeping.stderr,
-              f"exited {keeping.returncode}: {keeping.stderr.strip()[:200]}")
+        check(
+            "playtest-maci.sh reads FRESH=0 as keeping the save",
+            keeping.returncode == 1 and "FRESH" not in keeping.stderr,
+            f"exited {keeping.returncode}: {keeping.stderr.strip()[:200]}",
+        )
 
         server = tmp / "server"
         server.mkdir()
-        relative = run_script("deploy-server.sh", {
-            "SEVEN_DAYS_TO_DIE_SERVER_DIR": str(server),
-            "SEVEN_DAYS_TO_DIE_SERVER_CONFIG": "serverconfig.wrench.xml",
-        }, tmp)
-        check("deploy-server.sh refuses a relative server config path",
-              relative.returncode == 1
-              and "SEVEN_DAYS_TO_DIE_SERVER_CONFIG" in relative.stderr
-              and "absolute path" in relative.stderr,
-              f"exited {relative.returncode}: {relative.stderr.strip()[:200]}")
-        check("deploy-server.sh writes nothing before the path is read",
-              not (server / "Mods").exists())
+        relative = run_script(
+            "deploy-server.sh",
+            {
+                "SEVEN_DAYS_TO_DIE_SERVER_DIR": str(server),
+                "SEVEN_DAYS_TO_DIE_SERVER_CONFIG": "serverconfig.wrench.xml",
+            },
+            tmp,
+        )
+        check(
+            "deploy-server.sh refuses a relative server config path",
+            relative.returncode == 1
+            and "SEVEN_DAYS_TO_DIE_SERVER_CONFIG" in relative.stderr
+            and "absolute path" in relative.stderr,
+            f"exited {relative.returncode}: {relative.stderr.strip()[:200]}",
+        )
+        check(
+            "deploy-server.sh writes nothing before the path is read",
+            not (server / "Mods").exists(),
+        )
 
     # resolve_steamcmd is only reached on a machine with no SteamCMD on
     # PATH, so its call site is held here as source: a run that stops at
     # "SteamCMD not found" first would depend on the machine, not the tree.
     steamcmd_source = (SCRIPTS / "server-common.sh").read_text(encoding="utf-8")
-    check("resolve_steamcmd holds SEVEN_DAYS_TO_DIE_STEAMCMD_DIR to the path check",
-          "require_env_path SEVEN_DAYS_TO_DIE_STEAMCMD_DIR" in steamcmd_source)
+    check(
+        "resolve_steamcmd holds SEVEN_DAYS_TO_DIE_STEAMCMD_DIR to the path check",
+        "require_env_path SEVEN_DAYS_TO_DIE_STEAMCMD_DIR" in steamcmd_source,
+    )
     return result()
 
 

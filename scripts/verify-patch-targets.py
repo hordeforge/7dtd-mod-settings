@@ -353,8 +353,7 @@ def run_ilspy(argv: list[str], timeout: int) -> subprocess.CompletedProcess[str]
         raise RuntimeError(f"ilspycmd could not run ({exc}): {' '.join(argv)}") from None
 
 
-def decompile(assembly: Path, type_name: str,
-              cache: dict[tuple[str, str], list[str]]) -> list[str]:
+def decompile(assembly: Path, type_name: str, cache: dict[tuple[str, str], list[str]]) -> list[str]:
     """The decompiled body of one type in one assembly, paid for once.
 
     The assembly is part of the key because a type name is only a name within

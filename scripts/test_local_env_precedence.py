@@ -196,9 +196,11 @@ def main() -> int:
         except Exception as exc:  # noqa: BLE001 - the failure under test
             undecodable_python = "<raised>"
             undecodable_error = f"{type(exc).__name__}: {exc}"
-        check("a .local.env that is not UTF-8 reads as unset, not as a crash",
-              undecodable_python == "" and not undecodable_error,
-              f"got {undecodable_python!r} ({undecodable_error})")
+        check(
+            "a .local.env that is not UTF-8 reads as unset, not as a crash",
+            undecodable_python == "" and not undecodable_error,
+            f"got {undecodable_python!r} ({undecodable_error})",
+        )
         undecodable.write_bytes(env_file.read_bytes())
 
         # One grammar, two readers: a form one of them answers differently
