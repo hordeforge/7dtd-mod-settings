@@ -89,18 +89,22 @@ the work that goal describes; the goal itself is stated there once.
 
 ## Release
 
-- [ ] Cut the two release tags that were never cut, from the commits that
-      set the versions: `v0.2.0` at `db6930a` and `v0.3.0` at `4ee39c1`
-      (`git tag -a v0.2.0 db6930a`, then the same for `v0.3.0`, then
-      `git push origin v0.2.0 v0.3.0`). Both numbers are published: they are
-      the newest heading in `CHANGELOG.md` and the version in `ModInfo.xml`
-      when they were declared, and `git tag` lists only `v0.1.0`, so a
-      player asking for "the 0.3.0 download" finds nothing. The tag cannot
-      be cut from a later commit: the release is that tree.
-- [ ] Say in the next release heading that the strict marked-encoding read
-      refuses a file 0.3.0 loaded, so the release is a minor. The entry
-      already describes the change; the bump is decided when the heading is
-      written.
+- [x] Cut `v0.3.0` from the commit that ships it, with the Unreleased work
+      folded into its heading and the heading dated 2026-10-25. The heading
+      now names the strict marked-encoding read that refuses a file an
+      earlier release loaded, so the release is a minor, and requires
+      7 Days to Die V3.3.
+- [ ] Cut the `v0.2.0` tag from `db6930a`, the commit that set the version.
+      The number is in `CHANGELOG.md` and `ModInfo.xml` as the release before
+      0.3.0, and `git tag` still lists no `v0.2.0`, so a player asking for
+      "the 0.2.0 download" finds nothing. The tag cannot be cut from a later
+      commit: the release is that tree.
+- [ ] Cover the mod DLL build in a gate. Neither CI nor the offline suite
+      compiles `src/Wrench` against the game assembly (`WRENCH_SKIP_DLL=1`
+      is forced in the package lane), and the 0.3.0 build failed on a
+      `CommandSenderInfo.PlayerName` read that none of the assemblies on
+      this host defines. A game-install lane running `make build` would
+      catch the next such break.
 
 ## Open questions
 

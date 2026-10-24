@@ -110,13 +110,17 @@ namespace Wrench
 		/// name and the arguments below it are one line each in that log:
 		/// they come from a telnet session, and a raw newline in one ends the
 		/// record there, so a name could write the line saying a setting was
-		/// changed by someone else.
+		/// changed by someone else. A local or console sender carries no
+		/// remote client, so it falls back to the same name.
 		/// </summary>
 		static string Sender(CommandSenderInfo sender)
 		{
-			return sender == null || string.IsNullOrEmpty(sender.PlayerName)
+			string name = sender.RemoteClientInfo == null
+				? null
+				: sender.RemoteClientInfo.playerName;
+			return string.IsNullOrEmpty(name)
 				? "unknown sender"
-				: ModTomlPath.ForLog(sender.PlayerName);
+				: ModTomlPath.ForLog(name);
 		}
 
 		static void Output(string line)
