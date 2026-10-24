@@ -116,8 +116,8 @@ instead of the directory name; the deployable folder name comes from
 
 No Harmony (see [ADR 0002](adr/0002-options-tab-via-xui-patch-no-harmony.md)):
 the options paging header opens the window group named by a tab button
-(`XUiC_WindowSelector.OpenSelectedWindow`, read with ilspycmd on the
-installed V3.2.0 Assembly-CSharp), so a `pagingheader_button` inserted by
+(`XUiC_WindowSelector.OpenSelectedWindow`, read with ilspycmd on V3.2.0
+(b10); not re-read on V3.3.0 (b18)), so a `pagingheader_button` inserted by
 XPath into `optionsPaging` plus an appended window group is the whole
 integration. The screen controller subclasses the game's public
 `XUiC_OptionsDialogBase` for back/ESC handling, selector selection, and
@@ -161,7 +161,7 @@ every control inside the scrollview. Both Mod Settings lists carry
 Measured live with a raycast probe on 2026-08-30 after the whole screen
 was mouse-dead; sources: `XUiV_Panel`, `XUiV_Window`,
 `UIWidget.raycastDepth`, `NGUITools.CalculateRaycastDepth` (ilspycmd,
-V3.2.0).
+V3.2.0 (b10); not re-read on V3.3.0 (b18)).
 
 Known ceiling: the mouse wheel over a row hits the row's collider, which
 does not forward scroll, so wheel-scrolling works only beside the rows

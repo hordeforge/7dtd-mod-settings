@@ -14,6 +14,11 @@ its own numbered heading when the version it ships under is declared.
 
 ## [Unreleased]
 
+### Changed
+
+- The game pin moves to 7 Days to Die V3.3.0 (b18); V3.2.0 (b10) is the
+  prior pin. No setting key, default, or console command changed.
+
 ### Fixed
 
 - A backslash in a logged mod name or console argument is written as `\\`.

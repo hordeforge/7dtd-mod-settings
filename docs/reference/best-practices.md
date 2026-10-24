@@ -1,39 +1,37 @@
-<!-- Vendored from hordeforge/.github MODDING_BEST_PRACTICES.md (upstream state: 2026-08-28, game V3.2.0 b9).
-     This local copy exists so scaffolded mods follow the guide with no external fetch.
-     Machine-local install paths in §1 describe the machine the guide was validated on;
-     your paths live in the mod's ignored .local.env (see environment.md).
-     One local change: sibling-repo doc paths (the intro "Deeper doc" table and inline
-     references) are rewritten to their GitHub URLs so they resolve without local checkouts.
-     Sync manually when upstream changes, re-applying that rewrite (manual chore,
-     deliberately not automated). -->
+<!-- Vendored from hordeforge/.github MODDING_BEST_PRACTICES.md (upstream state: 2026-10-24, game V3.3.0 b18).
+     Location: 7dtd-mod-settings/docs/reference/best-practices.md
+     The body below is unmodified upstream, so sibling-repo paths in it resolve only in a
+     workspace checkout. Machine-local install paths in §1 describe the machine the guide was
+     validated on; your paths live in the ignored .local.env (see environment.md).
+     Sync manually when upstream changes. -->
 
 # 7 Days to Die modding: consolidated best practices
 
-**Target game:** V **3.2.0** (b9) Stable, Henpocalypse line  
+**Target game:** V **3.3.0** (b18)  
 **Engine (this machine):** Unity **2022.3.62f2**, **Mono** (not IL2CPP), WindowsPlayer under Proton for client; dedicated is Linux/x86_64 headless  
-**Last validated:** 2026-08-28 against official V3.2.0 (b9) + local V3.2.0 (b9) dedicated, [7d2dmodding.wiki.gg](https://7d2dmodding.wiki.gg/) (pages marked verified for 3.0), official [Mod Interface](https://7daystodie.wiki.gg/wiki/Mod_Interface) / [XUi](https://7daystodie.wiki.gg/wiki/XUi), [7DaysToDieMods.com](https://7daystodiemods.com/) install guidance, **local Steam installs + client log**, and the projects in this workspace.
+**Last validated:** 2026-10-24 against the shipped V3.3.0 (b18) dedicated `Assembly-CSharp.dll` and `Data/Config` tree (sha256 pin in [`7dtd-engine-research/tools/data/stock_facts.json`](7dtd-engine-research/tools/data/stock_facts.json)), [7d2dmodding.wiki.gg](https://7d2dmodding.wiki.gg/) (pages marked verified for 3.0), official [Mod Interface](https://7daystodie.wiki.gg/wiki/Mod_Interface) / [XUi](https://7daystodie.wiki.gg/wiki/XUi), [7DaysToDieMods.com](https://7daystodiemods.com/) install guidance, **the local Steam client install**, and the projects in this workspace.
 
 This is the **workspace root** canonical guide. Project-specific docs stay for deep detail; this file owns **what to do where**, **which method to use when**, and **how to validate** after game updates.
 
 | Deeper doc | Owns |
 |---|---|
-| [`7dtd-server-optimizer/docs/DEVELOPMENT.md`](https://github.com/hordeforge/7dtd-server-optimizer/blob/HEAD/docs/DEVELOPMENT.md) | EfficientServer-only workflow (rebuild, feature groups, RE dumps) |
-| [`7dtd-server-optimizer/docs/ARCHITECTURE.md`](https://github.com/hordeforge/7dtd-server-optimizer/blob/HEAD/docs/ARCHITECTURE.md) | Dedicated-server hot path RE notes |
-| [`7dtd-server-optimizer/docs/HOST_TUNING.md`](https://github.com/hordeforge/7dtd-server-optimizer/blob/HEAD/docs/HOST_TUNING.md) | CCD/NUMA/affinity, IRQ, storage; measure-first host ops |
-| [`7dtd-server-optimizer/docs/OPTIMIZATION_IDEAS.md`](https://github.com/hordeforge/7dtd-server-optimizer/blob/HEAD/docs/OPTIMIZATION_IDEAS.md) | Research map: threading, I/O, net, near/far levers |
-| [`7dtd-server-optimizer/docs/OPTIMIZATION_CANDIDATES.md`](https://github.com/hordeforge/7dtd-server-optimizer/blob/HEAD/docs/OPTIMIZATION_CANDIDATES.md) | Graded optim candidates from dedicated RE |
-| [`7dtd-server-optimizer/docs/SCALE_1000x10000.md`](https://github.com/hordeforge/7dtd-server-optimizer/blob/HEAD/docs/SCALE_1000x10000.md) | Thought experiment: data structures for huge MP/AI |
-| [`7dtd-server-optimizer/docs/SIM_PARALLELISM.md`](https://github.com/hordeforge/7dtd-server-optimizer/blob/HEAD/docs/SIM_PARALLELISM.md) | Speeding sim: extract off main, threading policy, hot paths, Amdahl |
-| [`7dtd-server-optimizer/docs/FEATURES.md`](https://github.com/hordeforge/7dtd-server-optimizer/blob/HEAD/docs/FEATURES.md) | EfficientServer patch groups and acceptance notes |
-| [`research/oss-tools/NOTES.md`](https://github.com/hordeforge/7dtd-engine-research/blob/HEAD/oss-tools/NOTES.md) | OSS tools survey (optim lessons from IceCoffee, SphereII, CSMM, …) |
-| [`research/7dtd-ServerTools/NOTES.md`](https://github.com/hordeforge/7dtd-engine-research/blob/HEAD/oss-tools/servertools.md) | ServerTools optim-relevant bits |
-| [`research/naiwazi/NOTES.md`](https://github.com/hordeforge/7dtd-engine-research/blob/HEAD/oss-tools/naiwazi.md) | NAIWAZI ServerKit reconstruction |
-| [`research/docs/loop.md`](https://github.com/hordeforge/7dtd-engine-research/blob/HEAD/docs/loop.md) | Complete dedicated server game/sim loop RE map |
-| [`research/docs/INDEX.md`](https://github.com/hordeforge/7dtd-engine-research/blob/HEAD/docs/INDEX.md) | Dedicated RE dumps index |
-| [`7dtd-realearth/docs/MODDING_REFERENCES.md`](https://github.com/hordeforge/7dtd-realearth/blob/HEAD/docs/MODDING_REFERENCES.md) | Link index (sites, Discords, tools) |
-| [`7dtd-realearth/docs/MODLET.md`](https://github.com/hordeforge/7dtd-realearth/blob/HEAD/docs/MODLET.md) | RealEarth install + YDim expand |
-| [`7dtd-realearth/docs/HEIGHT_LIMITS.md`](https://github.com/hordeforge/7dtd-realearth/blob/HEAD/docs/HEIGHT_LIMITS.md) | Vertical engine limits |
-| [`7dtd-server-apm/docs/APM.md`](https://github.com/hordeforge/7dtd-server-apm/blob/HEAD/docs/APM.md) | Capture validity and evidence model |
+| [`7dtd-server-optimizer/docs/DEVELOPMENT.md`](7dtd-server-optimizer/docs/DEVELOPMENT.md) | EfficientServer-only workflow (rebuild, feature groups, RE dumps) |
+| [`7dtd-server-optimizer/docs/ARCHITECTURE.md`](7dtd-server-optimizer/docs/ARCHITECTURE.md) | Dedicated-server hot path RE notes |
+| [`7dtd-server-optimizer/docs/HOST_TUNING.md`](7dtd-server-optimizer/docs/HOST_TUNING.md) | CCD/NUMA/affinity, IRQ, storage; measure-first host ops |
+| [`7dtd-server-optimizer/docs/OPTIMIZATION_IDEAS.md`](7dtd-server-optimizer/docs/OPTIMIZATION_IDEAS.md) | Research map: threading, I/O, net, near/far levers |
+| [`7dtd-server-optimizer/docs/OPTIMIZATION_CANDIDATES.md`](7dtd-server-optimizer/docs/OPTIMIZATION_CANDIDATES.md) | Graded optim candidates from dedicated RE |
+| [`7dtd-server-optimizer/docs/SCALE_1000x10000.md`](7dtd-server-optimizer/docs/SCALE_1000x10000.md) | Thought experiment: data structures for huge MP/AI |
+| [`7dtd-server-optimizer/docs/SIM_PARALLELISM.md`](7dtd-server-optimizer/docs/SIM_PARALLELISM.md) | Speeding sim: extract off main, threading policy, hot paths, Amdahl |
+| [`7dtd-server-optimizer/docs/FEATURES.md`](7dtd-server-optimizer/docs/FEATURES.md) | EfficientServer patch groups and acceptance notes |
+| [`7dtd-engine-research/oss-tools/NOTES.md`](7dtd-engine-research/oss-tools/NOTES.md) | OSS tools survey (optim lessons from IceCoffee, SphereII, CSMM, …) |
+| [`7dtd-engine-research/oss-tools/servertools.md`](7dtd-engine-research/oss-tools/servertools.md) | ServerTools optim-relevant bits |
+| [`7dtd-engine-research/oss-tools/naiwazi.md`](7dtd-engine-research/oss-tools/naiwazi.md) | NAIWAZI ServerKit reconstruction |
+| [`7dtd-engine-research/docs/loop/loop.md`](7dtd-engine-research/docs/loop/loop.md) | Complete dedicated server game/sim loop RE map |
+| [`7dtd-engine-research/docs/INDEX.md`](7dtd-engine-research/docs/INDEX.md) | Dedicated RE dumps index |
+| [`7dtd-realearth/docs/MODDING_REFERENCES.md`](7dtd-realearth/docs/MODDING_REFERENCES.md) | Link index (sites, Discords, tools) |
+| [`7dtd-realearth/docs/MODLET.md`](7dtd-realearth/docs/MODLET.md) | RealEarth install + YDim expand |
+| [`7dtd-realearth/docs/HEIGHT_LIMITS.md`](7dtd-realearth/docs/HEIGHT_LIMITS.md) | Vertical engine limits |
+| [`7dtd-server-apm/docs/APM.md`](7dtd-server-apm/docs/APM.md) | Capture validity and evidence model |
 
 ### Evidence grades used below
 
@@ -50,14 +48,14 @@ This is the **workspace root** canonical guide. Project-specific docs stay for d
 
 | Field | Value | Grade |
 |---|---|---|
-| Client log version | `Version: V 3.2.0 (b9) Compatibility Version: V 3.2.0` | Measured (Constants.cVersion* + Steam build 2026-08-28) |
+| Client log version | `Version: V 3.3.0 (b18) Compatibility Version: V 3.3.0` | Derived (`version.display` / `stock_wire` pins; the log line was not re-read on b18) |
 | Unity | `2022.3.62f2` | Measured (`UnityPlayer.so` strings) + ARCHITECTURE |
 | Runtime | Mono / MonoBleedingEdge | Measured (log: Mono path + Manager ReloadAssembly) |
 | Stock Harmony | `Mods/0_TFP_Harmony`, `Name=TFP_Harmony`, **Version 1.1.0.4**, `SkipWithAntiCheat=true` | Measured |
 | Localization vanilla file | `Data/Config/Localization.csv` (not `.txt`) | Measured |
 | XUi folders | `XUi_Common`, `XUi_Menu`, `XUi_InGame` each with `styles.xml`, `templates.xml`, … | Measured |
 | Vertical markers in assembly | `Height255`, `ChunkBlockYDim`, `ChunkBlockYDimM1`, … | Measured (`strings` on dedicated `Assembly-CSharp`) |
-| Local install pins | Client + dedicated both present under Steam common | Measured; see `7dtd-realearth/docs/GAME_VERSION.md` |
+| Local install pins | Client under Steam common (build `25661859`, has `Data/Config/toolbelt.xml`); dedicated studied from the shipped b18 copy (sha256 pin above) | Measured 2026-10-24 |
 
 ### Install roots on this machine (Measured)
 
@@ -76,6 +74,18 @@ This is the **workspace root** canonical guide. Project-specific docs stay for d
 | Prefabs | `<install>/Data/Prefabs/` (`POIs`, `RWGTiles`, …) |
 
 Dedicated can override userdata with uncommented `UserDataFolder` in `serverconfig.xml` (stock comment documents this).
+
+### V3.3.0 inventory/equipment rework: what a b10 mod must change (Corpus)
+
+The V3.3.0 dedicated assembly reworked item containers and the sign subsystem. A code mod built against V3.2.0 b10 breaks at compile time or on first use, and an XML mod that assumed a compiled toolbelt or a transactional-inventory patch point has nothing left to patch.
+
+- **Equipment is 13 slots.** `EquipmentSlots.Backpack = 12` was appended; `Count` and `None` moved from 12 to 13, and every b10 slot keeps its number. `Equipment.GetSlotCount()` is the grid length, so loops over it now visit slot 12 and the armor passes include it. Sources: [`7dtd-engine-research/docs/gameplay/items.md`](7dtd-engine-research/docs/gameplay/items.md), [`combat-damage.md`](7dtd-engine-research/docs/gameplay/combat-damage.md).
+- **The toolbelt is data-driven.** New `Data/Config/toolbelt.xml` and `ToolbeltConfig` size it: 10 play slots, 20 prefab-editor slots. The b10 constants `PUBLIC_SLOTS`, `INVENTORY_SLOTS`, `DUMMY_SLOT_IDX` and `SHIFT_KEY_SLOT_OFFSET` are gone. A mod that enumerates or hashes `Data/Config` must include the new file. Sources: [`items.md`](7dtd-engine-research/docs/gameplay/items.md), [`changelog-3.3.0.md`](7dtd-engine-research/docs/releases/changelog-3.3.0.md) §3.
+- **The held item lives in `Hand`.** `HeldItemState` is replaced by `HoldingMode {Current, Bare, Transient}`; `EntityAlive.Hand` and `Inventory.Hand` own selection, equip and the held model, and `Inventory` keeps delegating wrappers. Source: [`items.md`](7dtd-engine-research/docs/gameplay/items.md).
+- **Two equipment API breaks.** `Equipment.SetSlotItem(int, ItemValue)` lost its `isLocal` argument, and `Equipment.GetItems` was removed; read slots with `GetSlotCount()` and `GetSlotItem(i)`, or use the `ItemGrid`. Source: [`items.md`](7dtd-engine-research/docs/gameplay/items.md).
+- **The inventory wire is client-serialized blobs.** `NetPackagePlayerInventory` carries optional `inventoryData`, `bagData` and `equipmentData` blobs plus the drag `ItemStack`; `NetPackagePlayerEquipment` carries one equipment blob. `NetPackageInventoryData*` and `NetPackageInventoryTransaction*` are gone with `TransactionalInventory`, `InventoryTransaction` and `InventoryManager`, so a mod that patched or sent the b10 transaction gate has no target. The b10 and b18 bodies are not mutually readable, so a client and a server must be on the same build. Source: [`protocol-packages.md`](7dtd-engine-research/docs/network/protocol-packages.md).
+- **Signs.** `SignData` blobs are version 3 and carry `SignSharing` (`Private`, `Selectable`, `Copyable`); the reader still accepts versions 1 to 3 and rewrites them to 3, and `<sign>` XML gains an optional `sharing` attribute. Source: [`signs.md`](7dtd-engine-research/docs/gameplay/signs.md).
+- **Saves still load.** The per-player `.ttp` header version moved to 62; a b10 save migrates on read and is rewritten in the new container format. A tool that parses `PlayerDataFile` directly must handle version 62. Source: [`save-region.md`](7dtd-engine-research/docs/world/save-region.md) §1.3.
 
 ### V3.0 modding deltas that still matter on 3.0.1 (Official)
 
@@ -144,14 +154,37 @@ Prefer the **shallowest** layer that solves the problem. Depth costs update frag
 
 ## 3. Workspace project boundaries (what goes where)
 
-These four projects are independent. None silently installs or mutates another. (Workspace README + each project README.)
+Sibling projects are independent git trees. None silently installs or mutates another. Prefer each project's `AGENTS.md` for Owns / Does not own detail. (Workspace README + each project README.)
+
+### Testing ownership (three tiers)
+
+| Tier | Project | Owns | Must not |
+|---|---|---|---|
+| **Isolation** | `7dtd-sandbox` (Safehouse; remote `7dtd-sandbox`) | Fresh Steam-free client/dedi instances and `sb` lifecycle (`create`, `launch`, `stop`, `wipe`, `destroy`) | Gameplay suites, scoring, mod scenario logic |
+| **Harness** | `7dtd-playtest` (Vanguard) | Host orchestrator, provisioning adapters, declarative JSON suites (`suites/*.json`), stock Catalog cases (`smoke`, `core`) | Lab isolation, config rendering, port allocation, exec'ing a dedicated, production deploy, mod-local cases |
+| **Mod-local** | Each mod repo | Mod-specific scenarios via local `IScenarioProvider` implementations | Stock-fidelity suites that belong in playtest; sandbox lifecycle |
+
+A run picks two axes, not one fused target: `--provision managed|attach` (who owns the server process; managed is always a Safehouse instance) and `--server stock|zdtd` (which server is under test), plus an attach-only `--readonly` for a production host. Folder is `7dtd-sandbox/`; product name is Safehouse. Stock-fidelity suite files stay under playtest; a mod repo keeps its own suite JSON beside its own provider and runs it with `--suite-file`.
+
+### Full project roster
 
 | Project | Responsibility | Must not | Typical install surface |
 |---|---|---|---|
-| **`7dtd-loadgen`** | Controlled LiteNetLib clients, dedicated start helpers, workload manifests | Measure or optimize the server; ship game-balance content | **No** game `Mods/` entry; external `net8` process |
-| **`7dtd-server-apm`** | Host + optional bridge **measurement**, compare, budget, export | Apply performance “fixes”; embed loadgen protocol; auto-edit EfficientServer | Host: Python/`uv`. Optional: `Mods/7dtd-server-apm-bridge/` |
-| **`7dtd-server-optimizer`** (EfficientServer) | **Reviewed** Harmony optimizations only (AI LOD, dedicated skips, mesh budgets, pathfinding graph throttle) | Ship profiler UI; generate load; invent patches without APM evidence | `Mods/EfficientServer/` (dedicated) |
-| **`7dtd-realearth`** (RealEarth) | Real-world terrain packs, streaming, real-height inject, world bake | Become a general optimizer or APM tool | `Mods/RealEarth/` + engine expand tools; offline Python under `tools/` |
+| **`7dtd-sandbox`** (Safehouse) | Steam-free client/dedi instance isolation + `sb` CLI | Own playtest suites or scoring | External tool; no game `Mods/` entry |
+| **`7dtd-playtest`** (Vanguard) | Stock-client scenario harness, JSON suites, Catalog plumbing | Isolate instances; host production; own mod-local cases | `Mods/7dtd-playtest/` + host Python/`uv` |
+| **`7dtd-server-container`** (Outpost) | LAN dedicated Podman deploy, config template, mod staging | Measurement, RE, playtest scoring, sandbox CLI | Container image only |
+| **`7dtd-loadgen`** (Screamer) | Controlled LiteNetLib clients, dedicated start helpers, workload manifests | Measure or optimize the server; ship game-balance content; act as playtest oracle | **No** game `Mods/` entry; external `net8` process |
+| **`7dtd-server-apm`** (Geiger) | Host + optional bridge **measurement**, compare, budget, export | Apply performance "fixes"; embed loadgen protocol; auto-edit EfficientServer | Host: Python/`uv`. Optional: `Mods/7dtd-server-apm-bridge/` |
+| **`7dtd-server-optimizer`** (Crucible / EfficientServer) | **Reviewed** Harmony optimizations only (AI LOD, dedicated skips, mesh budgets, pathfinding graph throttle) | Ship profiler UI; generate load; invent patches without APM evidence | `Mods/EfficientServer/` (dedicated) |
+| **`7dtd-realearth`** (Pangea / RealEarth) | Real-world terrain packs, streaming, real-height inject, world bake | Become a general optimizer or APM tool | `Mods/RealEarth/` + engine expand tools; offline Python under `tools/` |
+| **`7dtd-fastconnect`** (Hotwire) | Client join-by-IP / auto-join / boot skip helper | Gameplay automation or server fixes | Client `Mods/` helper only |
+| **`7dtd-wasm`** (Quarantine) | Embeddable Wasm sandbox host (fuel, memory, ABI caps) | Filesystem lab isolation (that is Safehouse); game objects | Host library / embed surface |
+| **`7dtd-fps-bots`** (Clanker) | Server-side FPS combat bots + neural brains | Loadgen demand bots; playtest stock suites | `Mods/` dedicated (EAC off) |
+| **`7dtd-server-guard`** (Landclaim) | Server-side behavioral validation, inventory conservation, anti-cheat evidence | Client scanners; automatic permanent bans by default | `Mods/` dedicated |
+| **`7dtd-engine-research`** (Schematics) | Stock dedicated RE narratives + Cecil dump tooling | Shipping optim patches or product mods | Docs + offline tools only |
+| **`7dtd-asset-pipeline`** (Shamway) | Editable Unity assets → validated `Resources/*.unity3d` + offline gates | Runtime game server; playtest harness | Offline Python/`uv` + consumer modlet layout |
+| **`7dtd-vision-review`** (deadeye) | Vision-model clip review gateway (advisory evidence) | Acceptance sign-off; owning clips/intent | External CLI / MCP |
+| **`zdtd-server`** (BloodWire) | Native Zig dedicated rewrite (client wire) | Mod host; stock APM Mono bridge target | Standalone binary |
 
 ### Offline tooling vs in-game mod (Workspace)
 
@@ -178,10 +211,22 @@ RealEarth can be the world under test; it is not required by the other three.
 
 | You want to… | Put it in |
 |---|---|
+| Isolate a Steam-free client/dedi instance for a harness | `7dtd-sandbox` (Safehouse; `sb` CLI) |
+| Run stock-client gameplay suites (drive + assert) | `7dtd-playtest` (`suites/*.json` + Catalog) |
+| Add mod-specific playtest cases | Owning mod via `IScenarioProvider` (not playtest stock suites) |
+| Deploy a LAN dedicated container | `7dtd-server-container` |
 | Join N simulated clients and wander/die/respawn | `7dtd-loadgen` |
 | Capture CPU, GC, threads, managed timings | `7dtd-server-apm` (+ optional bridge DLL) |
 | Tighten distant AI / skip dedicated-only work / bound mesh | `7dtd-server-optimizer` after evidence |
 | Build Earth tiles, stream terrain, expand YDim | `7dtd-realearth` |
+| Client join-by-IP / intro skip only | `7dtd-fastconnect` |
+| Sandbox-host untrusted wasm mods | `7dtd-wasm` (Quarantine; not Safehouse) |
+| Server-side FPS combat bots | `7dtd-fps-bots` |
+| Server-side anti-cheat / behavioral validation | `7dtd-server-guard` |
+| Stock dedicated RE narratives and Cecil dumps | `7dtd-engine-research` |
+| Editable Unity assets → validated Resources | `7dtd-asset-pipeline` |
+| Vision-model clip review gateway | `7dtd-vision-review` |
+| Native Zig dedicated rewrite (client wire) | `zdtd-server` |
 | Change zombie HP / loot tables / recipes | XML modlet (own or separate), not optimizer |
 | Automate admin without blocking crossplay | Telnet / WebAPI (layer 0), not Harmony |
 | Add a HUD globe for RealEarth | RealEarth XUi + assets, not EfficientServer |
@@ -531,7 +576,7 @@ Before writing Harmony, exhaust stock knobs that still exist on dedicated:
 
 EfficientServer tightens **beyond** stock AI LOD / mesh budgets; it does not replace these knobs.
 
-After config + sim-side work, if APM still shows a hot main thread and sched noise, use **host topology** (CCD pin, NUMA bind, isolation, IRQ steering). That is ops, not a game mod: [`7dtd-server-optimizer/docs/HOST_TUNING.md`](https://github.com/hordeforge/7dtd-server-optimizer/blob/HEAD/docs/HOST_TUNING.md).
+After config + sim-side work, if APM still shows a hot main thread and sched noise, use **host topology** (CCD pin, NUMA bind, isolation, IRQ steering). That is ops, not a game mod: [`7dtd-server-optimizer/docs/HOST_TUNING.md`](7dtd-server-optimizer/docs/HOST_TUNING.md).
 
 ---
 
@@ -590,6 +635,21 @@ World sizes: stock RWG comment supports 6k-10k class sizes; pure PC can go large
 | eBPF / perf | Scheduler, IO, syscalls | `7dtd-server-apm` collectors (not optimizer) |
 | AssetStudio / UABE | Unity assets (version-sensitive) | External |
 | Wireshark | LiteNetLib traffic (protocol work) | External; loadgen territory |
+
+### Live inspection (your own client and dedicated only)
+
+Static reading (ILSpy, Cecil dumps) says what the code can do; these show what a running process does. Use them only on a stock client or dedicated you run yourself, EAC off (any C# mod already forces `-noeac`), never against a public server. None is wired into a workspace harness yet; facts below are from each tool's upstream page (checked 2026-10-07), not from a run here.
+
+| Tool | Use | Caveat |
+|---|---|---|
+| [UnityExplorer](https://github.com/yukieiji/UnityExplorer) (maintained fork; [sinai-dev's original](https://github.com/sinai-dev/UnityExplorer) is archived) | In-game scene hierarchy, component inspector, C# console | Ships for BepInEx and MelonLoader, which 7DTD does not use. The **Standalone (Mono)** build loads from any host if UniverseLib, HarmonyX and MonoMod are loaded first, then `ExplorerStandalone.CreateInstance()`; a 7DTD `IModApi` mod would be that host. HarmonyX beside stock `0_TFP_Harmony` is untested |
+| [Frida](https://frida.re/) | Attach to the client or dedicated, hook native functions, log arguments | Native-level; managed methods are reached through the Mono runtime's exported API, not by C# name |
+| [RenderDoc](https://github.com/baldurk/renderdoc) | Client frame captures: draws, render targets, constant buffers, depth | Under Proton the client's D3D calls reach Vulkan through the translation layer, so captures show Vulkan calls; enable RenderDoc's Vulkan layer with `ENABLE_VULKAN_RENDERDOC_CAPTURE=1` in the launch options. Client only: the dedicated renders nothing |
+| [dnSpyEx](https://github.com/dnSpyEx/dnSpy) | Breakpoints and stepping in `Assembly-CSharp` | Unity debugging needs a debug-enabled `mono-2.0-bdwgc.dll` from [dnSpy-Unity-mono](https://github.com/dnSpyEx/dnSpy-Unity-mono), whose solutions stop at Unity 2020.x; the 2022.3 client needs a new port first (its README's "Supporting a new Unity version" steps). Windows build, so Proton client only, not the Linux dedicated |
+
+### Trace-replay oracle (stock server vs a port)
+
+Reading IL finds what a port should do; replaying real traffic finds where it does not. Record a session against the **stock** dedicated (every packet in order, plus per-tick state snapshots: entity positions, health, inventories, world time) and replay the client side against the port (zdtd), comparing replies and state tick by tick. The first divergent tick and field is the bug report. Rules: one recording pins the game build, world, seed and serverconfig, like any baseline; prove the comparator can fail (perturb one field, expect a mismatch) before trusting a pass; off-by-one tick is the usual false mismatch, so measure which tick an input lands on before reading a diff. Method from universal-modder's [oracles note](https://github.com/rehan-remade/universal-modder/blob/main/knowledge/techniques/oracles-how-agents-know-a-mod-works.md) (MIT). Recording stock behaviour is research ([`7dtd-engine-research`](7dtd-engine-research/AGENTS.md)); replay checks live with the port. This is also what closes an open item in [`zdtd-server/docs/GAP_ANALYSIS.md`](zdtd-server/docs/GAP_ANALYSIS.md) (section "V3.2.0"): replacing the bundled 3.1.0 AssignIds dump still needs a live 3.3.0 client capture to prove byte-exactness.
 
 ### Test discipline
 
@@ -657,7 +717,7 @@ World sizes: stock RWG comment supports 6k-10k class sizes; pure PC can go large
 | Allocs / Server Tools family | Map, claims, web UI (check EAC claims **per version**) |
 | TianYi / ServerKit-style kits | Full control panels (version-pin carefully) |
 | systemd / Docker | Process supervision (your ops, not TFP); `CPUAffinity=` for CCD pin |
-| CCD / NUMA / IRQ / governor | Host topology; see [`7dtd-server-optimizer/docs/HOST_TUNING.md`](https://github.com/hordeforge/7dtd-server-optimizer/blob/HEAD/docs/HOST_TUNING.md) |
+| CCD / NUMA / IRQ / governor | Host topology; see [`7dtd-server-optimizer/docs/HOST_TUNING.md`](7dtd-server-optimizer/docs/HOST_TUNING.md) |
 | `7dtd-server-apm` + `7dtd-loadgen` | Evidence-backed capacity work in this workspace |
 
 ### Templates and learning
@@ -796,7 +856,7 @@ Must edit IL mid-method?
 | Resource | URL |
 |---|---|
 | V3.0 release notes (modding section) | https://7daystodie.com/v3-0-dead-hot-summer-release-notes/ |
-| V3.2.0 (b9) | Steam 2026-08-28; exact-diff: `7dtd-engine-research/docs/releases/changelog-3.2.0.md` |
+| V3.3.0 (b18) | Pin studied 2026-10-24; exact-diff: `7dtd-engine-research/docs/releases/changelog-3.3.0.md` |
 | V3.1.0 Henpocalypse | https://7daystodie.com/v3-1-0-henpocalypse-release-notes/ |
 | V3.0.1 Stable | https://7daystodie.com/v3-0-1-stable-release/ |
 | Mod Interface | https://7daystodie.wiki.gg/wiki/Mod_Interface |
@@ -841,10 +901,11 @@ Guppycur modding, 7d2d wiki modding, 7DaysToDieMods.com, TFP official: see `7dtd
 
 - **2026-07-16 (sim):** SIM_PARALLELISM description covers extract-off-main, threading policy, hot paths.
 - **2026-07-16 (oss):** Linked research notes for OSS tools survey, ServerTools, and NAIWAZI.
-- **2026-07-16 (host):** Linked [`7dtd-server-optimizer/docs/HOST_TUNING.md`](https://github.com/hordeforge/7dtd-server-optimizer/blob/HEAD/docs/HOST_TUNING.md) (CCD/NUMA/affinity measure-first ops).
+- **2026-07-16 (host):** Linked [`7dtd-server-optimizer/docs/HOST_TUNING.md`](7dtd-server-optimizer/docs/HOST_TUNING.md) (CCD/NUMA/affinity measure-first ops).
 - **2026-07-16 (merge):** Folded remaining unique content from `7dtd-server-optimizer/docs/MODDING_BEST_PRACTICES.md` (tooling map, server-ops tools, RE tool names, Windows save path, client/dedicated DLL note). Optimizer file replaced by project-specific `DEVELOPMENT.md`.
 - **2026-07-16 (review):** Grounded version/Unity/Harmony/paths/logs in local installs and client log; added method chooser, evidence grades, offline vs in-game TFMs, stock serverconfig property lists (kept vs Sandbox-migrated), WebMod/WebDashboard, world/prefab boundaries, Harmony tool matrix, stock-knob-before-Harmony, validation matrix, XPath `<configs>`/`set` vs `setattribute`, loadgen EAC limit.
 - **2026-07-16:** Initial workspace consolidation from optimizer draft, RealEarth packaging/height/modlet notes, APM/loadgen/optimizer boundaries, V3.0 / V3.0.1 notes, 7d2dmodding Getting Started + XPath (3.0), official XUi / Mod Interface, 7DaysToDieMods install conventions.
 
-- **2026-08-28:** Retarget workspace modding guide to V3.2.0 (b9); wire + held-entity notes carried from V3.1.0, exact-diff changelog in `7dtd-engine-research`.
+- **2026-08-28:** Retarget workspace modding guide to the V3.2.0 line; wire + held-entity notes carried from V3.1.0, exact-diff changelog in `7dtd-engine-research`.
 - **2026-08-02:** Retarget workspace modding guide to V3.1.0 (b14) Henpocalypse; TE wire + held-entity notes.
+- **2026-10-24:** Retarget workspace modding guide from V3.2.0 (b10) to V3.3.0 (b18); added the inventory/equipment rework deltas and regenerated the vendored copies.

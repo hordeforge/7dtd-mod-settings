@@ -1,6 +1,6 @@
 Wrench (Mod Settings) 0.3.0.0
 
-7 DAYS TO DIE V3.2
+7 DAYS TO DIE V3.3
 
 INSTALL
 

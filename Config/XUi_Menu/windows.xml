@@ -3,7 +3,8 @@
 	<!--
 		The "Mod Settings" tab button in the options paging header. The
 		selector opens the window group named by the button's ID
-		(XUiC_WindowSelector.OpenSelectedWindow, V3.2.0 by ilspycmd), so the
+		(XUiC_WindowSelector.OpenSelectedWindow, read on V3.2.0 (b10) with
+		ilspycmd; not re-read on V3.3.0 (b18)), so the
 		name below is the window group appended in xui.xml. Inserted before
 		the right paging arrow so the tab sits after vanilla's own.
 	-->

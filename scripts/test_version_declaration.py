@@ -53,7 +53,7 @@ COMPATIBILITY = re.compile(r"^### Compatibility$", re.M)
 # against. A doc that names a version and is not the shipped one reads
 # as an assessment of a build nobody installs.
 DOC_VERSION = re.compile(r"mod version `(\d+\.\d+\.\d+\.\d+)`")
-# "Requires 7 Days to Die V3.2, the same as 0.2.0.", the game version a
+# "Requires 7 Days to Die V3.3, the same as 0.2.0.", the game version a
 # release states it needs.
 REQUIRES_GAME = re.compile(r"^Requires 7 Days to Die ", re.M)
 # "### Changed", the group a behaviour change is written under.
@@ -107,7 +107,7 @@ def main() -> int:
     )
     check(
         "negative control: a required game version is found",
-        REQUIRES_GAME.search("Requires 7 Days to Die V3.2, the same as 0.1.0.\n") is not None,
+        REQUIRES_GAME.search("Requires 7 Days to Die V3.3, the same as 0.1.0.\n") is not None,
         "REQUIRES_GAME no longer matches the line naming the game version",
     )
     # A doc whose review line lost its version yields no match at all, which

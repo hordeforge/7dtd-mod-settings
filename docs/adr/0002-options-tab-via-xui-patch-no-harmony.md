@@ -13,11 +13,13 @@ menu, in game (ESC → Options) and from the main menu. The layer rule
 (docs/reference/agent-rules.md) demands the shallowest layer that works,
 and a Harmony patch into the menu code is a layer deeper than XML.
 
-Read with ilspycmd on the installed V3.2.0 `Assembly-CSharp`:
+Read with ilspycmd on V3.2.0 (b10) `Assembly-CSharp`. The two call sites below
+were not re-read on V3.3.0 (b18), so re-check them before relying on this
+decision for the 3.3.0 line:
 
 - The in-game Options button opens
   `XUiC_OptionsMenuNew.ParentSelector.WindowGroup`
-  (`XUiC_InGameMenuWindow.BtnOptions_OnPressed`) — the same
+  (`XUiC_InGameMenuWindow.BtnOptions_OnPressed`), the same
   `optionsPaging` selector the main menu uses, on the primary UI.
 - `XUiC_WindowSelector.OpenSelectedWindow` opens the window group named
   by the pressed tab button's view ID.
